@@ -6,6 +6,7 @@ public class Config {
     private String deviceId;
     private String server;
     private String natTestServer;
+    private String password;
 
     public Config(String token, String name, String deviceId, String server, String natTestServer) {
         this.token = token;
@@ -13,6 +14,15 @@ public class Config {
         this.deviceId = deviceId;
         this.server = server;
         this.natTestServer = natTestServer;
+    }
+
+    public Config(String token, String name, String deviceId, String server, String natTestServer, String password) {
+        this.token = token;
+        this.name = name;
+        this.deviceId = deviceId;
+        this.server = server;
+        this.natTestServer = natTestServer;
+        this.password = password;
     }
 
     public String getToken() {
@@ -53,5 +63,13 @@ public class Config {
 
     public void setNatTestServer(String natTestServer) {
         this.natTestServer = natTestServer;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
     }
 }
