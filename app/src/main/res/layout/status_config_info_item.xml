@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="10dp"
+    app:cardCornerRadius="4dp"
+    android:id="@+id/c_info_card"
+    android:foreground="?android:attr/selectableItemBackground">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:layout_margin="@dimen/dp_10">
+
+        <TextView
+            android:id="@+id/tv_info_token"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:text="Token："
+            android:textSize="@dimen/sp_16"
+            android:textStyle="bold"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <TextView
+            android:id="@+id/tv_info_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_marginTop="@dimen/dp_2"
+            android:text="Name："
+            android:textSize="@dimen/sp_16"
+            android:textStyle="bold"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/tv_info_token" />
+
+        <TextView
+            android:id="@+id/tv_info_device_id"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_marginTop="@dimen/dp_2"
+            android:text="DeviceID："
+            android:textSize="@dimen/sp_16"
+            android:textStyle="bold"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/tv_info_name" />
+
+        <TextView
+            android:id="@+id/tv_info_password"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_marginTop="@dimen/dp_2"
+            android:text="Password："
+            android:textSize="@dimen/sp_16"
+            android:textStyle="bold"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/tv_info_device_id" />
+
+        <TextView
+            android:id="@+id/tv_info_server"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_marginTop="@dimen/dp_2"
+            android:text="Server："
+            android:textSize="@dimen/sp_16"
+            android:textStyle="bold"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/tv_info_password" />
+
+        <TextView
+            android:id="@+id/tv_info_server_address"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_marginTop="@dimen/dp_2"
+            android:layout_marginBottom="10dp"
+            android:text="ServerAddress："
+            android:textSize="@dimen/sp_16"
+            android:textStyle="bold"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/tv_info_server" />
+
+        <TextView
+            android:id="@+id/tv_info_token_value"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="1"
+            android:textSize="@dimen/sp_16"
+            app:layout_constraintStart_toEndOf="@+id/tv_info_token"
+            app:layout_constraintTop_toTopOf="@+id/tv_info_token" />
+
+        <TextView
+            android:id="@+id/tv_info_name_value"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="huawei P60 pro"
+            android:textSize="@dimen/sp_16"
+            app:layout_constraintStart_toEndOf="@+id/tv_info_name"
+            app:layout_constraintTop_toTopOf="@+id/tv_info_name" />
+
+        <TextView
+            android:id="@+id/tv_info_device_id_value"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="online"
+            android:textSize="@dimen/sp_16"
+            app:layout_constraintStart_toEndOf="@+id/tv_info_device_id"
+            app:layout_constraintTop_toTopOf="@+id/tv_info_device_id" />
+
+        <TextView
+            android:id="@+id/tv_info_password_value"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="123456"
+            android:textSize="@dimen/sp_16"
+            app:layout_constraintStart_toEndOf="@+id/tv_info_password"
+            app:layout_constraintTop_toTopOf="@+id/tv_info_password" />
+
+        <TextView
+            android:id="@+id/tv_info_server_value"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="123"
+            android:textSize="@dimen/sp_16"
+            app:layout_constraintStart_toEndOf="@+id/tv_info_server"
+            app:layout_constraintTop_toTopOf="@+id/tv_info_server" />
+
+        <TextView
+            android:id="@+id/tv_info_server_address_value"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="127.0.0.1"
+            android:textSize="@dimen/sp_16"
+            app:layout_constraintStart_toEndOf="@+id/tv_info_server_address"
+            app:layout_constraintTop_toTopOf="@+id/tv_info_server_address" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</androidx.cardview.widget.CardView>
