@@ -1,6 +1,6 @@
 package top.wherewego.switchjni;
 
-public class DeviceBean {
+public class DeviceBean implements Comparable<DeviceBean> {
     private String name;
     private String ip;
     private String status;
@@ -53,5 +53,14 @@ public class DeviceBean {
 
     public void setConnectType(String connectType) {
         this.connectType = connectType;
+    }
+
+    @Override
+    public int compareTo(DeviceBean deviceBean) {
+        int c = deviceBean.status.compareTo(this.status);
+        if (c == 0) {
+            c = this.ip.compareTo(deviceBean.ip);
+        }
+        return c;
     }
 }

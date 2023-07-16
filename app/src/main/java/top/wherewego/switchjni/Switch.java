@@ -18,6 +18,10 @@ public class Switch {
         waitStop0(raw);
     }
 
+    public boolean waitStopMs(long ms) {
+        return waitStopMs0(raw, ms);
+    }
+
     public PeerDeviceInfo[] list() {
         return list0(raw);
     }
@@ -26,5 +30,15 @@ public class Switch {
 
     private native void waitStop0(long raw);
 
+    private native boolean waitStopMs0(long raw, long ms);
+
     private native PeerDeviceInfo[] list0(long raw);
+
+    private native void drop0(long raw);
+
+    @Override
+    protected void finalize() throws Throwable {
+        super.finalize();
+        drop0(raw);
+    }
 }

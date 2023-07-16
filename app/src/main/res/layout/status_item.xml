@@ -1,24 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 
-<androidx.cardview.widget.CardView
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/c_card"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_margin="10dp"
-    app:cardCornerRadius="4dp"
-    android:id="@+id/c_card">
+    app:cardCornerRadius="4dp">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:layout_margin="@dimen/dp_10">
+        android:layout_margin="@dimen/dp_10"
+        android:orientation="vertical">
 
         <TextView
             android:id="@+id/tv_name"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_height="40dp"
             android:layout_marginStart="10dp"
             android:text="name："
             android:textSize="@dimen/sp_16"
@@ -78,6 +77,7 @@
             android:id="@+id/tv_name_value"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:maxLines="2"
             android:text="localhost"
             android:textSize="@dimen/sp_16"
             app:layout_constraintStart_toEndOf="@+id/tv_name"

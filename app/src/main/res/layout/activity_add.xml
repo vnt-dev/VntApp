@@ -28,7 +28,7 @@
             tools:ignore="MissingConstraints">
             <TextView
                 android:id="@+id/tv_add_token"
-                android:layout_width="@dimen/dp_120"
+                android:layout_width="@dimen/dp_68"
                 android:gravity="end"
                 android:layout_height="wrap_content"
                 android:text="Token:"
@@ -55,7 +55,7 @@
         tools:ignore="MissingConstraints">
         <TextView
             android:id="@+id/tv_add_name"
-            android:layout_width="@dimen/dp_120"
+            android:layout_width="@dimen/dp_68"
             android:gravity="end"
             android:layout_height="wrap_content"
             android:text="Name:"
@@ -82,7 +82,7 @@
         tools:ignore="MissingConstraints">
         <TextView
             android:id="@+id/tv_add_device_id"
-            android:layout_width="@dimen/dp_120"
+            android:layout_width="@dimen/dp_68"
             android:gravity="end"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/dp_2"
@@ -96,8 +96,11 @@
             style="@style/EditTextStyle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:textColor="#aaaaaa"
             android:hint="请输入device id"
+            android:enabled="false"
             android:inputType="textVisiblePassword"
+            android:textSize="14dp"
             android:maxLength="@integer/sms_code_length"
             android:singleLine="true" />
 
@@ -112,7 +115,7 @@
 
         <TextView
             android:id="@+id/tv_add_password"
-            android:layout_width="@dimen/dp_120"
+            android:layout_width="@dimen/dp_68"
             android:gravity="end"
             android:layout_height="wrap_content"
             android:text="Password:"
@@ -142,7 +145,7 @@
 
         <TextView
             android:id="@+id/tv_add_server"
-            android:layout_width="@dimen/dp_120"
+            android:layout_width="@dimen/dp_68"
             android:gravity="end"
             android:layout_height="wrap_content"
             android:text="Server:"
@@ -157,7 +160,7 @@
             android:layout_height="wrap_content"
             android:hint="请输入server"
             android:inputType="textVisiblePassword"
-            android:maxLength="@integer/sms_code_length"
+            android:text="nat1.wherewego.top:29871"
             android:singleLine="true" />
 
     </LinearLayout>
@@ -171,10 +174,10 @@
 
         <TextView
             android:id="@+id/tv_add_server_address"
-            android:layout_width="@dimen/dp_120"
+            android:layout_width="@dimen/dp_68"
             android:gravity="end"
             android:layout_height="wrap_content"
-            android:text="ServerAddress:"
+            android:text="NAT:"
             android:textSize="@dimen/sp_14"
             android:textStyle="bold" />
 
@@ -183,9 +186,11 @@
             style="@style/EditTextStyle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="请输入server address"
-            android:inputType="textVisiblePassword"
-            android:maxLength="@integer/sms_code_length"
-            android:singleLine="true" />
+            android:hint="请输入nat探测服务(逗号分割)"
+            android:text="nat1.wherewego.top:35061,\nnat1.wherewego.top:35062,\nnat2.wherewego.top:35061,\nnat2.wherewego.top:35062"
+            android:minLines="1"
+            android:maxLines="10"
+            android:inputType="textMultiLine"
+            android:singleLine="false" />
     </LinearLayout>
 </LinearLayout>

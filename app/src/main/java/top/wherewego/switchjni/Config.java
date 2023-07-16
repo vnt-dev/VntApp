@@ -8,13 +8,6 @@ public class Config {
     private String natTestServer;
     private String password;
 
-    public Config(String token, String name, String deviceId, String server, String natTestServer) {
-        this.token = token;
-        this.name = name;
-        this.deviceId = deviceId;
-        this.server = server;
-        this.natTestServer = natTestServer;
-    }
 
     public Config(String token, String name, String deviceId, String server, String natTestServer, String password) {
         this.token = token;

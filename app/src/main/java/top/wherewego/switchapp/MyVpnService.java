@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.ConnectivityManager;
 import android.net.VpnService;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.ParcelFileDescriptor;
@@ -12,8 +13,11 @@ import android.widget.Toast;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.List;
 
 import top.wherewego.switchjni.Config;
+import top.wherewego.switchjni.DeviceBean;
 import top.wherewego.switchjni.IpUtils;
 import top.wherewego.switchjni.PeerDeviceInfo;
 import top.wherewego.switchjni.RegResponse;
@@ -29,6 +33,7 @@ public class MyVpnService extends VpnService implements Runnable {
     private ParcelFileDescriptor mInterface;
     private Switch eSwitch;
     private Config config;
+    private volatile boolean isRun;
 
     public static PeerDeviceInfo[] peerList() {
         if (myVpnService != null && myVpnService.eSwitch != null) {
@@ -43,6 +48,7 @@ public class MyVpnService extends VpnService implements Runnable {
 
     public static void stop() {
         if (myVpnService != null) {
+            myVpnService.stopSelf();
             myVpnService.stop0();
         }
     }
@@ -60,12 +66,14 @@ public class MyVpnService extends VpnService implements Runnable {
     public synchronized int onStartCommand(Intent intent, int flags, int startId) {
         switch (intent.getAction()) {
             case "start": {
+                isRun = true;
                 String token = intent.getStringExtra("token");
                 String deviceId = intent.getStringExtra("deviceId");
                 String name = intent.getStringExtra("name");
+                String password = intent.getStringExtra("password");
                 String server = intent.getStringExtra("server");
                 String natServer = intent.getStringExtra("natServer");
-                config = new Config(token, deviceId, name, server, natServer);
+                config = new Config(token, name, deviceId, server, natServer, password.isEmpty() ? null : password);
                 if (mThread == null) {
                     mThread = new Thread(this, "SwitchVPN");
                     mThread.start();
@@ -77,8 +85,6 @@ public class MyVpnService extends VpnService implements Runnable {
                 break;
             }
         }
-
-
         return START_STICKY;
     }
 
@@ -94,11 +100,11 @@ public class MyVpnService extends VpnService implements Runnable {
             run0();
         } catch (Throwable e) {
             Handler handler = new Handler(Looper.getMainLooper());
-            handler.post(() -> Toast.makeText(getApplicationContext(), "Switch Startup failed", Toast.LENGTH_LONG).show());
+            handler.post(() -> Toast.makeText(getApplicationContext(), "启动失败", Toast.LENGTH_LONG).show());
         }
         Handler handler = new Handler(Looper.getMainLooper());
         handler.post(() -> {
-            Toast.makeText(getApplicationContext(), "Switch Stopped", Toast.LENGTH_LONG).show();
+            Toast.makeText(getApplicationContext(), "Switch已停止", Toast.LENGTH_LONG).show();
         });
         stop0();
         eSwitch = null;
@@ -106,7 +112,8 @@ public class MyVpnService extends VpnService implements Runnable {
         mThread = null;
     }
 
-    private void stop0() {
+    private synchronized void stop0() {
+        isRun = false;
         if (eSwitch != null) {
             eSwitch.stop();
         }
@@ -133,6 +140,9 @@ public class MyVpnService extends VpnService implements Runnable {
         SwitchUtil switchUtil = new SwitchUtil(config);
         RegResponse connect;
         for (; ; ) {
+            if (!isRun) {
+                return;
+            }
             try {
                 connect = switchUtil.connect();
                 break;
@@ -156,13 +166,15 @@ public class MyVpnService extends VpnService implements Runnable {
         String ip = IpUtils.intToIpAddress(connect.getVirtualIp());
 //        String gateway = IpUtils.intToIpAddress(connect.getVirtualGateway());
 //        String netmask = IpUtils.intToIpAddress(connect.getVirtualNetmask());
-//        {
-//            Handler handler = new Handler(Looper.getMainLooper());
-//            handler.post(() -> MainActivity.textViewHint.setText("Start Successfully" +
-//                    "\nVirtual Gateway: " + gateway
-//                    + "\nVirtual Ip: " + ip
-//                    + "\nVirtual Netmask: " + netmask));
-//        }
+        {
+            Handler handler = new Handler(Looper.getMainLooper());
+            handler.post(() -> {
+                ConnectActivity.headerView.setText("Token:" + config.getToken()
+                        + "\nName:" + config.getName()
+                        + "\nServer:" + config.getServer()
+                        + "\nIp:" + ip);
+            });
+        }
 
         Builder builder = new Builder();
         int prefixLength = IpUtils.subnetMaskToPrefixLength(connect.getVirtualNetmask());
@@ -179,6 +191,31 @@ public class MyVpnService extends VpnService implements Runnable {
         switchUtil.createIface(fd);
         Switch eSwitchC = switchUtil.build();
         eSwitch = eSwitchC;
-        eSwitchC.waitStop();
+        Handler handler = new Handler(Looper.getMainLooper());
+        for (; ; ) {
+            handler.post(() -> {
+                List<DeviceBean> list = new ArrayList<>();
+                for (PeerDeviceInfo peer : eSwitch.list()) {
+                    String rt = "";
+                    String type = "";
+                    if (peer.getRoute() != null) {
+                        rt = "" + peer.getRoute().getRt();
+                        type = peer.getRoute().getMetric() == 1 ? "p2p" : "relay";
+                    }
+                    DeviceBean deviceBean = new DeviceBean(peer.getName(), IpUtils.intToIpAddress(peer.getVirtualIp()),
+                            peer.getStatus(), rt, type);
+                    list.add(deviceBean);
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    list.sort(DeviceBean::compareTo);
+                }
+                ConnectActivity.mAdapter.setData(list);
+            });
+            boolean out = eSwitchC.waitStopMs(2000);
+            if (out) {
+                break;
+            }
+        }
+
     }
 }
