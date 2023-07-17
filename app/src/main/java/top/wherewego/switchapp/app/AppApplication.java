@@ -25,10 +25,10 @@ import top.wherewego.switchapp.util.SPUtils;
 import top.wherewego.switchjni.ConfigurationInfoBean;
 
 /**
- *    author : Android 轮子哥
- *    github : https://github.com/getActivity/AndroidProject
- *    time   : 2018/10/18
- *    desc   : 应用入口
+ * author : Android 轮子哥
+ * github : https://github.com/getActivity/AndroidProject
+ * time   : 2018/10/18
+ * desc   : 应用入口
  */
 public final class AppApplication extends Application {
     public static ArrayList<ConfigurationInfoBean> configList = new ArrayList<>();
@@ -43,19 +43,22 @@ public final class AppApplication extends Application {
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(base);
 
-        String keyset = SPUtils.getString(this,"keyset","0");
-        if(!keyset.equals("0")){
+        String keyset = SPUtils.getString(this, "keyset", "0");
+        if (!keyset.equals("0")) {
             String[] strArray = null;
             strArray = keyset.split(","); //拆分字符为"," ,然后把结果交给数组strArray
             Log.d("swichapp", "attachBaseContext: keyset : " + keyset);
             for (String s : strArray) {
                 Log.d("swichapp", "attachBaseContext: s : " + s);
-                String json = SPUtils.getString(this,s,"0");
-                if(json.equals("0")){
+                String json = SPUtils.getString(this, s, "0");
+                if (json.equals("0")) {
                     return;
                 }
                 ConfigurationInfoBean configurationInfoBean = new Gson().fromJson(json, ConfigurationInfoBean.class);
                 configList.add(configurationInfoBean);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    configList.sort((v1, v2) -> v2.getKey().compareTo(v1.getKey()));
+                }
             }
         }
         Log.d("swichapp", "configList: size : " + configList.size());
@@ -86,7 +89,7 @@ public final class AppApplication extends Application {
         SmartRefreshLayout.setDefaultRefreshHeaderCreator((cx, layout) ->
                 new MaterialHeader(application).setColorSchemeColors(ContextCompat.getColor(application, R.color.common_accent_color)));
         // 设置全局的 Footer 构建器
-       // SmartRefreshLayout.setDefaultRefreshFooterCreator((cx, layout) -> new SmartBallPulseFooter(application));
+        // SmartRefreshLayout.setDefaultRefreshFooterCreator((cx, layout) -> new SmartBallPulseFooter(application));
         // 设置全局初始化器
         SmartRefreshLayout.setDefaultRefreshInitializer((cx, layout) -> {
             // 刷新头部是否跟随内容偏移
