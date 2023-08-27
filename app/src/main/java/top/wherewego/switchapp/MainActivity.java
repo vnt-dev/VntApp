@@ -1,14 +1,18 @@
 package top.wherewego.switchapp;
 
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.util.Log;
 import android.view.View;
+import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.gson.Gson;
 import com.hjq.bar.OnTitleBarListener;
 import com.hjq.bar.TitleBar;
 import com.scwang.smart.refresh.layout.SmartRefreshLayout;
@@ -19,6 +23,7 @@ import top.wherewego.base.BaseAdapter;
 import top.wherewego.switchapp.adapter.StatusAdapter;
 import top.wherewego.switchapp.app.AppActivity;
 import top.wherewego.switchapp.app.AppApplication;
+import top.wherewego.switchapp.util.SPUtils;
 import top.wherewego.switchjni.ConfigurationInfoBean;
 import top.wherewego.widget.layout.WrapRecyclerView;
 
@@ -56,6 +61,19 @@ public class MainActivity extends AppActivity implements OnRefreshLoadMoreListen
 
         mAdapter = new StatusAdapter(this);
         mAdapter.setOnItemClickListener(this);
+        mAdapter.setOnChildClickListener(R.id.iv_delete, (recyclerView, childView, position) -> {
+            AlertDialog.Builder alert = new AlertDialog.Builder(MainActivity.this)
+                    .setTitle("")
+                    .setMessage("是否选择删除该项？")
+                    .setPositiveButton("确认", (dialog, id) -> {
+                        String key = mAdapter.getItem(position).getKey();
+                        deleteItem(key);
+                        mAdapter.removeItem(position);
+                    })
+                    .setNegativeButton("取消", (dialog, id) -> dialog.cancel());
+            alert.show();
+
+        });
         mRecyclerView.setAdapter(mAdapter);
 
         mRefreshLayout.setOnRefreshLoadMoreListener(this);
@@ -66,6 +84,23 @@ public class MainActivity extends AppActivity implements OnRefreshLoadMoreListen
                         connect();
                     }
                 });
+    }
+
+    public void deleteItem(String key){
+        String keyset = SPUtils.getString(getApplicationContext(), "keyset", "0");
+        StringBuilder newKeySet = new StringBuilder();
+        if (keyset.equals("0")) {
+            return;
+        } else {
+            String[] keys = keyset.split(",");
+            for (String s : keys) {
+                if (!s.equals(key)) {
+                    newKeySet.append(s).append(",");
+                }
+            }
+            SPUtils.putString(getApplicationContext(), "keyset", newKeySet.toString());
+        }
+        SPUtils.deleteShare(getApplicationContext(),key);
     }
 
     @Override
@@ -80,6 +115,8 @@ public class MainActivity extends AppActivity implements OnRefreshLoadMoreListen
         mAdapter.setData(AppApplication.configList);
         mRefreshLayout.finishRefresh();
     }
+
+
 
     @Override
     public void onItemClick(RecyclerView recyclerView, View itemView, int position) {
