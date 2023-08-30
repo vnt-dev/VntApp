@@ -1,4 +1,4 @@
-package top.wherewego.switchapp;
+package top.wherewego.vnt;
 
 import android.widget.EditText;
 import android.widget.Spinner;
@@ -10,9 +10,9 @@ import com.hjq.bar.TitleBar;
 
 import java.util.UUID;
 
-import top.wherewego.switchapp.app.AppActivity;
-import top.wherewego.switchapp.app.AppApplication;
-import top.wherewego.switchapp.util.SPUtils;
+import top.wherewego.vnt.app.AppActivity;
+import top.wherewego.vnt.app.AppApplication;
+import top.wherewego.vnt.util.SPUtils;
 import top.wherewego.vnt.jni.ConfigurationInfoBean;
 
 public class AddActivity extends AppActivity {

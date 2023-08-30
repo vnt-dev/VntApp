@@ -21,6 +21,6 @@ public class ExampleInstrumentedTest {
     public void useAppContext() {
         // Context of the app under test.
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        assertEquals("top.wherewego.switchapp", appContext.getPackageName());
+        assertEquals("top.wherewego.vnt", appContext.getPackageName());
     }
 }

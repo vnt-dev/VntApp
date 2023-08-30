@@ -1,4 +1,4 @@
-package top.wherewego.switchapp.app;
+package top.wherewego.vnt.app;
 
 import android.app.Application;
 import android.content.Context;
@@ -13,8 +13,8 @@ import com.scwang.smart.refresh.layout.SmartRefreshLayout;
 
 import java.util.ArrayList;
 
-import top.wherewego.switchapp.R;
-import top.wherewego.switchapp.util.SPUtils;
+import top.wherewego.vnt.R;
+import top.wherewego.vnt.util.SPUtils;
 import top.wherewego.vnt.jni.ConfigurationInfoBean;
 
 /**
@@ -45,7 +45,7 @@ public final class AppApplication extends Application {
                 Log.d("swichapp", "attachBaseContext: s : " + s);
                 String json = SPUtils.getString(this, s, "0");
                 if (json.equals("0")) {
-                    return;
+                    continue;
                 }
                 ConfigurationInfoBean configurationInfoBean = new Gson().fromJson(json, ConfigurationInfoBean.class);
                 configList.add(configurationInfoBean);

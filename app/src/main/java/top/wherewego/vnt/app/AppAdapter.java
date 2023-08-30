@@ -1,4 +1,4 @@
-package top.wherewego.switchapp.app;
+package top.wherewego.vnt.app;
 
 import android.content.Context;
 import android.view.View;

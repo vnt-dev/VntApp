@@ -1,4 +1,4 @@
-rootProject.name = "VNTApp"
+rootProject.name = "VntApp"
 include ':app'
 include ':library:base'
 include ':library:widget'

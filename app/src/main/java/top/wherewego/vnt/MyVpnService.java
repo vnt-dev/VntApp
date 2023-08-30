@@ -1,4 +1,4 @@
-package top.wherewego.switchapp;
+package top.wherewego.vnt;
 
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -77,7 +77,7 @@ public class MyVpnService extends VpnService implements Runnable {
                 boolean isTcp = intent.getBooleanExtra("isTcp", false);
                 config = new Config(token, name, deviceId, server, stunServer, password.isEmpty() ? null : password, cipherModel, isTcp);
                 if (mThread == null) {
-                    mThread = new Thread(this, "SwitchVPN");
+                    mThread = new Thread(this, "VntVPN");
                     mThread.start();
                 }
                 break;
@@ -106,7 +106,7 @@ public class MyVpnService extends VpnService implements Runnable {
         }
         Handler handler = new Handler(Looper.getMainLooper());
         handler.post(() -> {
-            Toast.makeText(getApplicationContext(), "Switch已停止", Toast.LENGTH_LONG).show();
+            Toast.makeText(getApplicationContext(), "Vnt已停止", Toast.LENGTH_LONG).show();
         });
         stop0();
         eVnt = null;
@@ -182,7 +182,7 @@ public class MyVpnService extends VpnService implements Runnable {
         Builder builder = new Builder();
         int prefixLength = IpUtils.subnetMaskToPrefixLength(connect.getVirtualNetmask());
         String ipRoute = IpUtils.intToIpAddress(connect.getVirtualGateway() & connect.getVirtualNetmask());
-        builder.setSession("SwitchVPN")
+        builder.setSession("VntVPN")
                 .setBlocking(true)
                 .setMtu(1420)
                 .addAddress(ip, prefixLength)

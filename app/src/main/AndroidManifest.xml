@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    package="top.wherewego.switchapp">
+    package="top.wherewego.vnt">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -13,7 +13,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.SwitchApp"
+        android:theme="@style/Theme.VntApp"
         tools:targetApi="31">
         <service
             android:name=".MyVpnService"
@@ -30,7 +30,7 @@
         <activity
             android:name=".ConnectActivity"
             android:exported="false"
-            android:theme="@style/Theme.SwitchApp.NoActionBar">
+            android:theme="@style/Theme.VntApp.NoActionBar">
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"
                 android:value=".MainActivity" />
@@ -38,7 +38,7 @@
         <activity
             android:name=".AddActivity"
             android:exported="false"
-            android:theme="@style/Theme.SwitchApp.NoActionBar">
+            android:theme="@style/Theme.VntApp.NoActionBar">
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"
                 android:value=".MainActivity" />
@@ -47,7 +47,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.SwitchApp.NoActionBar">
+            android:theme="@style/Theme.VntApp.NoActionBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
