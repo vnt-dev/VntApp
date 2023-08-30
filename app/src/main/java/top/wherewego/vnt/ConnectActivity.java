@@ -1,4 +1,4 @@
-package top.wherewego.switchapp;
+package top.wherewego.vnt;
 
 import android.annotation.SuppressLint;
 import android.content.Intent;
@@ -19,8 +19,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import top.wherewego.base.BaseAdapter;
-import top.wherewego.switchapp.adapter.ConnectAdapter;
-import top.wherewego.switchapp.app.AppActivity;
+import top.wherewego.vnt.adapter.ConnectAdapter;
+import top.wherewego.vnt.app.AppActivity;
 import top.wherewego.vnt.jni.ConfigurationInfoBean;
 import top.wherewego.vnt.jni.DeviceBean;
 import top.wherewego.widget.layout.WrapRecyclerView;

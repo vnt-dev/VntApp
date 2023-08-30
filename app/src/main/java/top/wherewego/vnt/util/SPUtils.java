@@ -1,4 +1,4 @@
-package top.wherewego.switchapp.util;
+package top.wherewego.vnt.util;
 
 import android.content.Context;
 import android.content.SharedPreferences;

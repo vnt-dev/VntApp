@@ -1,10 +1,8 @@
-package top.wherewego.switchapp.app;
+package top.wherewego.vnt.app;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.view.View;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 
@@ -12,7 +10,7 @@ import com.gyf.immersionbar.ImmersionBar;
 import com.hjq.bar.TitleBar;
 import top.wherewego.base.BaseActivity;
 import top.wherewego.base.BaseDialog;
-import top.wherewego.switchapp.R;
+import top.wherewego.vnt.R;
 
 
 /**

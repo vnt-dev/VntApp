@@ -1,4 +1,4 @@
-package top.wherewego.switchapp.app;
+package top.wherewego.vnt.app;
 
 
 import top.wherewego.base.BaseFragment;

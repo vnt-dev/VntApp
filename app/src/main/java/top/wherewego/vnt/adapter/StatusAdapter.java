@@ -1,4 +1,4 @@
-package top.wherewego.switchapp.adapter;
+package top.wherewego.vnt.adapter;
 
 import android.content.Context;
 import android.view.ViewGroup;
@@ -6,8 +6,8 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 
-import top.wherewego.switchapp.R;
-import top.wherewego.switchapp.app.AppAdapter;
+import top.wherewego.vnt.R;
+import top.wherewego.vnt.app.AppAdapter;
 import top.wherewego.vnt.jni.ConfigurationInfoBean;
 
 /**

@@ -1,6 +1,4 @@
-package top.wherewego.switchapp.action;
-
-import androidx.annotation.StringRes;
+package top.wherewego.vnt.action;
 
 
 /**

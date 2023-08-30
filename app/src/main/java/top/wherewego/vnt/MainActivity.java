@@ -1,10 +1,7 @@
-package top.wherewego.switchapp;
+package top.wherewego.vnt;
 
-import android.content.DialogInterface;
 import android.content.Intent;
-import android.util.Log;
 import android.view.View;
-import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -12,7 +9,6 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.gson.Gson;
 import com.hjq.bar.OnTitleBarListener;
 import com.hjq.bar.TitleBar;
 import com.scwang.smart.refresh.layout.SmartRefreshLayout;
@@ -20,9 +16,10 @@ import com.scwang.smart.refresh.layout.api.RefreshLayout;
 import com.scwang.smart.refresh.layout.listener.OnRefreshLoadMoreListener;
 
 import top.wherewego.base.BaseAdapter;
-import top.wherewego.switchapp.adapter.StatusAdapter;
-import top.wherewego.switchapp.app.AppActivity;
-import top.wherewego.switchapp.app.AppApplication;
+import top.wherewego.vnt.adapter.StatusAdapter;
+import top.wherewego.vnt.app.AppActivity;
+import top.wherewego.vnt.app.AppApplication;
+import top.wherewego.vnt.util.SPUtils;
 import top.wherewego.vnt.jni.ConfigurationInfoBean;
 import top.wherewego.widget.layout.WrapRecyclerView;
 
