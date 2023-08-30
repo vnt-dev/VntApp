@@ -1,4 +1,4 @@
-package top.wherewego.switchjni;
+package top.wherewego.vnt.jni;
 
 public class DeviceBean implements Comparable<DeviceBean> {
     private String name;

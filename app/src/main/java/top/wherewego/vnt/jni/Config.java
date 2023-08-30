@@ -1,21 +1,25 @@
-package top.wherewego.switchjni;
+package top.wherewego.vnt.jni;
 
 public class Config {
     private String token;
     private String name;
     private String deviceId;
     private String server;
-    private String natTestServer;
+    private String stunServer;
     private String password;
+    private String cipherModel;
+    private boolean isTcp;
 
 
-    public Config(String token, String name, String deviceId, String server, String natTestServer, String password) {
+    public Config(String token, String name, String deviceId, String server, String stunServer, String password, String cipherModel, boolean isTcp) {
         this.token = token;
         this.name = name;
         this.deviceId = deviceId;
         this.server = server;
-        this.natTestServer = natTestServer;
+        this.stunServer = stunServer;
         this.password = password;
+        this.cipherModel = cipherModel;
+        this.isTcp = isTcp;
     }
 
     public String getToken() {
@@ -50,12 +54,12 @@ public class Config {
         this.server = server;
     }
 
-    public String getNatTestServer() {
-        return natTestServer;
+    public String getStunServer() {
+        return stunServer;
     }
 
-    public void setNatTestServer(String natTestServer) {
-        this.natTestServer = natTestServer;
+    public void setStunServer(String stunServer) {
+        this.stunServer = stunServer;
     }
 
     public String getPassword() {
@@ -64,5 +68,21 @@ public class Config {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public String getCipherModel() {
+        return cipherModel;
+    }
+
+    public void setCipherModel(String cipherModel) {
+        this.cipherModel = cipherModel;
+    }
+
+    public boolean isTcp() {
+        return isTcp;
+    }
+
+    public void setTcp(boolean tcp) {
+        isTcp = tcp;
     }
 }

@@ -1,7 +1,7 @@
 package top.wherewego.switchapp;
 
-import android.os.Bundle;
 import android.widget.EditText;
+import android.widget.Spinner;
 import android.widget.Toast;
 
 import com.google.gson.Gson;
@@ -13,7 +13,7 @@ import java.util.UUID;
 import top.wherewego.switchapp.app.AppActivity;
 import top.wherewego.switchapp.app.AppApplication;
 import top.wherewego.switchapp.util.SPUtils;
-import top.wherewego.switchjni.ConfigurationInfoBean;
+import top.wherewego.vnt.jni.ConfigurationInfoBean;
 
 public class AddActivity extends AppActivity {
     private TitleBar mTitleBar;
@@ -22,7 +22,9 @@ public class AddActivity extends AppActivity {
     private EditText mDeviceId;
     private EditText mPassword;
     private EditText mServer;
-    private EditText mServerAddress;
+    private EditText mStun;
+    private Spinner mCipherModel;
+    private Spinner mConnectType;
 
     @Override
     protected int getLayoutId() {
@@ -56,7 +58,9 @@ public class AddActivity extends AppActivity {
         mDeviceId.setText(id);
         mPassword = findViewById(R.id.et_add_password_value);
         mServer = findViewById(R.id.et_add_server_value);
-        mServerAddress = findViewById(R.id.et_add_server_address_value);
+        mStun = findViewById(R.id.et_add_stun_value);
+        mCipherModel = findViewById(R.id.et_add_cipher_model_value);
+        mConnectType = findViewById(R.id.et_add_connect_type_value);
     }
 
     @Override
@@ -81,13 +85,16 @@ public class AddActivity extends AppActivity {
             Toast.makeText(this, "Server不能为空", Toast.LENGTH_SHORT).show();
             return;
         }
-        if (mServerAddress.getText().toString().trim().isEmpty()) {
-            Toast.makeText(this, "NatServer不能为空", Toast.LENGTH_SHORT).show();
+        if (mStun.getText().toString().trim().isEmpty()) {
+            Toast.makeText(this, "stun不能为空", Toast.LENGTH_SHORT).show();
             return;
         }
+        String cipherModel = mCipherModel.getSelectedItem().toString().trim();
+        String connectType = mConnectType.getSelectedItem().toString().trim();
         ConfigurationInfoBean configurationInfoBean = new ConfigurationInfoBean(
                 mToken.getText().toString().trim(), mName.getText().toString().trim(), mDeviceId.getText().toString().trim(),
-                mPassword.getText().toString().trim(), mServer.getText().toString().trim(), mServerAddress.getText().toString().trim()
+                mPassword.getText().toString().trim(), mServer.getText().toString().trim(), mStun.getText().toString().trim(),
+                cipherModel, "TCP".equalsIgnoreCase(connectType)
         );
 
         String keyset = SPUtils.getString(getApplicationContext(), "keyset", "0");

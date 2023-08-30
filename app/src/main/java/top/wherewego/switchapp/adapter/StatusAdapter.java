@@ -8,7 +8,7 @@ import androidx.annotation.NonNull;
 
 import top.wherewego.switchapp.R;
 import top.wherewego.switchapp.app.AppAdapter;
-import top.wherewego.switchjni.ConfigurationInfoBean;
+import top.wherewego.vnt.jni.ConfigurationInfoBean;
 
 /**
  *    author : Android 轮子哥

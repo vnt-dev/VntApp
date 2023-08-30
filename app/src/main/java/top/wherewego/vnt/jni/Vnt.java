@@ -1,9 +1,9 @@
-package top.wherewego.switchjni;
+package top.wherewego.vnt.jni;
 
-public class Switch {
+public class Vnt {
     private final long raw;
 
-    Switch(long raw) {
+    Vnt(long raw) {
         if (raw == 0) {
             throw new RuntimeException();
         }

@@ -1,4 +1,4 @@
-package top.wherewego.switchjni;
+package top.wherewego.vnt.jni;
 
 public class RegResponse {
     private final int virtualIp;

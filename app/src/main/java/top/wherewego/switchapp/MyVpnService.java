@@ -16,28 +16,28 @@ import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 
-import top.wherewego.switchjni.Config;
-import top.wherewego.switchjni.DeviceBean;
-import top.wherewego.switchjni.IpUtils;
-import top.wherewego.switchjni.PeerDeviceInfo;
-import top.wherewego.switchjni.RegResponse;
-import top.wherewego.switchjni.Switch;
-import top.wherewego.switchjni.SwitchUtil;
-import top.wherewego.switchjni.exception.AddressExhaustedException;
-import top.wherewego.switchjni.exception.TimeoutException;
-import top.wherewego.switchjni.exception.TokenErrorException;
+import top.wherewego.vnt.jni.Config;
+import top.wherewego.vnt.jni.DeviceBean;
+import top.wherewego.vnt.jni.IpUtils;
+import top.wherewego.vnt.jni.PeerDeviceInfo;
+import top.wherewego.vnt.jni.RegResponse;
+import top.wherewego.vnt.jni.Vnt;
+import top.wherewego.vnt.jni.VntUtil;
+import top.wherewego.vnt.jni.exception.AddressExhaustedException;
+import top.wherewego.vnt.jni.exception.TimeoutException;
+import top.wherewego.vnt.jni.exception.TokenErrorException;
 
 public class MyVpnService extends VpnService implements Runnable {
     private static MyVpnService myVpnService;
     private Thread mThread;
     private ParcelFileDescriptor mInterface;
-    private Switch eSwitch;
+    private Vnt eVnt;
     private Config config;
     private volatile boolean isRun;
 
     public static PeerDeviceInfo[] peerList() {
-        if (myVpnService != null && myVpnService.eSwitch != null) {
-            return myVpnService.eSwitch.list();
+        if (myVpnService != null && myVpnService.eVnt != null) {
+            return myVpnService.eVnt.list();
         }
         return new PeerDeviceInfo[0];
     }
@@ -72,8 +72,10 @@ public class MyVpnService extends VpnService implements Runnable {
                 String name = intent.getStringExtra("name");
                 String password = intent.getStringExtra("password");
                 String server = intent.getStringExtra("server");
-                String natServer = intent.getStringExtra("natServer");
-                config = new Config(token, name, deviceId, server, natServer, password.isEmpty() ? null : password);
+                String stunServer = intent.getStringExtra("stunServer");
+                String cipherModel = intent.getStringExtra("cipherModel");
+                boolean isTcp = intent.getBooleanExtra("isTcp", false);
+                config = new Config(token, name, deviceId, server, stunServer, password.isEmpty() ? null : password, cipherModel, isTcp);
                 if (mThread == null) {
                     mThread = new Thread(this, "SwitchVPN");
                     mThread.start();
@@ -107,15 +109,15 @@ public class MyVpnService extends VpnService implements Runnable {
             Toast.makeText(getApplicationContext(), "Switch已停止", Toast.LENGTH_LONG).show();
         });
         stop0();
-        eSwitch = null;
+        eVnt = null;
         mInterface = null;
         mThread = null;
     }
 
     private synchronized void stop0() {
         isRun = false;
-        if (eSwitch != null) {
-            eSwitch.stop();
+        if (eVnt != null) {
+            eVnt.stop();
         }
         try {
             if (mInterface != null) {
@@ -137,14 +139,15 @@ public class MyVpnService extends VpnService implements Runnable {
             handler.post(() -> Toast.makeText(getApplicationContext(), "ServerAddress error", Toast.LENGTH_SHORT).show());
             return;
         }
-        SwitchUtil switchUtil = new SwitchUtil(config);
+        VntUtil vntUtil = new VntUtil(config);
         RegResponse connect;
         for (; ; ) {
             if (!isRun) {
                 return;
             }
             try {
-                connect = switchUtil.connect();
+                vntUtil.connect();
+                connect = vntUtil.register();
                 break;
             } catch (AddressExhaustedException e) {
                 Handler handler = new Handler(Looper.getMainLooper());
@@ -188,14 +191,14 @@ public class MyVpnService extends VpnService implements Runnable {
         builder.allowFamily(OsConstants.AF_INET);
         mInterface = builder.establish();
         int fd = mInterface.getFd();
-        switchUtil.createIface(fd);
-        Switch eSwitchC = switchUtil.build();
-        eSwitch = eSwitchC;
+        vntUtil.createIface(fd);
+        Vnt eVntC = vntUtil.build();
+        eVnt = eVntC;
         Handler handler = new Handler(Looper.getMainLooper());
         for (; ; ) {
             handler.post(() -> {
                 List<DeviceBean> list = new ArrayList<>();
-                for (PeerDeviceInfo peer : eSwitch.list()) {
+                for (PeerDeviceInfo peer : eVnt.list()) {
                     String rt = "";
                     String type = "";
                     if (peer.getRoute() != null) {
@@ -211,7 +214,7 @@ public class MyVpnService extends VpnService implements Runnable {
                 }
                 ConnectActivity.mAdapter.setData(list);
             });
-            boolean out = eSwitchC.waitStopMs(2000);
+            boolean out = eVntC.waitStopMs(2000);
             if (out) {
                 break;
             }

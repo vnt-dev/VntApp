@@ -1,7 +1,6 @@
 package top.wherewego.switchapp;
 
 import android.content.Intent;
-import android.util.Log;
 import android.view.View;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -19,14 +18,14 @@ import top.wherewego.base.BaseAdapter;
 import top.wherewego.switchapp.adapter.StatusAdapter;
 import top.wherewego.switchapp.app.AppActivity;
 import top.wherewego.switchapp.app.AppApplication;
-import top.wherewego.switchjni.ConfigurationInfoBean;
+import top.wherewego.vnt.jni.ConfigurationInfoBean;
 import top.wherewego.widget.layout.WrapRecyclerView;
 
 
 public class MainActivity extends AppActivity implements OnRefreshLoadMoreListener,
         BaseAdapter.OnItemClickListener {
     static {
-        System.loadLibrary("switch_jni");
+        System.loadLibrary("vnt_jni");
     }
 
     private TitleBar mTitleBar;

@@ -1,20 +1,13 @@
 package top.wherewego.switchapp.app;
 
-import android.app.Activity;
 import android.app.Application;
 import android.content.Context;
-import android.net.ConnectivityManager;
-import android.net.Network;
 import android.os.Build;
 import android.util.Log;
 
-import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
-import androidx.lifecycle.Lifecycle;
-import androidx.lifecycle.LifecycleOwner;
 
 import com.google.gson.Gson;
-import com.hjq.bar.TitleBar;
 import com.scwang.smart.refresh.header.MaterialHeader;
 import com.scwang.smart.refresh.layout.SmartRefreshLayout;
 
@@ -22,7 +15,7 @@ import java.util.ArrayList;
 
 import top.wherewego.switchapp.R;
 import top.wherewego.switchapp.util.SPUtils;
-import top.wherewego.switchjni.ConfigurationInfoBean;
+import top.wherewego.vnt.jni.ConfigurationInfoBean;
 
 /**
  * author : Android 轮子哥
