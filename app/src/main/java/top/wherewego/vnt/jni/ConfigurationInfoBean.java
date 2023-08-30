@@ -1,4 +1,4 @@
-package top.wherewego.switchjni;
+package top.wherewego.vnt.jni;
 
 import java.io.Serializable;
 
@@ -9,16 +9,20 @@ public class ConfigurationInfoBean implements Serializable {
     private String deviceId;
     private String password;
     private String server;
-    private String serverAddress;
+    private String stun;
+    private String cipherModel;
+    private boolean isTcp;
 
-    public ConfigurationInfoBean(String token, String name, String deviceId, String password, String server, String serverAddress) {
+    public ConfigurationInfoBean(String token, String name, String deviceId, String password, String server, String stun,String cipherModel,boolean isTcp) {
         this.key = String.valueOf(System.currentTimeMillis());
         this.token = token;
         this.name = name;
         this.deviceId = deviceId;
         this.password = password;
         this.server = server;
-        this.serverAddress = serverAddress;
+        this.stun = stun;
+        this.cipherModel = cipherModel;
+        this.isTcp = isTcp;
     }
 
     public String getKey() {
@@ -65,11 +69,27 @@ public class ConfigurationInfoBean implements Serializable {
         this.server = server;
     }
 
-    public String getServerAddress() {
-        return serverAddress;
+    public String getStun() {
+        return stun;
     }
 
-    public void setServerAddress(String serverAddress) {
-        this.serverAddress = serverAddress;
+    public void setStun(String stun) {
+        this.stun = stun;
+    }
+
+    public String getCipherModel() {
+        return cipherModel;
+    }
+
+    public void setCipherModel(String cipherModel) {
+        this.cipherModel = cipherModel;
+    }
+
+    public boolean isTcp() {
+        return isTcp;
+    }
+
+    public void setTcp(boolean tcp) {
+        isTcp = tcp;
     }
 }

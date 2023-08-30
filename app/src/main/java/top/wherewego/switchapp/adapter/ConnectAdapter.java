@@ -8,7 +8,7 @@ import androidx.annotation.NonNull;
 
 import top.wherewego.switchapp.R;
 import top.wherewego.switchapp.app.AppAdapter;
-import top.wherewego.switchjni.DeviceBean;
+import top.wherewego.vnt.jni.DeviceBean;
 
 public final class ConnectAdapter extends AppAdapter<DeviceBean> {
     public ConnectAdapter(Context context) {

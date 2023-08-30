@@ -21,8 +21,8 @@ import java.util.List;
 import top.wherewego.base.BaseAdapter;
 import top.wherewego.switchapp.adapter.ConnectAdapter;
 import top.wherewego.switchapp.app.AppActivity;
-import top.wherewego.switchjni.ConfigurationInfoBean;
-import top.wherewego.switchjni.DeviceBean;
+import top.wherewego.vnt.jni.ConfigurationInfoBean;
+import top.wherewego.vnt.jni.DeviceBean;
 import top.wherewego.widget.layout.WrapRecyclerView;
 
 
@@ -86,8 +86,10 @@ public class ConnectActivity extends AppActivity implements OnRefreshLoadMoreLis
         String deviceId = selectConfigurationInfoBean.getDeviceId().trim();
         String name = selectConfigurationInfoBean.getName().trim();
         String server = selectConfigurationInfoBean.getServer().trim();
-        String natServer = selectConfigurationInfoBean.getServerAddress().trim();
+        String stun = selectConfigurationInfoBean.getStun().trim();
         String password = selectConfigurationInfoBean.getPassword().trim();
+        String cipherModel = selectConfigurationInfoBean.getCipherModel().trim();
+        boolean isTcp = selectConfigurationInfoBean.isTcp();
         if (token.isEmpty()) {
             Toast.makeText(this, "Token不能为空", Toast.LENGTH_SHORT).show();
             return;
@@ -104,8 +106,12 @@ public class ConnectActivity extends AppActivity implements OnRefreshLoadMoreLis
             Toast.makeText(this, "ServerAddress不能为空", Toast.LENGTH_SHORT).show();
             return;
         }
-        if (natServer.isEmpty()) {
-            Toast.makeText(this, "NatTestServerAddress不能为空", Toast.LENGTH_SHORT).show();
+        if (stun.isEmpty()) {
+            Toast.makeText(this, "Stun不能为空", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (cipherModel.isEmpty()){
+            Toast.makeText(this, "加密模式不能为空", Toast.LENGTH_SHORT).show();
             return;
         }
         String[] parts = server.split(":");
@@ -128,8 +134,10 @@ public class ConnectActivity extends AppActivity implements OnRefreshLoadMoreLis
         serviceIntent.putExtra("deviceId", deviceId);
         serviceIntent.putExtra("name", name);
         serviceIntent.putExtra("server", server);
-        serviceIntent.putExtra("natServer", natServer);
+        serviceIntent.putExtra("stunServer", stun);
         serviceIntent.putExtra("password",password);
+        serviceIntent.putExtra("cipherModel",cipherModel);
+        serviceIntent.putExtra("isTcp",isTcp);
         startService(serviceIntent);
     }
 

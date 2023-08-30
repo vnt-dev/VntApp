@@ -13,6 +13,14 @@
 
 
     <!-- 通用的 -->
+    <string-array name="cipher_model">
+        <item>aes_gcm</item>
+        <item>aes_cbc</item>
+    </string-array>
+    <string-array name="connect_type">
+        <item>UDP</item>
+        <item>TCP</item>
+    </string-array>
     <string name="common_loading">加载中&#8230;</string>
 
     <string name="common_unknown_error">未知错误</string>

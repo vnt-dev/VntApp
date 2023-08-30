@@ -135,7 +135,61 @@
             android:singleLine="true" />
 
     </LinearLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="bottom"
+        tools:ignore="MissingConstraints">
 
+        <TextView
+            android:id="@+id/tv_add_cipher_model"
+            android:layout_width="@dimen/dp_68"
+            android:gravity="end"
+            android:layout_height="wrap_content"
+            android:text="Model:"
+            android:textSize="@dimen/sp_14"
+            android:textStyle="bold" />
+
+
+
+        <Spinner
+            android:id="@+id/et_add_cipher_model_value"
+            style="@style/SpinnerStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="textVisiblePassword"
+            android:entries="@array/cipher_model"
+            android:singleLine="true" />
+
+    </LinearLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="bottom"
+        tools:ignore="MissingConstraints">
+
+        <TextView
+            android:id="@+id/tv_add_connect_type"
+            android:layout_width="@dimen/dp_68"
+            android:gravity="end"
+            android:layout_height="wrap_content"
+            android:text="Connect:"
+            android:textSize="@dimen/sp_14"
+            android:textStyle="bold" />
+
+
+
+        <Spinner
+            android:id="@+id/et_add_connect_type_value"
+            style="@style/SpinnerStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:entries="@array/connect_type"
+            android:singleLine="true" />
+
+    </LinearLayout>
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -160,7 +214,7 @@
             android:layout_height="wrap_content"
             android:hint="请输入server"
             android:inputType="textVisiblePassword"
-            android:text="nat1.wherewego.top:29871"
+            android:text="nat1.wherewego.top:29872"
             android:singleLine="true" />
 
     </LinearLayout>
@@ -177,17 +231,17 @@
             android:layout_width="@dimen/dp_68"
             android:gravity="end"
             android:layout_height="wrap_content"
-            android:text="NAT:"
+            android:text="STUN:"
             android:textSize="@dimen/sp_14"
             android:textStyle="bold" />
 
         <top.wherewego.widget.view.RegexEditText
-            android:id="@+id/et_add_server_address_value"
+            android:id="@+id/et_add_stun_value"
             style="@style/EditTextStyle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="请输入nat探测服务(逗号分割)"
-            android:text="nat1.wherewego.top:35061,\nnat1.wherewego.top:35062,\nnat2.wherewego.top:35061,\nnat2.wherewego.top:35062"
+            android:hint="请输入stun服务(逗号分割)"
+            android:text="stun1.l.google.com:19302,\nstun2.l.google.com:19302,\nstun.qq.com:3478"
             android:minLines="1"
             android:maxLines="10"
             android:inputType="textMultiLine"
