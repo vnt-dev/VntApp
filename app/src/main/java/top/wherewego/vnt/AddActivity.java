@@ -25,6 +25,7 @@ public class AddActivity extends AppActivity {
     private EditText mStun;
     private Spinner mCipherModel;
     private Spinner mConnectType;
+    private Spinner mFinger;
 
     @Override
     protected int getLayoutId() {
@@ -61,6 +62,7 @@ public class AddActivity extends AppActivity {
         mStun = findViewById(R.id.et_add_stun_value);
         mCipherModel = findViewById(R.id.et_add_cipher_model_value);
         mConnectType = findViewById(R.id.et_add_connect_type_value);
+        mFinger = findViewById(R.id.et_add_finger_value);
     }
 
     @Override
@@ -91,10 +93,11 @@ public class AddActivity extends AppActivity {
         }
         String cipherModel = mCipherModel.getSelectedItem().toString().trim();
         String connectType = mConnectType.getSelectedItem().toString().trim();
+        String finger = mFinger.getSelectedItem().toString().trim();
         ConfigurationInfoBean configurationInfoBean = new ConfigurationInfoBean(
                 mToken.getText().toString().trim(), mName.getText().toString().trim(), mDeviceId.getText().toString().trim(),
                 mPassword.getText().toString().trim(), mServer.getText().toString().trim(), mStun.getText().toString().trim(),
-                cipherModel, "TCP".equalsIgnoreCase(connectType)
+                cipherModel, "TCP".equalsIgnoreCase(connectType),"OPEN".equalsIgnoreCase(finger)
         );
 
         String keyset = SPUtils.getString(getApplicationContext(), "keyset", "0");

@@ -27,6 +27,8 @@ import top.wherewego.widget.layout.WrapRecyclerView;
 public class MainActivity extends AppActivity implements OnRefreshLoadMoreListener,
         BaseAdapter.OnItemClickListener {
     static {
+        //优先使用ipv6
+        System.setProperty("java.net.preferIPv6Addresses", "true");
         System.loadLibrary("vnt_jni");
     }
 

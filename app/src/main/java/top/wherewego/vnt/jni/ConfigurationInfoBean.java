@@ -11,9 +11,10 @@ public class ConfigurationInfoBean implements Serializable {
     private String server;
     private String stun;
     private String cipherModel;
-    private boolean isTcp;
+    private boolean tcp;
+    private boolean finger;
 
-    public ConfigurationInfoBean(String token, String name, String deviceId, String password, String server, String stun,String cipherModel,boolean isTcp) {
+    public ConfigurationInfoBean(String token, String name, String deviceId, String password, String server, String stun, String cipherModel, boolean tcp, boolean finger) {
         this.key = String.valueOf(System.currentTimeMillis());
         this.token = token;
         this.name = name;
@@ -22,7 +23,8 @@ public class ConfigurationInfoBean implements Serializable {
         this.server = server;
         this.stun = stun;
         this.cipherModel = cipherModel;
-        this.isTcp = isTcp;
+        this.tcp = tcp;
+        this.finger = finger;
     }
 
     public String getKey() {
@@ -86,10 +88,18 @@ public class ConfigurationInfoBean implements Serializable {
     }
 
     public boolean isTcp() {
-        return isTcp;
+        return tcp;
     }
 
     public void setTcp(boolean tcp) {
-        isTcp = tcp;
+        this.tcp = tcp;
+    }
+
+    public boolean isFinger() {
+        return finger;
+    }
+
+    public void setFinger(boolean finger) {
+        this.finger = finger;
     }
 }

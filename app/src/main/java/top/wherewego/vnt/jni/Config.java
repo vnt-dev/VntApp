@@ -8,10 +8,11 @@ public class Config {
     private String stunServer;
     private String password;
     private String cipherModel;
-    private boolean isTcp;
+    private boolean tcp;
+    private boolean finger;
 
 
-    public Config(String token, String name, String deviceId, String server, String stunServer, String password, String cipherModel, boolean isTcp) {
+    public Config(String token, String name, String deviceId, String server, String stunServer, String password, String cipherModel, boolean tcp,boolean finger) {
         this.token = token;
         this.name = name;
         this.deviceId = deviceId;
@@ -19,7 +20,8 @@ public class Config {
         this.stunServer = stunServer;
         this.password = password;
         this.cipherModel = cipherModel;
-        this.isTcp = isTcp;
+        this.tcp = tcp;
+        this.finger = finger;
     }
 
     public String getToken() {
@@ -79,10 +81,18 @@ public class Config {
     }
 
     public boolean isTcp() {
-        return isTcp;
+        return tcp;
     }
 
     public void setTcp(boolean tcp) {
-        isTcp = tcp;
+        this.tcp = tcp;
+    }
+
+    public boolean isFinger() {
+        return finger;
+    }
+
+    public void setFinger(boolean finger) {
+        this.finger = finger;
     }
 }

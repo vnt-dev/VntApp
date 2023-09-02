@@ -74,8 +74,9 @@ public class MyVpnService extends VpnService implements Runnable {
                 String server = intent.getStringExtra("server");
                 String stunServer = intent.getStringExtra("stunServer");
                 String cipherModel = intent.getStringExtra("cipherModel");
-                boolean isTcp = intent.getBooleanExtra("isTcp", false);
-                config = new Config(token, name, deviceId, server, stunServer, password.isEmpty() ? null : password, cipherModel, isTcp);
+                boolean tcp = intent.getBooleanExtra("tcp", false);
+                boolean finger = intent.getBooleanExtra("finger", false);
+                config = new Config(token, name, deviceId, server, stunServer, password.isEmpty() ? null : password, cipherModel, tcp,finger);
                 if (mThread == null) {
                     mThread = new Thread(this, "VntVPN");
                     mThread.start();

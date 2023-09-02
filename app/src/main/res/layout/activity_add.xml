@@ -198,6 +198,33 @@
         tools:ignore="MissingConstraints">
 
         <TextView
+            android:id="@+id/tv_add_finger"
+            android:layout_width="@dimen/dp_68"
+            android:gravity="end"
+            android:layout_height="wrap_content"
+            android:text="Finger:"
+            android:textSize="@dimen/sp_14"
+            android:textStyle="bold" />
+
+
+
+        <Spinner
+            android:id="@+id/et_add_finger_value"
+            style="@style/SpinnerStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:entries="@array/finger"
+            android:singleLine="true" />
+
+    </LinearLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="bottom"
+        tools:ignore="MissingConstraints">
+
+        <TextView
             android:id="@+id/tv_add_server"
             android:layout_width="@dimen/dp_68"
             android:gravity="end"

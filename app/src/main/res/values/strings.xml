@@ -16,10 +16,15 @@
     <string-array name="cipher_model">
         <item>aes_gcm</item>
         <item>aes_cbc</item>
+        <item>aes_ecb</item>
     </string-array>
     <string-array name="connect_type">
         <item>UDP</item>
         <item>TCP</item>
+    </string-array>
+    <string-array name="finger">
+        <item>close</item>
+        <item>open</item>
     </string-array>
     <string name="common_loading">加载中&#8230;</string>
 

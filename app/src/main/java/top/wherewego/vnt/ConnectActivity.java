@@ -89,7 +89,8 @@ public class ConnectActivity extends AppActivity implements OnRefreshLoadMoreLis
         String stun = selectConfigurationInfoBean.getStun().trim();
         String password = selectConfigurationInfoBean.getPassword().trim();
         String cipherModel = selectConfigurationInfoBean.getCipherModel().trim();
-        boolean isTcp = selectConfigurationInfoBean.isTcp();
+        boolean tcp = selectConfigurationInfoBean.isTcp();
+        boolean finger = selectConfigurationInfoBean.isFinger();
         if (token.isEmpty()) {
             Toast.makeText(this, "Token不能为空", Toast.LENGTH_SHORT).show();
             return;
@@ -137,7 +138,8 @@ public class ConnectActivity extends AppActivity implements OnRefreshLoadMoreLis
         serviceIntent.putExtra("stunServer", stun);
         serviceIntent.putExtra("password",password);
         serviceIntent.putExtra("cipherModel",cipherModel);
-        serviceIntent.putExtra("isTcp",isTcp);
+        serviceIntent.putExtra("tcp",tcp);
+        serviceIntent.putExtra("finger",finger);
         startService(serviceIntent);
     }
 
