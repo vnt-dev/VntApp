@@ -225,6 +225,60 @@
         tools:ignore="MissingConstraints">
 
         <TextView
+            android:id="@+id/tv_add_in_ip"
+            android:layout_width="@dimen/dp_68"
+            android:gravity="end"
+            android:layout_height="wrap_content"
+            android:text="In ips:"
+            android:textSize="@dimen/sp_14"
+            android:textStyle="bold" />
+        <top.wherewego.widget.view.RegexEditText
+            android:id="@+id/et_add_in_ip_value"
+            style="@style/EditTextStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="192.168.3.0/24,10.26.0.3\n192.168.2.0/24,10.26.0.2\n(多个用换行分隔)"
+            android:inputType="textMultiLine"
+            android:minLines="1"
+            android:maxLines="10"
+            android:singleLine="true" />
+
+    </LinearLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="bottom"
+        tools:ignore="MissingConstraints">
+
+        <TextView
+            android:id="@+id/tv_add_out_ip"
+            android:layout_width="@dimen/dp_68"
+            android:gravity="end"
+            android:layout_height="wrap_content"
+            android:text="Out ips:"
+            android:textSize="@dimen/sp_14"
+            android:textStyle="bold" />
+        <top.wherewego.widget.view.RegexEditText
+            android:id="@+id/et_add_out_ip_value"
+            style="@style/EditTextStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="0.0.0.0/0 (多个用换行分隔)"
+            android:inputType="textMultiLine"
+            android:minLines="1"
+            android:maxLines="10"
+            android:singleLine="true" />
+
+    </LinearLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="bottom"
+        tools:ignore="MissingConstraints">
+
+        <TextView
             android:id="@+id/tv_add_server"
             android:layout_width="@dimen/dp_68"
             android:gravity="end"

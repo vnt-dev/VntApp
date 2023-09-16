@@ -10,9 +10,13 @@ public class Config {
     private String cipherModel;
     private boolean tcp;
     private boolean finger;
+    private String inIps;
+    private String outIps;
 
 
-    public Config(String token, String name, String deviceId, String server, String stunServer, String password, String cipherModel, boolean tcp,boolean finger) {
+    public Config(String token, String name, String deviceId, String server,
+                  String stunServer, String password, String cipherModel, boolean tcp,boolean finger,
+                  String inIps,String outIps) {
         this.token = token;
         this.name = name;
         this.deviceId = deviceId;
@@ -22,6 +26,8 @@ public class Config {
         this.cipherModel = cipherModel;
         this.tcp = tcp;
         this.finger = finger;
+        this.inIps = inIps;
+        this.outIps = outIps;
     }
 
     public String getToken() {
@@ -94,5 +100,21 @@ public class Config {
 
     public void setFinger(boolean finger) {
         this.finger = finger;
+    }
+
+    public String getInIps() {
+        return inIps;
+    }
+
+    public void setInIps(String inIps) {
+        this.inIps = inIps;
+    }
+
+    public String getOutIps() {
+        return outIps;
+    }
+
+    public void setOutIps(String outIps) {
+        this.outIps = outIps;
     }
 }

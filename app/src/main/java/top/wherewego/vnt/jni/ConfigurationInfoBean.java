@@ -13,8 +13,12 @@ public class ConfigurationInfoBean implements Serializable {
     private String cipherModel;
     private boolean tcp;
     private boolean finger;
+    private String inIps;
+    private String outIps;
 
-    public ConfigurationInfoBean(String token, String name, String deviceId, String password, String server, String stun, String cipherModel, boolean tcp, boolean finger) {
+    public ConfigurationInfoBean(String token, String name, String deviceId, String password,
+                                 String server, String stun, String cipherModel, boolean tcp, boolean finger,
+                                 String inIps, String outIps) {
         this.key = String.valueOf(System.currentTimeMillis());
         this.token = token;
         this.name = name;
@@ -25,6 +29,8 @@ public class ConfigurationInfoBean implements Serializable {
         this.cipherModel = cipherModel;
         this.tcp = tcp;
         this.finger = finger;
+        this.inIps = inIps;
+        this.outIps = outIps;
     }
 
     public String getKey() {
@@ -101,5 +107,21 @@ public class ConfigurationInfoBean implements Serializable {
 
     public void setFinger(boolean finger) {
         this.finger = finger;
+    }
+
+    public String getInIps() {
+        return inIps;
+    }
+
+    public void setInIps(String inIps) {
+        this.inIps = inIps;
+    }
+
+    public String getOutIps() {
+        return outIps;
+    }
+
+    public void setOutIps(String outIps) {
+        this.outIps = outIps;
     }
 }

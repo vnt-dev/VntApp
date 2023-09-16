@@ -15,8 +15,10 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import top.wherewego.vnt.jni.Config;
+import top.wherewego.vnt.jni.ConfigurationInfoBean;
 import top.wherewego.vnt.jni.DeviceBean;
 import top.wherewego.vnt.jni.IpUtils;
 import top.wherewego.vnt.jni.PeerDeviceInfo;
@@ -26,6 +28,7 @@ import top.wherewego.vnt.jni.VntUtil;
 import top.wherewego.vnt.jni.exception.AddressExhaustedException;
 import top.wherewego.vnt.jni.exception.TimeoutException;
 import top.wherewego.vnt.jni.exception.TokenErrorException;
+import top.wherewego.vnt.util.IpRouteUtils;
 
 public class MyVpnService extends VpnService implements Runnable {
     private static MyVpnService myVpnService;
@@ -67,16 +70,20 @@ public class MyVpnService extends VpnService implements Runnable {
         switch (intent.getAction()) {
             case "start": {
                 isRun = true;
-                String token = intent.getStringExtra("token");
-                String deviceId = intent.getStringExtra("deviceId");
-                String name = intent.getStringExtra("name");
-                String password = intent.getStringExtra("password");
-                String server = intent.getStringExtra("server");
-                String stunServer = intent.getStringExtra("stunServer");
-                String cipherModel = intent.getStringExtra("cipherModel");
-                boolean tcp = intent.getBooleanExtra("tcp", false);
-                boolean finger = intent.getBooleanExtra("finger", false);
-                config = new Config(token, name, deviceId, server, stunServer, password.isEmpty() ? null : password, cipherModel, tcp,finger);
+                ConfigurationInfoBean selectConfigurationInfoBean = (ConfigurationInfoBean) intent.getSerializableExtra("config");
+                String token = selectConfigurationInfoBean.getToken();
+                String deviceId = selectConfigurationInfoBean.getDeviceId();
+                String name = selectConfigurationInfoBean.getName();
+                String password = selectConfigurationInfoBean.getPassword();
+                String server = selectConfigurationInfoBean.getServer();
+                String stunServer = selectConfigurationInfoBean.getStun();
+                String cipherModel = selectConfigurationInfoBean.getCipherModel();
+                boolean tcp = selectConfigurationInfoBean.isTcp();
+                boolean finger = selectConfigurationInfoBean.isFinger();
+                String inIps = selectConfigurationInfoBean.getInIps();
+                String outIps = selectConfigurationInfoBean.getOutIps();
+                config = new Config(token, name, deviceId, server, stunServer, password.isEmpty() ? null : password,
+                        cipherModel, tcp, finger,inIps,outIps);
                 if (mThread == null) {
                     mThread = new Thread(this, "VntVPN");
                     mThread.start();
@@ -103,7 +110,7 @@ public class MyVpnService extends VpnService implements Runnable {
             run0();
         } catch (Throwable e) {
             Handler handler = new Handler(Looper.getMainLooper());
-            handler.post(() -> Toast.makeText(getApplicationContext(), "启动失败", Toast.LENGTH_LONG).show());
+            handler.post(() -> Toast.makeText(getApplicationContext(), "启动失败:"+e.getMessage(), Toast.LENGTH_LONG).show());
         }
         Handler handler = new Handler(Looper.getMainLooper());
         handler.post(() -> {
@@ -183,12 +190,16 @@ public class MyVpnService extends VpnService implements Runnable {
         Builder builder = new Builder();
         int prefixLength = IpUtils.subnetMaskToPrefixLength(connect.getVirtualNetmask());
         String ipRoute = IpUtils.intToIpAddress(connect.getVirtualGateway() & connect.getVirtualNetmask());
+        List<IpRouteUtils.RouteItem> routeItems = IpRouteUtils.inIp(config.getInIps());
         builder.setSession("VntVPN")
                 .setBlocking(true)
-                .setMtu(1420)
+                .setMtu(1410)
                 .addAddress(ip, prefixLength)
-//                    .addDnsServer("8.8.8.8")
+                .addDnsServer("8.8.8.8")
                 .addRoute(ipRoute, prefixLength);
+        for (IpRouteUtils.RouteItem routeItem : routeItems) {
+            builder.addAddress(routeItem.address,routeItem.prefixLength);
+        }
         builder.allowFamily(OsConstants.AF_INET);
         mInterface = builder.establish();
         int fd = mInterface.getFd();
