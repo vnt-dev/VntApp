@@ -10,13 +10,15 @@ public class Config {
     private String cipherModel;
     private boolean tcp;
     private boolean finger;
+    private boolean firstLatency;
+    private int port;
     private String inIps;
     private String outIps;
 
 
     public Config(String token, String name, String deviceId, String server,
                   String stunServer, String password, String cipherModel, boolean tcp,boolean finger,
-                  String inIps,String outIps) {
+                  String inIps,String outIps,boolean firstLatency,int port) {
         this.token = token;
         this.name = name;
         this.deviceId = deviceId;
@@ -28,6 +30,8 @@ public class Config {
         this.finger = finger;
         this.inIps = inIps;
         this.outIps = outIps;
+        this.firstLatency = firstLatency;
+        this.port = port;
     }
 
     public String getToken() {
@@ -116,5 +120,21 @@ public class Config {
 
     public void setOutIps(String outIps) {
         this.outIps = outIps;
+    }
+
+    public boolean isFirstLatency() {
+        return firstLatency;
+    }
+
+    public void setFirstLatency(boolean firstLatency) {
+        this.firstLatency = firstLatency;
+    }
+
+    public int getPort() {
+        return port;
+    }
+
+    public void setPort(int port) {
+        this.port = port;
     }
 }

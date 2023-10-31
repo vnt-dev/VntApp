@@ -82,8 +82,10 @@ public class MyVpnService extends VpnService implements Runnable {
                 boolean finger = selectConfigurationInfoBean.isFinger();
                 String inIps = selectConfigurationInfoBean.getInIps();
                 String outIps = selectConfigurationInfoBean.getOutIps();
+                boolean firstLatency = selectConfigurationInfoBean.isFirstLatency();
+                int port = selectConfigurationInfoBean.getPort();
                 config = new Config(token, name, deviceId, server, stunServer, password.isEmpty() ? null : password,
-                        cipherModel, tcp, finger,inIps,outIps);
+                        cipherModel, tcp, finger,inIps,outIps,firstLatency,port);
                 if (mThread == null) {
                     mThread = new Thread(this, "VntVPN");
                     mThread.start();

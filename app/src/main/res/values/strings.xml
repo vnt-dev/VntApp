@@ -26,6 +26,10 @@
         <item>close</item>
         <item>open</item>
     </string-array>
+    <string-array name="priority">
+        <item>p2p</item>
+        <item>latency</item>
+    </string-array>
     <string name="common_loading">加载中&#8230;</string>
 
     <string name="common_unknown_error">未知错误</string>

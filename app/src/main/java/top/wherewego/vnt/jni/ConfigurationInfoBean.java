@@ -15,10 +15,12 @@ public class ConfigurationInfoBean implements Serializable {
     private boolean finger;
     private String inIps;
     private String outIps;
+    private boolean firstLatency;
+    private int port;
 
     public ConfigurationInfoBean(String token, String name, String deviceId, String password,
                                  String server, String stun, String cipherModel, boolean tcp, boolean finger,
-                                 String inIps, String outIps) {
+                                 String inIps, String outIps,boolean firstLatency,int port) {
         this.key = String.valueOf(System.currentTimeMillis());
         this.token = token;
         this.name = name;
@@ -31,6 +33,8 @@ public class ConfigurationInfoBean implements Serializable {
         this.finger = finger;
         this.inIps = inIps;
         this.outIps = outIps;
+        this.firstLatency = firstLatency;
+        this.port = port;
     }
 
     public String getKey() {
@@ -123,5 +127,21 @@ public class ConfigurationInfoBean implements Serializable {
 
     public void setOutIps(String outIps) {
         this.outIps = outIps;
+    }
+
+    public boolean isFirstLatency() {
+        return firstLatency;
+    }
+
+    public void setFirstLatency(boolean firstLatency) {
+        this.firstLatency = firstLatency;
+    }
+
+    public int getPort() {
+        return port;
+    }
+
+    public void setPort(int port) {
+        this.port = port;
     }
 }

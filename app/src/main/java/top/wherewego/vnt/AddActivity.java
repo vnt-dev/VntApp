@@ -29,6 +29,8 @@ public class AddActivity extends AppActivity {
     private Spinner mCipherModel;
     private Spinner mConnectType;
     private Spinner mFinger;
+    private Spinner mPriority;
+    private EditText mPort;
 
     @Override
     protected int getLayoutId() {
@@ -68,6 +70,8 @@ public class AddActivity extends AppActivity {
         mCipherModel = findViewById(R.id.et_add_cipher_model_value);
         mConnectType = findViewById(R.id.et_add_connect_type_value);
         mFinger = findViewById(R.id.et_add_finger_value);
+        mPriority = findViewById(R.id.et_add_priority_value);
+        mPort = findViewById(R.id.et_add_port_value);
     }
 
     @Override
@@ -106,7 +110,23 @@ public class AddActivity extends AppActivity {
         String cipherModel = mCipherModel.getSelectedItem().toString().trim();
         String connectType = mConnectType.getSelectedItem().toString().trim();
         String finger = mFinger.getSelectedItem().toString().trim();
+        String priority = mPriority.getSelectedItem().toString().trim();
         String inIps = mInIps.getText().toString().trim();
+        String portStr = mPort.getText().toString().trim();
+        int port = 0;
+        if (!portStr.isEmpty()) {
+            try {
+                port = Integer.parseInt(portStr);
+                if (port < 0 || port >= 65535) {
+                    Toast.makeText(this, "port错误", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+            } catch (Exception e) {
+                Toast.makeText(this, "port错误", Toast.LENGTH_SHORT).show();
+                return;
+            }
+        }
+
         if (inIps.isEmpty()) {
             inIps = null;
         }
@@ -116,7 +136,8 @@ public class AddActivity extends AppActivity {
         }
         ConfigurationInfoBean configurationInfoBean = new ConfigurationInfoBean(
                 token, name, deviceId, password, server, stun,
-                cipherModel, "TCP".equalsIgnoreCase(connectType), "OPEN".equalsIgnoreCase(finger), inIps, outIps
+                cipherModel, "TCP".equalsIgnoreCase(connectType), "OPEN".equalsIgnoreCase(finger), inIps, outIps,
+                "latency".equalsIgnoreCase(priority),port
         );
         try {
             String err = check(configurationInfoBean);
