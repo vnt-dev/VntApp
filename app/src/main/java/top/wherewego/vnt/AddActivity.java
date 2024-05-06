@@ -129,8 +129,8 @@ public class AddActivity extends AppActivity {
             this.setSpinnerItemSelectedByValue(this.mCipherModel, configurationInfoBean.getCipherModel());
             String tu = configurationInfoBean.isTcp() ? "TCP" : "UDP";
             this.setSpinnerItemSelectedByValue(this.mConnectType, tu);
-            this.setSpinnerItemSelectedByValue(this.mFinger, configurationInfoBean.isFinger() ? "OPEN" : "CLOSE");
-            this.setSpinnerItemSelectedByValue(this.mPriority, configurationInfoBean.isFirstLatency() ? "latency" : "");
+            this.setSpinnerItemSelectedByValue(this.mFinger, configurationInfoBean.isFinger() ? "open" : "close");
+            this.setSpinnerItemSelectedByValue(this.mPriority, configurationInfoBean.isFirstLatency() ? "latency" : "p2p");
             int port = configurationInfoBean.getPort();
             this.mPort.setText(port == 0 ? "" : port + "");
         }
