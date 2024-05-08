@@ -1,13 +1,18 @@
 package top.wherewego.vnt;
 
+import android.content.Intent;
+import android.os.Build;
+import android.util.Log;
 import android.widget.EditText;
 import android.widget.Spinner;
+import android.widget.SpinnerAdapter;
 import android.widget.Toast;
 
 import com.google.gson.Gson;
 import com.hjq.bar.OnTitleBarListener;
 import com.hjq.bar.TitleBar;
 
+import java.util.ArrayList;
 import java.util.UUID;
 
 import top.wherewego.vnt.app.AppActivity;
@@ -31,6 +36,8 @@ public class AddActivity extends AppActivity {
     private Spinner mFinger;
     private Spinner mPriority;
     private EditText mPort;
+
+    private int position;
 
     @Override
     protected int getLayoutId() {
@@ -74,9 +81,59 @@ public class AddActivity extends AppActivity {
         mPort = findViewById(R.id.et_add_port_value);
     }
 
+
+    public void setSpinnerItemSelectedByValue(Spinner spinner, String value) {
+        SpinnerAdapter apsAdapter = spinner.getAdapter();
+        int k = apsAdapter.getCount();
+        for (int i = 0; i < k; i++) {
+            if (value.equals(apsAdapter.getItem(i).toString())) {
+                spinner.setSelection(i, true);// 默认选中项
+                break;
+            }
+        }
+    }
+
+    public int findIndex(ArrayList<ConfigurationInfoBean> array, String target) {
+        for (int i = 0; i < array.size(); i++) {
+            if (array.get(i).getToken() == target) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+
+    private ConfigurationInfoBean getPrevConfigurationInfo() {
+       try {
+           return this.position > -1 ? AppApplication.configList.get(this.position) : null;
+       } catch (Exception e){
+           return null;
+       }
+    }
+
+
     @Override
     protected void initData() {
-
+        Intent intent = getIntent();
+        this.position = (int) intent.getIntExtra("position", -1);
+        ConfigurationInfoBean configurationInfoBean = this.getPrevConfigurationInfo();
+        if (configurationInfoBean != null) {
+            this.mToken.setText(configurationInfoBean.getToken());
+            this.mName.setText(configurationInfoBean.getName());
+            this.mDeviceId.setText(configurationInfoBean.getDeviceId());
+            this.mPassword.setText(configurationInfoBean.getPassword());
+            this.mServer.setText(configurationInfoBean.getServer());
+            this.mStun.setText(configurationInfoBean.getStun());
+            this.mInIps.setText(configurationInfoBean.getInIps());
+            this.mOutIps.setText(configurationInfoBean.getOutIps());
+            this.setSpinnerItemSelectedByValue(this.mCipherModel, configurationInfoBean.getCipherModel());
+            String tu = configurationInfoBean.isTcp() ? "TCP" : "UDP";
+            this.setSpinnerItemSelectedByValue(this.mConnectType, tu);
+            this.setSpinnerItemSelectedByValue(this.mFinger, configurationInfoBean.isFinger() ? "open" : "close");
+            this.setSpinnerItemSelectedByValue(this.mPriority, configurationInfoBean.isFirstLatency() ? "latency" : "p2p");
+            int port = configurationInfoBean.getPort();
+            this.mPort.setText(port == 0 ? "" : port + "");
+        }
     }
 
     private void save() {
@@ -137,8 +194,12 @@ public class AddActivity extends AppActivity {
         ConfigurationInfoBean configurationInfoBean = new ConfigurationInfoBean(
                 token, name, deviceId, password, server, stun,
                 cipherModel, "TCP".equalsIgnoreCase(connectType), "OPEN".equalsIgnoreCase(finger), inIps, outIps,
-                "latency".equalsIgnoreCase(priority),port
+                "latency".equalsIgnoreCase(priority), port
         );
+        ConfigurationInfoBean prevConf = this.getPrevConfigurationInfo();
+        if (prevConf != null) {
+            configurationInfoBean.setKey(prevConf.getKey());
+        }
         try {
             String err = check(configurationInfoBean);
             if (err != null) {
@@ -150,14 +211,18 @@ public class AddActivity extends AppActivity {
             return;
         }
 
-        String keyset = SPUtils.getString(getApplicationContext(), "keyset", "0");
-        if (keyset.equals("0")) {
-            SPUtils.putString(getApplicationContext(), "keyset", configurationInfoBean.getKey());
+
+        if (this.position < 0) {
+            Log.i("false", "false");
+            AppApplication.configList.add(configurationInfoBean);
         } else {
-            SPUtils.putString(getApplicationContext(), "keyset", keyset + "," + configurationInfoBean.getKey());
+            Log.i("true", "true");
+            AppApplication.configList.set(this.position, configurationInfoBean);
         }
+
+        SPUtils.putString(getApplicationContext(), "keyset", AppApplication.getKeysString());
         SPUtils.putString(getApplicationContext(), configurationInfoBean.getKey(), new Gson().toJson(configurationInfoBean));
-        AppApplication.configList.add(configurationInfoBean);
+
         finish();
     }
 

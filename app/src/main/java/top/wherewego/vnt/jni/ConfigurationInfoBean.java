@@ -3,7 +3,7 @@ package top.wherewego.vnt.jni;
 import java.io.Serializable;
 
 public class ConfigurationInfoBean implements Serializable {
-    private final String key;
+    private String key;
     private String token;
     private String name;
     private String deviceId;
@@ -39,6 +39,10 @@ public class ConfigurationInfoBean implements Serializable {
 
     public String getKey() {
         return key;
+    }
+
+    public void setKey(String key) {
+        this.key = key;
     }
 
     public String getToken() {

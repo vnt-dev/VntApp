@@ -40,6 +40,7 @@ public class MainActivity extends AppActivity implements OnRefreshLoadMoreListen
 
     private ActivityResultLauncher<Intent> vpnLauncher;
     ConfigurationInfoBean selectConfigurationInfoBean;
+
     @Override
     protected int getLayoutId() {
         return R.layout.activity_main;
@@ -72,6 +73,12 @@ public class MainActivity extends AppActivity implements OnRefreshLoadMoreListen
             alert.show();
 
         });
+
+        mAdapter.setOnChildClickListener(R.id.iv_edit, (recyclerView, childView, position) -> {
+            Intent intent = new Intent(getContext(), AddActivity.class);
+            intent.putExtra("position", position);
+            startActivity(intent);
+        });
         mRecyclerView.setAdapter(mAdapter);
 
         mRefreshLayout.setOnRefreshLoadMoreListener(this);
@@ -84,21 +91,16 @@ public class MainActivity extends AppActivity implements OnRefreshLoadMoreListen
                 });
     }
 
-    public void deleteItem(String key){
-        String keyset = SPUtils.getString(getApplicationContext(), "keyset", "0");
+
+    public void deleteItem(String key) {
+        String keyset = SPUtils.getString(getApplicationContext(), "keyset", "");
         StringBuilder newKeySet = new StringBuilder();
-        if (keyset.equals("0")) {
+        if (keyset.isEmpty()) {
             return;
         } else {
-            String[] keys = keyset.split(",");
-            for (String s : keys) {
-                if (!s.equals(key)) {
-                    newKeySet.append(s).append(",");
-                }
-            }
-            SPUtils.putString(getApplicationContext(), "keyset", newKeySet.toString());
+            SPUtils.putString(getApplicationContext(), "keyset", AppApplication.getKeysString());
         }
-        SPUtils.deleteShare(getApplicationContext(),key);
+        SPUtils.deleteShare(getApplicationContext(), key);
     }
 
     @Override
@@ -115,7 +117,6 @@ public class MainActivity extends AppActivity implements OnRefreshLoadMoreListen
     }
 
 
-
     @Override
     public void onItemClick(RecyclerView recyclerView, View itemView, int position) {
         selectConfigurationInfoBean = mAdapter.getItem(position);
@@ -127,7 +128,9 @@ public class MainActivity extends AppActivity implements OnRefreshLoadMoreListen
             connect();
         }
     }
-    private void connect(){
+
+
+    private void connect() {
         Intent intent = new Intent(this, ConnectActivity.class);
         intent.putExtra("selectConfigurationInfoBean", selectConfigurationInfoBean);
         startActivity(intent);

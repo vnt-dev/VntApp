@@ -32,6 +32,15 @@ public final class AppApplication extends Application {
         initSdk(this);
     }
 
+    public static String getKeysString (){
+        String keyStr = "";
+        for (int i = 0; i < configList.size(); i++) {
+            keyStr += keyStr.isEmpty() ? configList.get(i).getKey(): ","+configList.get(i).getKey();
+        }
+        return keyStr;
+    }
+
+
     @Override
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(base);
@@ -43,8 +52,8 @@ public final class AppApplication extends Application {
             Log.d("swichapp", "attachBaseContext: keyset : " + keyset);
             for (String s : strArray) {
                 Log.d("swichapp", "attachBaseContext: s : " + s);
-                String json = SPUtils.getString(this, s, "0");
-                if (json.equals("0")) {
+                String json = SPUtils.getString(this, s, "");
+                if (json.isEmpty()) {
                     continue;
                 }
                 ConfigurationInfoBean configurationInfoBean = new Gson().fromJson(json, ConfigurationInfoBean.class);
