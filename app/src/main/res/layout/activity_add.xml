@@ -244,7 +244,7 @@
             android:singleLine="true" />
 
     </LinearLayout>
-    <LinearLayout
+<!--    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
@@ -256,7 +256,7 @@
             android:layout_width="@dimen/dp_68"
             android:gravity="end"
             android:layout_height="wrap_content"
-            android:text="Port:"
+            android:text="Ports:"
             android:textSize="@dimen/sp_14"
             android:textStyle="bold" />
 
@@ -267,12 +267,12 @@
             style="@style/EditTextStyle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="监听端口"
+            android:hint="监听端口,多个端口使用逗号分隔"
             android:inputType="number"
             android:maxLength="@integer/sms_code_length"
             android:singleLine="true" />
 
-    </LinearLayout>
+    </LinearLayout>-->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -356,7 +356,7 @@
 
     </LinearLayout>
 
-    <LinearLayout
+<!--    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
@@ -378,10 +378,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="请输入stun服务(逗号分割)"
-            android:text="stun1.l.google.com:19302,\nstun2.l.google.com:19302,\nstun.qq.com:3478"
+            android:text="stun1.l.google.com:19302,\nstun2.l.google.com:19302,\nstun.miwifi.com:3478"
             android:minLines="1"
             android:maxLines="10"
             android:inputType="textMultiLine"
             android:singleLine="false" />
-    </LinearLayout>
+    </LinearLayout>-->
 </LinearLayout>

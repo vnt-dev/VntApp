@@ -1,7 +1,6 @@
 package top.wherewego.vnt;
 
 import android.content.Intent;
-import android.os.Build;
 import android.util.Log;
 import android.widget.EditText;
 import android.widget.Spinner;
@@ -13,13 +12,13 @@ import com.hjq.bar.OnTitleBarListener;
 import com.hjq.bar.TitleBar;
 
 import java.util.ArrayList;
+import java.util.Objects;
 import java.util.UUID;
 
 import top.wherewego.vnt.app.AppActivity;
 import top.wherewego.vnt.app.AppApplication;
-import top.wherewego.vnt.util.IpRouteUtils;
+import top.wherewego.vnt.config.ConfigurationInfoBean;
 import top.wherewego.vnt.util.SPUtils;
-import top.wherewego.vnt.jni.ConfigurationInfoBean;
 
 public class AddActivity extends AppActivity {
     private TitleBar mTitleBar;
@@ -28,14 +27,12 @@ public class AddActivity extends AppActivity {
     private EditText mDeviceId;
     private EditText mPassword;
     private EditText mServer;
-    private EditText mStun;
     private EditText mInIps;
     private EditText mOutIps;
     private Spinner mCipherModel;
     private Spinner mConnectType;
     private Spinner mFinger;
     private Spinner mPriority;
-    private EditText mPort;
 
     private int position;
 
@@ -71,14 +68,14 @@ public class AddActivity extends AppActivity {
         mDeviceId.setText(id);
         mPassword = findViewById(R.id.et_add_password_value);
         mServer = findViewById(R.id.et_add_server_value);
-        mStun = findViewById(R.id.et_add_stun_value);
+//        mStun = findViewById(R.id.et_add_stun_value);
         mInIps = findViewById(R.id.et_add_in_ip_value);
         mOutIps = findViewById(R.id.et_add_out_ip_value);
         mCipherModel = findViewById(R.id.et_add_cipher_model_value);
         mConnectType = findViewById(R.id.et_add_connect_type_value);
         mFinger = findViewById(R.id.et_add_finger_value);
         mPriority = findViewById(R.id.et_add_priority_value);
-        mPort = findViewById(R.id.et_add_port_value);
+//        mPort = findViewById(R.id.et_add_port_value);
     }
 
 
@@ -95,7 +92,7 @@ public class AddActivity extends AppActivity {
 
     public int findIndex(ArrayList<ConfigurationInfoBean> array, String target) {
         for (int i = 0; i < array.size(); i++) {
-            if (array.get(i).getToken() == target) {
+            if (Objects.equals(array.get(i).getToken(), target)) {
                 return i;
             }
         }
@@ -104,18 +101,18 @@ public class AddActivity extends AppActivity {
 
 
     private ConfigurationInfoBean getPrevConfigurationInfo() {
-       try {
-           return this.position > -1 ? AppApplication.configList.get(this.position) : null;
-       } catch (Exception e){
-           return null;
-       }
+        try {
+            return this.position > -1 ? AppApplication.configList.get(this.position) : null;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
 
     @Override
     protected void initData() {
         Intent intent = getIntent();
-        this.position = (int) intent.getIntExtra("position", -1);
+        this.position = intent.getIntExtra("position", -1);
         ConfigurationInfoBean configurationInfoBean = this.getPrevConfigurationInfo();
         if (configurationInfoBean != null) {
             this.mToken.setText(configurationInfoBean.getToken());
@@ -123,16 +120,16 @@ public class AddActivity extends AppActivity {
             this.mDeviceId.setText(configurationInfoBean.getDeviceId());
             this.mPassword.setText(configurationInfoBean.getPassword());
             this.mServer.setText(configurationInfoBean.getServer());
-            this.mStun.setText(configurationInfoBean.getStun());
-            this.mInIps.setText(configurationInfoBean.getInIps());
-            this.mOutIps.setText(configurationInfoBean.getOutIps());
+            if (configurationInfoBean.getInIps() != null) {
+                this.mInIps.setText(String.join("\n", configurationInfoBean.getInIps()));
+            }
+            if (configurationInfoBean.getOutIps() != null) {
+                this.mOutIps.setText(String.join("\n", configurationInfoBean.getOutIps()));
+            }
             this.setSpinnerItemSelectedByValue(this.mCipherModel, configurationInfoBean.getCipherModel());
-            String tu = configurationInfoBean.isTcp() ? "TCP" : "UDP";
-            this.setSpinnerItemSelectedByValue(this.mConnectType, tu);
+            this.setSpinnerItemSelectedByValue(this.mConnectType, configurationInfoBean.isTcp() ? "TCP" : "UDP");
             this.setSpinnerItemSelectedByValue(this.mFinger, configurationInfoBean.isFinger() ? "open" : "close");
             this.setSpinnerItemSelectedByValue(this.mPriority, configurationInfoBean.isFirstLatency() ? "latency" : "p2p");
-            int port = configurationInfoBean.getPort();
-            this.mPort.setText(port == 0 ? "" : port + "");
         }
     }
 
@@ -153,55 +150,61 @@ public class AddActivity extends AppActivity {
             Toast.makeText(this, "Server不能为空", Toast.LENGTH_SHORT).show();
             return;
         }
-        if (mStun.getText().toString().trim().isEmpty()) {
-            Toast.makeText(this, "stun不能为空", Toast.LENGTH_SHORT).show();
-            return;
-        }
+
         String token = mToken.getText().toString().trim();
         String name = mName.getText().toString().trim();
         String deviceId = mDeviceId.getText().toString().trim();
         String password = mPassword.getText().toString().trim();
         String server = mServer.getText().toString().trim();
 
-        String stun = mStun.getText().toString().trim();
         String cipherModel = mCipherModel.getSelectedItem().toString().trim();
-        String connectType = mConnectType.getSelectedItem().toString().trim();
-        String finger = mFinger.getSelectedItem().toString().trim();
-        String priority = mPriority.getSelectedItem().toString().trim();
+        boolean isTcp = mConnectType.getSelectedItem().toString().trim().equalsIgnoreCase("tcp");
+        boolean finger = mFinger.getSelectedItem().toString().trim().equalsIgnoreCase("open");
+        boolean latency = mPriority.getSelectedItem().toString().trim().equalsIgnoreCase("latency");
         String inIps = mInIps.getText().toString().trim();
-        String portStr = mPort.getText().toString().trim();
-        int port = 0;
-        if (!portStr.isEmpty()) {
-            try {
-                port = Integer.parseInt(portStr);
-                if (port < 0 || port >= 65535) {
-                    Toast.makeText(this, "port错误", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-            } catch (Exception e) {
-                Toast.makeText(this, "port错误", Toast.LENGTH_SHORT).show();
-                return;
-            }
-        }
+//        String portStr = mPort.getText().toString().trim();
+//        if (!portStr.isEmpty()) {
+//            try {
+//                int port = Integer.parseInt(portStr);
+//                if (port < 0 || port >= 65535) {
+//                    Toast.makeText(this, "port错误", Toast.LENGTH_SHORT).show();
+//                    return;
+//                }
+//            } catch (Exception e) {
+//                Toast.makeText(this, "port错误", Toast.LENGTH_SHORT).show();
+//                return;
+//            }
+//        }
 
-        if (inIps.isEmpty()) {
-            inIps = null;
-        }
+
         String outIps = mOutIps.getText().toString().trim();
-        if (outIps.isEmpty()) {
-            outIps = null;
+
+        ConfigurationInfoBean bean;
+        if (this.position < 0) {
+            bean = new ConfigurationInfoBean();
+        }else{
+            bean =  AppApplication.configList.get(this.position);
         }
-        ConfigurationInfoBean configurationInfoBean = new ConfigurationInfoBean(
-                token, name, deviceId, password, server, stun,
-                cipherModel, "TCP".equalsIgnoreCase(connectType), "OPEN".equalsIgnoreCase(finger), inIps, outIps,
-                "latency".equalsIgnoreCase(priority), port
-        );
-        ConfigurationInfoBean prevConf = this.getPrevConfigurationInfo();
-        if (prevConf != null) {
-            configurationInfoBean.setKey(prevConf.getKey());
+        bean.setToken(token);
+        bean.setName(name);
+        bean.setPassword(password);
+        bean.setCipherModel(cipherModel);
+        bean.setServerEncrypt(true);
+        bean.setRelay(false);
+        bean.setDeviceId(deviceId);
+        bean.setServer(server);
+        bean.setStunServer(new String[]{"stun1.l.google.com:19302","stun2.l.google.com:19302","stun.miwifi.com:3478"});
+        bean.setTcp(isTcp);
+        bean.setFinger(finger);
+        bean.setFirstLatency(latency);
+        if (!inIps.isEmpty()){
+            bean.setInIps(inIps.split("\n"));
+        }
+        if (!outIps.isEmpty()){
+            bean.setOutIps(outIps.split("\n"));
         }
         try {
-            String err = check(configurationInfoBean);
+            String err = check(bean);
             if (err != null) {
                 Toast.makeText(this, err, Toast.LENGTH_SHORT).show();
                 return;
@@ -211,17 +214,19 @@ public class AddActivity extends AppActivity {
             return;
         }
 
-
         if (this.position < 0) {
-            Log.i("false", "false");
-            AppApplication.configList.add(configurationInfoBean);
-        } else {
-            Log.i("true", "true");
-            AppApplication.configList.set(this.position, configurationInfoBean);
+            bean.setKey(""+System.currentTimeMillis());
+            AppApplication.configList.add(bean);
+            //新增
+            String keyset = SPUtils.getString(getApplicationContext(), "keyset", null);
+            if (keyset==null) {
+                SPUtils.putString(getApplicationContext(), "keyset", bean.getKey());
+            } else {
+                SPUtils.putString(getApplicationContext(), "keyset", keyset + "," + bean.getKey());
+            }
         }
 
-        SPUtils.putString(getApplicationContext(), "keyset", AppApplication.getKeysString());
-        SPUtils.putString(getApplicationContext(), configurationInfoBean.getKey(), new Gson().toJson(configurationInfoBean));
+        SPUtils.putString(getApplicationContext(), bean.getKey(), new Gson().toJson(bean));
 
         finish();
     }
@@ -239,17 +244,6 @@ public class AddActivity extends AppActivity {
         }
         if (port <= 0 || port >= 65536) {
             return "服务端口错误";
-        }
-        String err;
-        err = IpRouteUtils.checkInIps(configurationInfoBean.getInIps());
-        if (err != null) {
-            return "inIps错误:" + err;
-
-        }
-        err = IpRouteUtils.checkOutIps(configurationInfoBean.getOutIps());
-        if (err != null) {
-            return "outIps错误:" + err;
-
         }
         return null;
     }

@@ -1,6 +1,7 @@
 package top.wherewego.vnt;
 
 import android.content.Intent;
+import android.util.Log;
 import android.view.View;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -19,8 +20,8 @@ import top.wherewego.base.BaseAdapter;
 import top.wherewego.vnt.adapter.StatusAdapter;
 import top.wherewego.vnt.app.AppActivity;
 import top.wherewego.vnt.app.AppApplication;
+import top.wherewego.vnt.config.ConfigurationInfoBean;
 import top.wherewego.vnt.util.SPUtils;
-import top.wherewego.vnt.jni.ConfigurationInfoBean;
 import top.wherewego.widget.layout.WrapRecyclerView;
 
 
@@ -93,14 +94,20 @@ public class MainActivity extends AppActivity implements OnRefreshLoadMoreListen
 
 
     public void deleteItem(String key) {
-        String keyset = SPUtils.getString(getApplicationContext(), "keyset", "");
-        StringBuilder newKeySet = new StringBuilder();
-        if (keyset.isEmpty()) {
+        String keyset = SPUtils.getString(getApplicationContext(), "keyset", null);
+        if (keyset==null) {
             return;
         } else {
-            SPUtils.putString(getApplicationContext(), "keyset", AppApplication.getKeysString());
+            StringBuilder newKeySet = new StringBuilder();
+            String[] keys = keyset.split(",");
+            for (String s : keys) {
+                if (!s.equals(key)) {
+                    newKeySet.append(s).append(",");
+                }
+            }
+            SPUtils.putString(getApplicationContext(), "keyset", newKeySet.toString());
         }
-        SPUtils.deleteShare(getApplicationContext(), key);
+        SPUtils.deleteShare(getApplicationContext(),key);
     }
 
     @Override
@@ -132,6 +139,7 @@ public class MainActivity extends AppActivity implements OnRefreshLoadMoreListen
 
     private void connect() {
         Intent intent = new Intent(this, ConnectActivity.class);
+        Log.i("connect", "connect "+selectConfigurationInfoBean);
         intent.putExtra("selectConfigurationInfoBean", selectConfigurationInfoBean);
         startActivity(intent);
     }

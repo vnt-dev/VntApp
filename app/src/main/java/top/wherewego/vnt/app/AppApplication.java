@@ -14,8 +14,8 @@ import com.scwang.smart.refresh.layout.SmartRefreshLayout;
 import java.util.ArrayList;
 
 import top.wherewego.vnt.R;
+import top.wherewego.vnt.config.ConfigurationInfoBean;
 import top.wherewego.vnt.util.SPUtils;
-import top.wherewego.vnt.jni.ConfigurationInfoBean;
 
 /**
  * author : Android 轮子哥
@@ -32,21 +32,13 @@ public final class AppApplication extends Application {
         initSdk(this);
     }
 
-    public static String getKeysString (){
-        String keyStr = "";
-        for (int i = 0; i < configList.size(); i++) {
-            keyStr += keyStr.isEmpty() ? configList.get(i).getKey(): ","+configList.get(i).getKey();
-        }
-        return keyStr;
-    }
-
 
     @Override
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(base);
 
-        String keyset = SPUtils.getString(this, "keyset", "0");
-        if (!keyset.equals("0")) {
+        String keyset = SPUtils.getString(this, "keyset", null);
+        if (keyset!=null) {
             String[] strArray = null;
             strArray = keyset.split(","); //拆分字符为"," ,然后把结果交给数组strArray
             Log.d("swichapp", "attachBaseContext: keyset : " + keyset);
