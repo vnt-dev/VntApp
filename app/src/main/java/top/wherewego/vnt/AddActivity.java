@@ -29,6 +29,8 @@ public class AddActivity extends AppActivity {
     private EditText mServer;
     private EditText mInIps;
     private EditText mOutIps;
+    private EditText mIp;
+    private EditText mVnpName;
     private Spinner mCipherModel;
     private Spinner mConnectType;
     private Spinner mFinger;
@@ -75,6 +77,8 @@ public class AddActivity extends AppActivity {
         mConnectType = findViewById(R.id.et_add_connect_type_value);
         mFinger = findViewById(R.id.et_add_finger_value);
         mPriority = findViewById(R.id.et_add_priority_value);
+        mIp = findViewById(R.id.et_add_ip_value);
+        mVnpName = findViewById(R.id.et_add_net_name_value);
 //        mPort = findViewById(R.id.et_add_port_value);
     }
 
@@ -115,6 +119,8 @@ public class AddActivity extends AppActivity {
         this.position = intent.getIntExtra("position", -1);
         ConfigurationInfoBean configurationInfoBean = this.getPrevConfigurationInfo();
         if (configurationInfoBean != null) {
+            this.mVnpName.setText(configurationInfoBean.getVpnName());
+            this.mIp.setText(configurationInfoBean.getIp());
             this.mToken.setText(configurationInfoBean.getToken());
             this.mName.setText(configurationInfoBean.getName());
             this.mDeviceId.setText(configurationInfoBean.getDeviceId());
@@ -150,6 +156,8 @@ public class AddActivity extends AppActivity {
             Toast.makeText(this, "Server不能为空", Toast.LENGTH_SHORT).show();
             return;
         }
+        String ip = mIp.getText().toString().trim();
+        String vpnName = mVnpName.getText().toString().trim();
 
         String token = mToken.getText().toString().trim();
         String name = mName.getText().toString().trim();
@@ -182,44 +190,48 @@ public class AddActivity extends AppActivity {
         ConfigurationInfoBean bean;
         if (this.position < 0) {
             bean = new ConfigurationInfoBean();
-        }else{
-            bean =  AppApplication.configList.get(this.position);
+        } else {
+            bean = AppApplication.configList.get(this.position);
+        }
+        if (!ip.isEmpty()) {
+            bean.setIp(ip);
+        } else {
+            bean.setIp(null);
+        }
+        if (vpnName.isEmpty()) {
+            bean.setVpnName(token);
+        } else {
+            bean.setVpnName(vpnName);
         }
         bean.setToken(token);
         bean.setName(name);
-        bean.setPassword(password);
+        if (!password.isEmpty()) {
+            bean.setPassword(password);
+        } else {
+            bean.setPassword(null);
+        }
         bean.setCipherModel(cipherModel);
         bean.setServerEncrypt(true);
         bean.setRelay(false);
         bean.setDeviceId(deviceId);
         bean.setServer(server);
-        bean.setStunServer(new String[]{"stun1.l.google.com:19302","stun2.l.google.com:19302","stun.miwifi.com:3478"});
+        bean.setStunServer(new String[]{"stun1.l.google.com:19302", "stun2.l.google.com:19302", "stun.miwifi.com:3478"});
         bean.setTcp(isTcp);
         bean.setFinger(finger);
         bean.setFirstLatency(latency);
-        if (!inIps.isEmpty()){
+        if (!inIps.isEmpty()) {
             bean.setInIps(inIps.split("\n"));
         }
-        if (!outIps.isEmpty()){
+        if (!outIps.isEmpty()) {
             bean.setOutIps(outIps.split("\n"));
-        }
-        try {
-            String err = check(bean);
-            if (err != null) {
-                Toast.makeText(this, err, Toast.LENGTH_SHORT).show();
-                return;
-            }
-        } catch (Exception e) {
-            Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
-            return;
         }
 
         if (this.position < 0) {
-            bean.setKey(""+System.currentTimeMillis());
+            bean.setKey("" + System.currentTimeMillis());
             AppApplication.configList.add(bean);
             //新增
             String keyset = SPUtils.getString(getApplicationContext(), "keyset", null);
-            if (keyset==null) {
+            if (keyset == null) {
                 SPUtils.putString(getApplicationContext(), "keyset", bean.getKey());
             } else {
                 SPUtils.putString(getApplicationContext(), "keyset", keyset + "," + bean.getKey());
@@ -229,23 +241,6 @@ public class AddActivity extends AppActivity {
         SPUtils.putString(getApplicationContext(), bean.getKey(), new Gson().toJson(bean));
 
         finish();
-    }
-
-    String check(ConfigurationInfoBean configurationInfoBean) {
-        String[] parts = configurationInfoBean.getServer().split(":");
-
-        if (parts.length != 2) {
-            return "服务器地址错误";
-        }
-        int port = 0;
-        try {
-            port = Integer.parseInt(parts[1]);
-        } catch (Exception ignored) {
-        }
-        if (port <= 0 || port >= 65536) {
-            return "服务端口错误";
-        }
-        return null;
     }
 
 }

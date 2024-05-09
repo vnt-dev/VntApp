@@ -116,20 +116,7 @@ public class ConnectActivity extends AppActivity implements OnRefreshLoadMoreLis
             Toast.makeText(this, "加密模式不能为空", Toast.LENGTH_SHORT).show();
             return;
         }
-        String[] parts = server.split(":");
-        if (parts.length != 2) {
-            Toast.makeText(this, "服务器地址错误", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        int port = 0;
-        try {
-            port = Integer.parseInt(parts[1]);
-        } catch (Exception ignored) {
-        }
-        if (port <= 0 || port >= 65536) {
-            Toast.makeText(this, "ServerAddress error", Toast.LENGTH_SHORT).show();
-            return;
-        }
+
         Intent serviceIntent = new Intent(this, MyVpnService.class);
         serviceIntent.setAction("start");
         serviceIntent.putExtra("config", selectConfigurationInfoBean);

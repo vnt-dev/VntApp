@@ -2,6 +2,7 @@ package top.wherewego.vnt;
 
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.VpnService;
 import android.os.Build;
@@ -97,14 +98,13 @@ public class MyVpnService extends VpnService implements Runnable {
             run0();
         } catch (Throwable e) {
             Handler handler = new Handler(Looper.getMainLooper());
-            handler.post(() -> Toast.makeText(getApplicationContext(), "启动失败:"+e.getMessage(), Toast.LENGTH_LONG).show());
+            handler.post(() -> Toast.makeText(getApplicationContext(), "启动失败:" + e.getMessage(), Toast.LENGTH_LONG).show());
         }
         Handler handler = new Handler(Looper.getMainLooper());
         handler.post(() -> {
             Toast.makeText(getApplicationContext(), "Vnt已停止", Toast.LENGTH_LONG).show();
         });
         stop0();
-        myVpnService.stopSelf();
         eVnt = null;
         mInterface = null;
         mThread = null;
@@ -114,22 +114,22 @@ public class MyVpnService extends VpnService implements Runnable {
         if (eVnt != null) {
             eVnt.stop();
         }
-        if (mThread != null) {
-            mThread.interrupt();
+        if (myVpnService != null) {
+            myVpnService.stopSelf();
+
+        }
+        if (mInterface != null) {
+            try {
+                mInterface.close();
+            } catch (IOException e) {
+                Log.e("mInterface", "mInterface", e);
+            }
         }
     }
 
     private void run0() {
         try {
-            String[] parts = config.getServer().split(":");
-            new InetSocketAddress(parts[0], Integer.parseInt(parts[1]));
-        } catch (Exception ignored) {
-            Handler handler = new Handler(Looper.getMainLooper());
-            handler.post(() -> Toast.makeText(getApplicationContext(), "ServerAddress error", Toast.LENGTH_SHORT).show());
-            return;
-        }
-        try {
-            Log.i("false", "false "+config.toString());
+
             eVnt = new Vnt(config, new CallBack() {
                 @Override
                 public void success() {
@@ -159,7 +159,7 @@ public class MyVpnService extends VpnService implements Runnable {
                 }
 
                 @Override
-                public int generateTun(DeviceConfig info) {
+                public int generateTun(DeviceConfig info) throws PackageManager.NameNotFoundException {
                     String ip = IpUtils.intToIpAddress(info.getVirtualIp());
                     {
                         Handler handler = new Handler(Looper.getMainLooper());
@@ -174,14 +174,15 @@ public class MyVpnService extends VpnService implements Runnable {
                     Builder builder = new Builder();
                     int prefixLength = IpUtils.subnetMaskToPrefixLength(info.getVirtualNetmask());
                     String ipRoute = IpUtils.intToIpAddress(info.getVirtualGateway() & info.getVirtualNetmask());
-                    List<IpRouteUtils.RouteItem> routeItems = IpRouteUtils.inIp(String.join("\n",info.getExternalRoute()));
+                    List<IpRouteUtils.RouteItem> routeItems = IpRouteUtils.inIp(String.join("\n", info.getExternalRoute()));
                     builder.setSession("VntVPN")
-                            .setBlocking(true)
+                            .addDisallowedApplication("top.wherewego.vnt")
+                            .setBlocking(false)
                             .setMtu(1410)
                             .addAddress(ip, prefixLength)
                             .addRoute(ipRoute, prefixLength);
                     for (IpRouteUtils.RouteItem routeItem : routeItems) {
-                        builder.addAddress(routeItem.address,routeItem.prefixLength);
+                        builder.addAddress(routeItem.address, routeItem.prefixLength);
                     }
                     builder.allowFamily(OsConstants.AF_INET);
                     mInterface = builder.establish();
@@ -196,20 +197,20 @@ public class MyVpnService extends VpnService implements Runnable {
                 @Override
                 public void error(ErrorInfo info) {
                     Handler handler = new Handler(Looper.getMainLooper());
-                    handler.post(() -> Toast.makeText(getApplicationContext(), "启动失败："+info.toString(), Toast.LENGTH_SHORT).show());
+                    handler.post(() -> Toast.makeText(getApplicationContext(), "启动失败：" + info.toString(), Toast.LENGTH_SHORT).show());
                 }
 
                 @Override
                 public void stop() {
                     Handler handler = new Handler(Looper.getMainLooper());
-                    handler.post(() -> Toast.makeText(getApplicationContext(), "服务停止", Toast.LENGTH_SHORT).show());
+                    handler.post(() -> Toast.makeText(getApplicationContext(), "vnt服务停止", Toast.LENGTH_SHORT).show());
                 }
             });
         } catch (Exception e) {
             e.printStackTrace();
-            Log.i("false", "false ",e);
+            Log.i("vnt", "vnt ", e);
             Handler handler = new Handler(Looper.getMainLooper());
-            handler.post(() -> Toast.makeText(getApplicationContext(), "启动失败："+e.getMessage(), Toast.LENGTH_SHORT).show());
+            handler.post(() -> Toast.makeText(getApplicationContext(), "启动失败：" + e.getMessage(), Toast.LENGTH_SHORT).show());
             return;
         }
 
@@ -218,7 +219,7 @@ public class MyVpnService extends VpnService implements Runnable {
             handler.post(() -> {
                 List<DeviceBean> list = new ArrayList<>();
                 PeerRouteInfo[] peerRouteInfos = eVnt.list();
-                if (peerRouteInfos!=null){
+                if (peerRouteInfos != null) {
                     for (PeerRouteInfo peer : peerRouteInfos) {
                         String rt = "";
                         String type = "";

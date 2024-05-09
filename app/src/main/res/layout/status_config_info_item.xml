@@ -18,17 +18,17 @@
 
         <ImageView
             android:id="@+id/iv_delete"
-            android:layout_width="@dimen/dp_20"
-            android:layout_height="@dimen/dp_20"
+            android:layout_width="@dimen/dp_35"
+            android:layout_height="@dimen/dp_35"
             android:src="@mipmap/delete"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
         <ImageView
             android:id="@+id/iv_edit"
-            android:layout_width="@dimen/dp_20"
-            android:layout_height="@dimen/dp_20"
-            android:src="@mipmap/add"
+            android:layout_width="@dimen/dp_35"
+            android:layout_height="@dimen/dp_35"
+            android:src="@mipmap/edit"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintBottom_toBottomOf="parent" />
 
@@ -37,7 +37,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="10dp"
-            android:text="Token："
+            android:text="VpnName："
             android:textSize="@dimen/sp_16"
             android:textStyle="bold"
             app:layout_constraintStart_toStartOf="parent"

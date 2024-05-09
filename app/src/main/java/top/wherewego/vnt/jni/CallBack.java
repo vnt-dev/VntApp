@@ -1,5 +1,7 @@
 package top.wherewego.vnt.jni;
 
+import android.content.pm.PackageManager;
+
 import top.wherewego.vnt.jni.param.*;
 
 /**
@@ -52,7 +54,7 @@ public interface CallBack {
      * @return 网卡fd
      */
 
-    int generateTun(DeviceConfig info);
+    int generateTun(DeviceConfig info) throws PackageManager.NameNotFoundException;
 
     /**
      * 对端用户列表
