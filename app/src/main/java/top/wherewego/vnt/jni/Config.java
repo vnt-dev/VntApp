@@ -10,7 +10,7 @@ import java.util.Arrays;
  */
 public class Config implements Serializable {
     /**
-     * 是否是tap模式，仅支持windows和linux
+     * 是否是tap模式，仅支持windows
      */
     private boolean tap;
     /**
@@ -41,10 +41,6 @@ public class Config implements Serializable {
      * 是否开启服务端加密
      */
     private boolean serverEncrypt;
-    /**
-     * 仅使用中继转发
-     */
-    private boolean relay;
     /**
      * 设备id，请使用唯一值
      */
@@ -177,13 +173,6 @@ public class Config implements Serializable {
         this.serverEncrypt = serverEncrypt;
     }
 
-    public boolean isRelay() {
-        return relay;
-    }
-
-    public void setRelay(boolean relay) {
-        this.relay = relay;
-    }
 
     public String getDeviceId() {
         return deviceId;
@@ -323,7 +312,6 @@ public class Config implements Serializable {
                 ", punchModel='" + punchModel + '\'' +
                 ", mtu=" + mtu +
                 ", serverEncrypt=" + serverEncrypt +
-                ", relay=" + relay +
                 ", deviceId='" + deviceId + '\'' +
                 ", server='" + server + '\'' +
                 ", dns=" + Arrays.toString(dns) +

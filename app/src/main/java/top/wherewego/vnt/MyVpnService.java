@@ -176,7 +176,7 @@ public class MyVpnService extends VpnService implements Runnable {
                     String ipRoute = IpUtils.intToIpAddress(info.getVirtualGateway() & info.getVirtualNetmask());
                     List<IpRouteUtils.RouteItem> routeItems = IpRouteUtils.inIp(String.join("\n", info.getExternalRoute()));
                     builder.setSession("VntVPN")
-                            .addDisallowedApplication("top.wherewego.vnt")
+                            //.addDisallowedApplication("top.wherewego.vnt")
                             .setBlocking(false)
                             .setMtu(1410)
                             .addAddress(ip, prefixLength)

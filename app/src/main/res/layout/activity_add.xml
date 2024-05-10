@@ -5,30 +5,32 @@
     android:id="@+id/drawer_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:fitsSystemWindows="true">
+    android:fitsSystemWindows="true"
+    android:orientation="vertical">
 
     <com.hjq.bar.TitleBar
         android:id="@+id/tb_add"
         android:layout_width="match_parent"
         android:layout_height="50dp"
         app:leftIcon="@mipmap/return_icon"
-        app:rightIcon="@mipmap/save"
         app:leftIconHeight="20dp"
         app:leftIconWidth="20dp"
+        app:rightIcon="@mipmap/save"
         app:rightIconHeight="30dp"
         app:rightIconWidth="30dp" />
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
         android:gravity="bottom"
+        android:orientation="horizontal"
         tools:ignore="MissingConstraints">
+
         <TextView
             android:id="@+id/tv_add_net_name"
             android:layout_width="@dimen/dp_68"
-            android:gravity="end"
             android:layout_height="wrap_content"
+            android:gravity="end"
             android:text="VPN:"
             android:textSize="@dimen/sp_14"
             android:textStyle="bold" />
@@ -44,10 +46,12 @@
             android:singleLine="true" />
 
     </LinearLayout>
+
     <View
         android:layout_width="fill_parent"
         android:layout_height="1dip"
         android:background="#FF909090" />
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -79,17 +83,18 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
         android:gravity="bottom"
+        android:orientation="horizontal"
         tools:ignore="MissingConstraints">
+
         <TextView
             android:id="@+id/tv_add_name"
             android:layout_width="@dimen/dp_68"
-            android:gravity="end"
             android:layout_height="wrap_content"
+            android:gravity="end"
             android:text="Name:"
             android:textSize="@dimen/sp_14"
-            android:textStyle="bold"/>
+            android:textStyle="bold" />
 
         <top.wherewego.widget.view.RegexEditText
             android:id="@+id/et_add_name_value"
@@ -102,20 +107,22 @@
             android:singleLine="true" />
 
     </LinearLayout>
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
         android:gravity="bottom"
+        android:orientation="horizontal"
         tools:ignore="MissingConstraints">
+
         <TextView
             android:id="@+id/tv_add_ip"
             android:layout_width="@dimen/dp_68"
-            android:gravity="end"
             android:layout_height="wrap_content"
+            android:gravity="end"
             android:text="IP:"
             android:textSize="@dimen/sp_14"
-            android:textStyle="bold"/>
+            android:textStyle="bold" />
 
         <top.wherewego.widget.view.RegexEditText
             android:id="@+id/et_add_ip_value"
@@ -128,18 +135,20 @@
             android:singleLine="true" />
 
     </LinearLayout>
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
         android:gravity="bottom"
+        android:orientation="horizontal"
         tools:ignore="MissingConstraints">
+
         <TextView
             android:id="@+id/tv_add_device_id"
             android:layout_width="@dimen/dp_68"
-            android:gravity="end"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/dp_2"
+            android:gravity="end"
             android:text="DeviceID:"
             android:textSize="@dimen/sp_14"
             android:textStyle="bold" />
@@ -150,32 +159,31 @@
             style="@style/EditTextStyle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="#aaaaaa"
-            android:hint=""
             android:enabled="false"
+            android:hint=""
             android:inputType="textVisiblePassword"
-            android:textSize="14dp"
             android:maxLength="@integer/sms_code_length"
-            android:singleLine="true" />
+            android:singleLine="true"
+            android:textColor="#aaaaaa"
+            android:textSize="14dp" />
 
     </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
         android:gravity="bottom"
+        android:orientation="horizontal"
         tools:ignore="MissingConstraints">
 
         <TextView
             android:id="@+id/tv_add_password"
             android:layout_width="@dimen/dp_68"
-            android:gravity="end"
             android:layout_height="wrap_content"
+            android:gravity="end"
             android:text="Password:"
             android:textSize="@dimen/sp_14"
             android:textStyle="bold" />
-
 
 
         <top.wherewego.widget.view.RegexEditText
@@ -189,22 +197,22 @@
             android:singleLine="true" />
 
     </LinearLayout>
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
         android:gravity="bottom"
+        android:orientation="horizontal"
         tools:ignore="MissingConstraints">
 
         <TextView
             android:id="@+id/tv_add_cipher_model"
             android:layout_width="@dimen/dp_68"
-            android:gravity="end"
             android:layout_height="wrap_content"
+            android:gravity="end"
             android:text="Model:"
             android:textSize="@dimen/sp_14"
             android:textStyle="bold" />
-
 
 
         <Spinner
@@ -212,27 +220,27 @@
             style="@style/SpinnerStyle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:inputType="textVisiblePassword"
             android:entries="@array/cipher_model"
+            android:inputType="textVisiblePassword"
             android:singleLine="true" />
 
     </LinearLayout>
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
         android:gravity="bottom"
+        android:orientation="horizontal"
         tools:ignore="MissingConstraints">
 
         <TextView
             android:id="@+id/tv_add_connect_type"
             android:layout_width="@dimen/dp_68"
-            android:gravity="end"
             android:layout_height="wrap_content"
+            android:gravity="end"
             android:text="Connect:"
             android:textSize="@dimen/sp_14"
             android:textStyle="bold" />
-
 
 
         <Spinner
@@ -244,22 +252,22 @@
             android:singleLine="true" />
 
     </LinearLayout>
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
         android:gravity="bottom"
+        android:orientation="horizontal"
         tools:ignore="MissingConstraints">
 
         <TextView
             android:id="@+id/tv_add_finger"
             android:layout_width="@dimen/dp_68"
-            android:gravity="end"
             android:layout_height="wrap_content"
+            android:gravity="end"
             android:text="Finger:"
             android:textSize="@dimen/sp_14"
             android:textStyle="bold" />
-
 
 
         <Spinner
@@ -271,22 +279,22 @@
             android:singleLine="true" />
 
     </LinearLayout>
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
         android:gravity="bottom"
+        android:orientation="horizontal"
         tools:ignore="MissingConstraints">
 
         <TextView
             android:id="@+id/tv_add_priority"
             android:layout_width="@dimen/dp_68"
-            android:gravity="end"
             android:layout_height="wrap_content"
+            android:gravity="end"
             android:text="Priority:"
             android:textSize="@dimen/sp_14"
             android:textStyle="bold" />
-
 
 
         <Spinner
@@ -298,22 +306,22 @@
             android:singleLine="true" />
 
     </LinearLayout>
-<!--    <LinearLayout
+
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
         android:gravity="bottom"
+        android:orientation="horizontal"
         tools:ignore="MissingConstraints">
 
         <TextView
             android:id="@+id/tv_add_port"
             android:layout_width="@dimen/dp_68"
-            android:gravity="end"
             android:layout_height="wrap_content"
+            android:gravity="end"
             android:text="Ports:"
             android:textSize="@dimen/sp_14"
             android:textStyle="bold" />
-
 
 
         <top.wherewego.widget.view.RegexEditText
@@ -322,26 +330,28 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="监听端口,多个端口使用逗号分隔"
-            android:inputType="number"
+            android:inputType="text"
             android:maxLength="@integer/sms_code_length"
             android:singleLine="true" />
 
-    </LinearLayout>-->
+    </LinearLayout>
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
         android:gravity="bottom"
+        android:orientation="horizontal"
         tools:ignore="MissingConstraints">
 
         <TextView
             android:id="@+id/tv_add_in_ip"
             android:layout_width="@dimen/dp_68"
-            android:gravity="end"
             android:layout_height="wrap_content"
+            android:gravity="end"
             android:text="In ips:"
             android:textSize="@dimen/sp_14"
             android:textStyle="bold" />
+
         <top.wherewego.widget.view.RegexEditText
             android:id="@+id/et_add_in_ip_value"
             style="@style/EditTextStyle"
@@ -349,26 +359,28 @@
             android:layout_height="wrap_content"
             android:hint="192.168.3.0/24,10.26.0.3\n192.168.2.0/24,10.26.0.2\n(多个用换行分隔)"
             android:inputType="textMultiLine"
-            android:minLines="1"
             android:maxLines="10"
+            android:minLines="1"
             android:singleLine="true" />
 
     </LinearLayout>
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
         android:gravity="bottom"
+        android:orientation="horizontal"
         tools:ignore="MissingConstraints">
 
         <TextView
             android:id="@+id/tv_add_out_ip"
             android:layout_width="@dimen/dp_68"
-            android:gravity="end"
             android:layout_height="wrap_content"
+            android:gravity="end"
             android:text="Out ips:"
             android:textSize="@dimen/sp_14"
             android:textStyle="bold" />
+
         <top.wherewego.widget.view.RegexEditText
             android:id="@+id/et_add_out_ip_value"
             style="@style/EditTextStyle"
@@ -376,26 +388,27 @@
             android:layout_height="wrap_content"
             android:hint="0.0.0.0/0 (多个用换行分隔)"
             android:inputType="textMultiLine"
-            android:minLines="1"
             android:maxLines="10"
+            android:minLines="1"
             android:singleLine="true" />
 
     </LinearLayout>
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
         android:gravity="bottom"
+        android:orientation="horizontal"
         tools:ignore="MissingConstraints">
 
         <TextView
             android:id="@+id/tv_add_server"
             android:layout_width="@dimen/dp_68"
-            android:gravity="end"
             android:layout_height="wrap_content"
+            android:gravity="end"
             android:text="Server:"
             android:textSize="@dimen/sp_14"
-            android:textStyle="bold"/>
+            android:textStyle="bold" />
 
 
         <top.wherewego.widget.view.RegexEditText
@@ -405,37 +418,37 @@
             android:layout_height="wrap_content"
             android:hint="请输入server"
             android:inputType="textVisiblePassword"
-            android:text="nat1.wherewego.top:29872"
-            android:singleLine="true" />
+            android:singleLine="true"
+            android:text="nat1.wherewego.top:29872" />
 
     </LinearLayout>
 
-<!--    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="bottom"
-        tools:ignore="MissingConstraints">
-
-        <TextView
-            android:id="@+id/tv_add_server_address"
-            android:layout_width="@dimen/dp_68"
-            android:gravity="end"
-            android:layout_height="wrap_content"
-            android:text="STUN:"
-            android:textSize="@dimen/sp_14"
-            android:textStyle="bold" />
-
-        <top.wherewego.widget.view.RegexEditText
-            android:id="@+id/et_add_stun_value"
-            style="@style/EditTextStyle"
+    <!--    <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="请输入stun服务(逗号分割)"
-            android:text="stun1.l.google.com:19302,\nstun2.l.google.com:19302,\nstun.miwifi.com:3478"
-            android:minLines="1"
-            android:maxLines="10"
-            android:inputType="textMultiLine"
-            android:singleLine="false" />
-    </LinearLayout>-->
+            android:orientation="horizontal"
+            android:gravity="bottom"
+            tools:ignore="MissingConstraints">
+
+            <TextView
+                android:id="@+id/tv_add_server_address"
+                android:layout_width="@dimen/dp_68"
+                android:gravity="end"
+                android:layout_height="wrap_content"
+                android:text="STUN:"
+                android:textSize="@dimen/sp_14"
+                android:textStyle="bold" />
+
+            <top.wherewego.widget.view.RegexEditText
+                android:id="@+id/et_add_stun_value"
+                style="@style/EditTextStyle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="请输入stun服务(逗号分割)"
+                android:text="stun1.l.google.com:19302,\nstun2.l.google.com:19302,\nstun.miwifi.com:3478"
+                android:minLines="1"
+                android:maxLines="10"
+                android:inputType="textMultiLine"
+                android:singleLine="false" />
+        </LinearLayout>-->
 </LinearLayout>

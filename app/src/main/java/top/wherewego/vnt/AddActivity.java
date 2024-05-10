@@ -31,6 +31,7 @@ public class AddActivity extends AppActivity {
     private EditText mOutIps;
     private EditText mIp;
     private EditText mVnpName;
+    private EditText mPorts;
     private Spinner mCipherModel;
     private Spinner mConnectType;
     private Spinner mFinger;
@@ -79,7 +80,7 @@ public class AddActivity extends AppActivity {
         mPriority = findViewById(R.id.et_add_priority_value);
         mIp = findViewById(R.id.et_add_ip_value);
         mVnpName = findViewById(R.id.et_add_net_name_value);
-//        mPort = findViewById(R.id.et_add_port_value);
+        mPorts = findViewById(R.id.et_add_port_value);
     }
 
 
@@ -126,6 +127,13 @@ public class AddActivity extends AppActivity {
             this.mDeviceId.setText(configurationInfoBean.getDeviceId());
             this.mPassword.setText(configurationInfoBean.getPassword());
             this.mServer.setText(configurationInfoBean.getServer());
+            if (configurationInfoBean.getPorts() != null) {
+                StringBuilder ports = new StringBuilder();
+                for (int port : configurationInfoBean.getPorts()) {
+                    ports.append(port).append(",");
+                }
+                this.mPorts.setText(ports.deleteCharAt(ports.length()-1).toString());
+            }
             if (configurationInfoBean.getInIps() != null) {
                 this.mInIps.setText(String.join("\n", configurationInfoBean.getInIps()));
             }
@@ -170,19 +178,26 @@ public class AddActivity extends AppActivity {
         boolean finger = mFinger.getSelectedItem().toString().trim().equalsIgnoreCase("open");
         boolean latency = mPriority.getSelectedItem().toString().trim().equalsIgnoreCase("latency");
         String inIps = mInIps.getText().toString().trim();
-//        String portStr = mPort.getText().toString().trim();
-//        if (!portStr.isEmpty()) {
-//            try {
-//                int port = Integer.parseInt(portStr);
-//                if (port < 0 || port >= 65535) {
-//                    Toast.makeText(this, "port错误", Toast.LENGTH_SHORT).show();
-//                    return;
-//                }
-//            } catch (Exception e) {
-//                Toast.makeText(this, "port错误", Toast.LENGTH_SHORT).show();
-//                return;
-//            }
-//        }
+        String portsStr = mPorts.getText().toString().trim();
+        int[] ports = null;
+        if (!portsStr.isEmpty()) {
+            try {
+                String[] portsStrArr = portsStr.split(",");
+                ports = new int[portsStrArr.length];
+                for (int i = 0; i < portsStrArr.length; i++) {
+                    int port = Integer.parseInt(portsStrArr[i]);
+                    if (port < 0 || port >= 65535) {
+                        Toast.makeText(this, "port错误", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    ports[i] = port;
+                }
+
+            } catch (Exception e) {
+                Toast.makeText(this, "port错误", Toast.LENGTH_SHORT).show();
+                return;
+            }
+        }
 
 
         String outIps = mOutIps.getText().toString().trim();
@@ -210,9 +225,9 @@ public class AddActivity extends AppActivity {
         } else {
             bean.setPassword(null);
         }
+        bean.setPorts(ports);
         bean.setCipherModel(cipherModel);
         bean.setServerEncrypt(true);
-        bean.setRelay(false);
         bean.setDeviceId(deviceId);
         bean.setServer(server);
         bean.setStunServer(new String[]{"stun1.l.google.com:19302", "stun2.l.google.com:19302", "stun.miwifi.com:3478"});
