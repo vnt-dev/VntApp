@@ -32,6 +32,7 @@ public class AddActivity extends AppActivity {
     private EditText mIp;
     private EditText mVnpName;
     private EditText mPorts;
+    private EditText mMtu;
     private Spinner mCipherModel;
     private Spinner mConnectType;
     private Spinner mFinger;
@@ -81,6 +82,7 @@ public class AddActivity extends AppActivity {
         mIp = findViewById(R.id.et_add_ip_value);
         mVnpName = findViewById(R.id.et_add_net_name_value);
         mPorts = findViewById(R.id.et_add_port_value);
+        mMtu = findViewById(R.id.et_add_mtu_value);
     }
 
 
@@ -132,13 +134,16 @@ public class AddActivity extends AppActivity {
                 for (int port : configurationInfoBean.getPorts()) {
                     ports.append(port).append(",");
                 }
-                this.mPorts.setText(ports.deleteCharAt(ports.length()-1).toString());
+                this.mPorts.setText(ports.deleteCharAt(ports.length() - 1).toString());
             }
             if (configurationInfoBean.getInIps() != null) {
                 this.mInIps.setText(String.join("\n", configurationInfoBean.getInIps()));
             }
             if (configurationInfoBean.getOutIps() != null) {
                 this.mOutIps.setText(String.join("\n", configurationInfoBean.getOutIps()));
+            }
+            if (configurationInfoBean.getMtu() != null) {
+                mMtu.setText(String.valueOf(configurationInfoBean.getMtu()));
             }
             this.setSpinnerItemSelectedByValue(this.mCipherModel, configurationInfoBean.getCipherModel());
             this.setSpinnerItemSelectedByValue(this.mConnectType, configurationInfoBean.isTcp() ? "TCP" : "UDP");
@@ -201,6 +206,7 @@ public class AddActivity extends AppActivity {
 
 
         String outIps = mOutIps.getText().toString().trim();
+        String mtu = mMtu.getText().toString().trim();
 
         ConfigurationInfoBean bean;
         if (this.position < 0) {
@@ -224,6 +230,9 @@ public class AddActivity extends AppActivity {
             bean.setPassword(password);
         } else {
             bean.setPassword(null);
+        }
+        if (!mtu.isEmpty()) {
+            bean.setMtu(Integer.parseInt(mtu));
         }
         bean.setPorts(ports);
         bean.setCipherModel(cipherModel);

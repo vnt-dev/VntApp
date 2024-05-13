@@ -40,6 +40,7 @@ public class MyVpnService extends VpnService implements Runnable {
     private ParcelFileDescriptor mInterface;
     private Vnt eVnt;
     private Config config;
+    private HandshakeInfo handshakeInfo = new HandshakeInfo();
 
     public static PeerRouteInfo[] peerList() {
         if (myVpnService != null && myVpnService.eVnt != null) {
@@ -148,6 +149,7 @@ public class MyVpnService extends VpnService implements Runnable {
 
                 @Override
                 public boolean handshake(HandshakeInfo info) {
+                    handshakeInfo = info;
                     return true;
                 }
 
@@ -159,7 +161,7 @@ public class MyVpnService extends VpnService implements Runnable {
                 }
 
                 @Override
-                public int generateTun(DeviceConfig info) throws PackageManager.NameNotFoundException {
+                public int generateTun(DeviceConfig info) {
                     String ip = IpUtils.intToIpAddress(info.getVirtualIp());
                     {
                         Handler handler = new Handler(Looper.getMainLooper());
@@ -167,6 +169,8 @@ public class MyVpnService extends VpnService implements Runnable {
                             ConnectActivity.headerView.setText("Token:" + config.getToken()
                                     + "\nName:" + config.getName()
                                     + "\nServer:" + config.getServer()
+                                    + "\nServer Version:" + handshakeInfo.getVersion()
+                                    + "\nServer Finger:" + handshakeInfo.getFinger()
                                     + "\nIp:" + ip);
                         });
                     }
@@ -175,10 +179,11 @@ public class MyVpnService extends VpnService implements Runnable {
                     int prefixLength = IpUtils.subnetMaskToPrefixLength(info.getVirtualNetmask());
                     String ipRoute = IpUtils.intToIpAddress(info.getVirtualGateway() & info.getVirtualNetmask());
                     List<IpRouteUtils.RouteItem> routeItems = IpRouteUtils.inIp(String.join("\n", info.getExternalRoute()));
+                    int mtu = config.getMtu() == null ? 1410 : config.getMtu();
                     builder.setSession("VntVPN")
                             //.addDisallowedApplication("top.wherewego.vnt")
                             .setBlocking(false)
-                            .setMtu(1410)
+                            .setMtu(mtu)
                             .addAddress(ip, prefixLength)
                             .addRoute(ipRoute, prefixLength);
                     for (IpRouteUtils.RouteItem routeItem : routeItems) {
@@ -196,8 +201,28 @@ public class MyVpnService extends VpnService implements Runnable {
 
                 @Override
                 public void error(ErrorInfo info) {
-                    Handler handler = new Handler(Looper.getMainLooper());
-                    handler.post(() -> Toast.makeText(getApplicationContext(), "启动失败：" + info.toString(), Toast.LENGTH_SHORT).show());
+                    switch (info.code) {
+                        case TokenError:
+                        case AddressExhausted:
+                        case IpAlreadyExists:
+                        case InvalidIp: {
+                            eVnt.stop();
+                            Handler handler = new Handler(Looper.getMainLooper());
+                            handler.post(() -> Toast.makeText(getApplicationContext(), "启动失败：" + info.code, Toast.LENGTH_SHORT).show());
+                            break;
+                        }
+                        case Disconnect:
+                        {
+                            Handler handler = new Handler(Looper.getMainLooper());
+                            handler.post(() -> Toast.makeText(getApplicationContext(), "断开连接" , Toast.LENGTH_SHORT).show());
+                            break;
+                        }
+                        case Unknown:
+                            Handler handler = new Handler(Looper.getMainLooper());
+                            handler.post(() -> Toast.makeText(getApplicationContext(), "启动失败：" + info.msg, Toast.LENGTH_SHORT).show());
+                            break;
+                    }
+
                 }
 
                 @Override

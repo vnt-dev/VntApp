@@ -20,9 +20,9 @@ public class HandshakeInfo {
     private final String version;
 
     public HandshakeInfo() {
-        this.publicKey = "publicKey";
-        this.finger = "finger";
-        this.version = "version";
+        this.publicKey = "";
+        this.finger = "";
+        this.version = "";
     }
 
     public HandshakeInfo(String publicKey, String finger, String version) {

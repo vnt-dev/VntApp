@@ -422,7 +422,35 @@
             android:text="nat1.wherewego.top:29872" />
 
     </LinearLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="bottom"
+        android:orientation="horizontal"
+        tools:ignore="MissingConstraints">
 
+        <TextView
+            android:id="@+id/tv_add_mtu"
+            android:layout_width="@dimen/dp_68"
+            android:layout_height="wrap_content"
+            android:gravity="end"
+            android:text="MTU:"
+            android:textSize="@dimen/sp_14"
+            android:textStyle="bold" />
+
+
+        <top.wherewego.widget.view.RegexEditText
+            android:id="@+id/et_add_mtu_value"
+            style="@style/EditTextStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint=""
+            android:inputType="number"
+            android:singleLine="true"
+            android:maxLength="4"
+            android:text="1410" />
+
+    </LinearLayout>
     <!--    <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
