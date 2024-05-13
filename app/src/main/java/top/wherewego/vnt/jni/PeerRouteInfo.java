@@ -1,12 +1,17 @@
 package top.wherewego.vnt.jni;
 
-public class PeerDeviceInfo {
+/**
+ * 对端设备信息
+ *
+ * @author https://github.com/lbl8603/vnt
+ */
+public class PeerRouteInfo {
     private final int virtualIp;
     private final String name;
     private final String status;
     private final Route route;
 
-    public PeerDeviceInfo(int virtualIp, String name, String status, Route route) {
+    public PeerRouteInfo(int virtualIp, String name, String status, Route route) {
         this.virtualIp = virtualIp;
         this.name = name;
         this.status = status;
@@ -32,7 +37,7 @@ public class PeerDeviceInfo {
     @Override
     public String toString() {
         return "PeerDeviceInfo{" +
-                "virtualIp=" + virtualIp +
+                "virtualIp=" + IpUtils.intToIpAddress(virtualIp) +
                 ", name='" + name + '\'' +
                 ", status='" + status + '\'' +
                 ", route=" + route +

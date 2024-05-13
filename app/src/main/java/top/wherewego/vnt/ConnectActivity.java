@@ -2,6 +2,7 @@ package top.wherewego.vnt;
 
 import android.annotation.SuppressLint;
 import android.content.Intent;
+import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -21,7 +22,7 @@ import java.util.List;
 import top.wherewego.base.BaseAdapter;
 import top.wherewego.vnt.adapter.ConnectAdapter;
 import top.wherewego.vnt.app.AppActivity;
-import top.wherewego.vnt.jni.ConfigurationInfoBean;
+import top.wherewego.vnt.config.ConfigurationInfoBean;
 import top.wherewego.vnt.jni.DeviceBean;
 import top.wherewego.widget.layout.WrapRecyclerView;
 
@@ -37,6 +38,7 @@ public class ConnectActivity extends AppActivity implements OnRefreshLoadMoreLis
     @SuppressLint("StaticFieldLeak")
     public static ConnectAdapter mAdapter;
     ConfigurationInfoBean selectConfigurationInfoBean;
+
     @Override
     protected int getLayoutId() {
         return R.layout.activity_connect;
@@ -64,6 +66,7 @@ public class ConnectActivity extends AppActivity implements OnRefreshLoadMoreLis
                 finish();
             }
         });
+        Log.i("startMyVpnService", "startMyVpnService "+selectConfigurationInfoBean);
         startMyVpnService();
     }
 
@@ -82,11 +85,12 @@ public class ConnectActivity extends AppActivity implements OnRefreshLoadMoreLis
             Toast.makeText(this, "服务已经启动", Toast.LENGTH_SHORT).show();
             return;
         }
+
         String token = selectConfigurationInfoBean.getToken().trim();
         String deviceId = selectConfigurationInfoBean.getDeviceId().trim();
         String name = selectConfigurationInfoBean.getName().trim();
         String server = selectConfigurationInfoBean.getServer().trim();
-        String stun = selectConfigurationInfoBean.getStun().trim();
+        String[] stun = selectConfigurationInfoBean.getStunServer();
         String cipherModel = selectConfigurationInfoBean.getCipherModel().trim();
         if (token.isEmpty()) {
             Toast.makeText(this, "Token不能为空", Toast.LENGTH_SHORT).show();
@@ -104,31 +108,18 @@ public class ConnectActivity extends AppActivity implements OnRefreshLoadMoreLis
             Toast.makeText(this, "ServerAddress不能为空", Toast.LENGTH_SHORT).show();
             return;
         }
-        if (stun.isEmpty()) {
+        if (stun == null || stun.length == 0) {
             Toast.makeText(this, "Stun不能为空", Toast.LENGTH_SHORT).show();
             return;
         }
-        if (cipherModel.isEmpty()){
+        if (cipherModel.isEmpty()) {
             Toast.makeText(this, "加密模式不能为空", Toast.LENGTH_SHORT).show();
             return;
         }
-        String[] parts = server.split(":");
-        if (parts.length != 2) {
-            Toast.makeText(this, "服务器地址错误", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        int port = 0;
-        try {
-            port = Integer.parseInt(parts[1]);
-        } catch (Exception ignored) {
-        }
-        if (port <= 0 || port >= 65536) {
-            Toast.makeText(this, "ServerAddress error", Toast.LENGTH_SHORT).show();
-            return;
-        }
+
         Intent serviceIntent = new Intent(this, MyVpnService.class);
         serviceIntent.setAction("start");
-        serviceIntent.putExtra("config",selectConfigurationInfoBean);
+        serviceIntent.putExtra("config", selectConfigurationInfoBean);
 
         startService(serviceIntent);
     }

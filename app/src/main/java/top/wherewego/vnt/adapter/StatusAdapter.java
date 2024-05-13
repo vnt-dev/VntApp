@@ -8,7 +8,7 @@ import androidx.annotation.NonNull;
 
 import top.wherewego.vnt.R;
 import top.wherewego.vnt.app.AppAdapter;
-import top.wherewego.vnt.jni.ConfigurationInfoBean;
+import top.wherewego.vnt.config.ConfigurationInfoBean;
 
 /**
  *    author : Android 轮子哥
@@ -44,7 +44,7 @@ public final class StatusAdapter extends AppAdapter<ConfigurationInfoBean> {
 
         @Override
         public void onBindView(int position) {
-            mTokenValue.setText(getItem(position).getToken());
+            mTokenValue.setText(getItem(position).getVpnName());
             mNameValue.setText(getItem(position).getName());
             mServerValue.setText(getItem(position).getServer());
         }

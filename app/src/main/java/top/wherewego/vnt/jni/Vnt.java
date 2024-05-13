@@ -1,44 +1,53 @@
 package top.wherewego.vnt.jni;
 
-public class Vnt {
+import java.io.Closeable;
+import java.io.IOException;
+
+/**
+ * vnt的Java映射
+ *
+ * @author https://github.com/lbl8603/vnt
+ */
+public class Vnt implements Closeable {
     private final long raw;
 
-    Vnt(long raw) {
-        if (raw == 0) {
+    public Vnt(Config config, CallBack callBack) throws Exception {
+        this.raw = new0(config, callBack);
+        if (this.raw == 0) {
             throw new RuntimeException();
         }
-        this.raw = raw;
     }
 
     public void stop() {
         stop0(raw);
     }
 
-    public void waitStop() {
-        waitStop0(raw);
+    public void await() {
+        wait0(raw);
     }
 
-    public boolean waitStopMs(long ms) {
-        return waitStopMs0(raw, ms);
+    public boolean awaitTimeout(long ms) {
+        return waitTimeout0(raw, ms);
     }
 
-    public PeerDeviceInfo[] list() {
+    public PeerRouteInfo[] list() {
         return list0(raw);
     }
 
+    private native long new0(Config config, CallBack callBack) throws Exception;
+
     private native void stop0(long raw);
 
-    private native void waitStop0(long raw);
+    private native void wait0(long raw);
 
-    private native boolean waitStopMs0(long raw, long ms);
-
-    private native PeerDeviceInfo[] list0(long raw);
+    private native boolean waitTimeout0(long raw, long ms);
 
     private native void drop0(long raw);
 
+    private native PeerRouteInfo[] list0(long raw);
+
     @Override
-    protected void finalize() throws Throwable {
-        super.finalize();
+    public void close() throws IOException {
         drop0(raw);
     }
 }
