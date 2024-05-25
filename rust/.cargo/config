@@ -31,3 +31,20 @@ rustflags = ["-C", "target-feature=+crt-static", "-C", "strip=symbols"]
 rustflags = ["-C", "target-feature=+crt-static", "-C", "strip=symbols"]
 [target.i686-unknown-linux-musl]
 rustflags = ["-C", "target-feature=+crt-static", "-C", "strip=symbols"]
+
+
+[target.armv7-linux-androideabi]
+ar = "D:/android/android-ndk-r26d-windows/android-ndk-r26d/toolchains/llvm/prebuilt/windows-x86_64/bin/arm-linux-androideabi-ar"
+linker = "D:/android/android-ndk-r26d-windows/android-ndk-r26d/toolchains/llvm/prebuilt/windows-x86_64/bin/armv7a-linux-androideabi21-clang"
+
+[target.aarch64-linux-android]
+ar = "D:/android/android-ndk-r26d-windows/android-ndk-r26d/toolchains/llvm/prebuilt/windows-x86_64/bin/aarch64-linux-android-ar"
+linker = "D:/android/android-ndk-r26d-windows/android-ndk-r26d/toolchains/llvm/prebuilt/windows-x86_64/bin/aarch64-linux-android21-clang"
+
+[target.i686-linux-android]
+ar = "D:/android/android-ndk-r26d-windows/android-ndk-r26d/toolchains/llvm/prebuilt/windows-x86_64/bin/i686-linux-android-ar"
+linker = "D:/android/android-ndk-r26d-windows/android-ndk-r26d/toolchains/llvm/prebuilt/windows-x86_64/bin/i686-linux-android21-clang"
+
+[target.x86_64-linux-android]
+ar = "D:/android/android-ndk-r26d-windows/android-ndk-r26d/toolchains/llvm/prebuilt/windows-x86_64/bin/x86_64-linux-android-ar"
+linker = "D:/android/android-ndk-r26d-windows/android-ndk-r26d/toolchains/llvm/prebuilt/windows-x86_64/bin/x86_64-linux-android21-clang"

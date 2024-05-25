@@ -30,9 +30,12 @@ class AboutPage extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const SelectableText(
-                    "开放所有源代码 https://github.com/lbl8603/vnt",
-                    style: TextStyle(fontSize: 16),
+                  const Flexible(
+                    child: SelectableText(
+                      "开放所有源代码 https://github.com/lbl8603/vnt",
+                      style: TextStyle(fontSize: 16),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                   TextButton(
                     onPressed: () {
@@ -44,7 +47,7 @@ class AboutPage extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               const Text(
-                '版本号: 1.2.9-测试版',
+                '版本号: 1.2.10-测试版',
                 style: TextStyle(fontSize: 16),
                 textAlign: TextAlign.center,
               ),

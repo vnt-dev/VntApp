@@ -526,6 +526,8 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                       ),
                       _buildFormFieldWithValidation(
                         '打洞模式',
+                        "使用Ipv4",
+                        "使用Ipv6",
                         _ipv4Selected,
                         _ipv6Selected,
                         (value) {
@@ -541,6 +543,8 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                       ),
                       _buildFormFieldWithValidation(
                         '传输模式',
+                        "仅中继",
+                        "仅直连",
                         _relaySelected,
                         _p2pSelected,
                         (value) {
@@ -688,21 +692,19 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
   ) {
     return Row(
       children: [
-        Expanded(
-          child: Text(title),
-        ),
+        Text(title),
         Expanded(
           child: Row(
             children: list.map(((String, String) x) {
               return Row(
                 children: [
+                  const SizedBox(width: 10),
                   Radio<String>(
                     value: x.$2,
                     groupValue: groupValue,
                     onChanged: onChanged,
                   ),
                   Text(x.$1),
-                  const SizedBox(width: 20),
                 ],
               );
             }).toList(),
@@ -831,6 +833,8 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
 
   Widget _buildFormFieldWithValidation(
     String title,
+    String valueName1,
+    String valueName2,
     bool selectedValue1,
     bool selectedValue2,
     ValueChanged<bool?> onChanged1,
@@ -843,9 +847,8 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
           children: [
             Row(
               children: [
-                Expanded(
-                  child: Text(title),
-                ),
+                Text(title),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Row(
                     children: [
@@ -853,13 +856,13 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                         value: selectedValue1,
                         onChanged: onChanged1,
                       ),
-                      Text('IPv4'),
-                      const SizedBox(width: 20),
+                      Text(valueName1),
+                      const SizedBox(width: 10),
                       Checkbox(
                         value: selectedValue2,
                         onChanged: onChanged2,
                       ),
-                      Text('IPv6'),
+                      Text(valueName2),
                     ],
                   ),
                 ),

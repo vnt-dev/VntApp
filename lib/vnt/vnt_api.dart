@@ -2,6 +2,9 @@ import 'dart:collection';
 import 'dart:isolate';
 import 'dart:typed_data';
 
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
 import '../network_config.dart';
 import '../src/rust/api/vnt_api.dart';
 import '../utils/ip_utils.dart';
@@ -83,12 +86,22 @@ class VntApiUtils {
               '注册成功 虚拟IP ${info.virtualIp}  ${info.virtualGateway}/${info.virtualNetmask}'));
       // uiCall.send(info);
       return true;
-    }, generateTunFn: (info) {
+    }, generateTunFn: (info) async {
       //创建vpn
-      return 0;
+      try {
+        const method_channel = MethodChannel('top.wherewego.vnt/vpn');
+        int fd = await method_channel.invokeMethod(
+            'startVpn', rustDeviceConfigToMap(info));
+        return fd;
+      } catch (e) {
+        debugPrint('创建vpn异常 $e');
+        uiCall.send('stop');
+        return 0;
+      }
     }, peerClientListFn: (info) {
       // uiCall.send(info);
     }, errorFn: (info) {
+      debugPrint('服务异常 类型 ${info.code.name} ${info.msg ?? ''}');
       addLog(ConnectLogEntry(
           message: '服务异常 类型 ${info.code.name} ${info.msg ?? ''}'));
       uiCall.send(info);
@@ -96,6 +109,22 @@ class VntApiUtils {
       uiCall.send('stop');
     });
     vntApi = await vntInit(vntConfig: vntConfig!, call: vntCall);
+  }
+
+  static Map<String, dynamic> rustDeviceConfigToMap(
+      RustDeviceConfig deviceConfig) {
+    return {
+      'virtualIp': deviceConfig.virtualIp,
+      'virtualNetmask': deviceConfig.virtualNetmask,
+      'virtualGateway': deviceConfig.virtualGateway,
+      'mtu': vntConfig?.mtu ?? 1400,
+      'externalRoute': deviceConfig.externalRoute.map((v) {
+        return {
+          'destination': v.$1,
+          'netmask': v.$2,
+        };
+      }).toList(),
+    };
   }
 
   static close() async {

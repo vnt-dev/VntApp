@@ -2,7 +2,7 @@ use std::net::Ipv4Addr;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use flutter_rust_bridge::DartFnFuture;
 use tokio::runtime::Runtime;
 use vnt::channel::punch::{NatInfo, PunchModel};
@@ -21,15 +21,29 @@ use vnt::{
 
 #[flutter_rust_bridge::frb] // Synchronous mode for simplicity of the demo
 pub async fn vnt_init(vnt_config: VntConfig, call: VntApiCallback) -> anyhow::Result<VntApi> {
+    log::debug!("vnt_init:{:?}",vnt_config);
     tokio::task::spawn_blocking(|| VntApi::new(vnt_config, call))
-        .await
-        .unwrap()
+        .await.context("spawn_blocking fail")?.context("VntApi fail")
 }
 
 #[flutter_rust_bridge::frb(init)]
 pub fn init_app() {
     // Default utilities - feel free to customize
     flutter_rust_bridge::setup_default_user_utils();
+    init_log();
+}
+#[cfg(target_os = "android")]
+pub fn init_log() {
+    use android_logger::Config;
+    use log::LevelFilter;
+    android_logger::init_once(
+        Config::default()
+            .with_max_level(LevelFilter::Debug) // limit log level
+            .with_tag("vnt_jni"), // logs will show under mytag tag
+    );
+}
+#[cfg(not(target_os = "android"))]
+pub fn init_log() {
     let rs = log4rs::init_file("logs/log4rs.yaml", Default::default());
     println!("log  {:?}", rs);
 }
@@ -73,6 +87,7 @@ pub struct VntApi {
 
 impl VntApi {
     pub fn new(vnt_config: VntConfig, call: VntApiCallback) -> anyhow::Result<VntApi> {
+        log::debug!("解析参数:{:?}",vnt_config);
         // 转换 in_ips
         let mut in_ips: Vec<(u32, u32, Ipv4Addr)> = Vec::with_capacity(vnt_config.in_ips.len());
         for (a, b, ip_str) in vnt_config.in_ips {

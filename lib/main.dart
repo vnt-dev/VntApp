@@ -29,17 +29,19 @@ Future<void> main() async {
     debugPrint('copyLogConfig catch $e');
   }
   await RustLib.init(); // 初始化Rust库
-  await windowManager.ensureInitialized();
+  if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+    await windowManager.ensureInitialized();
 
-  final windowSize = await DataPersistence().loadWindowSize();
-  windowManager.setTitle('VNT app');
-  if (windowSize != null) {
-    await windowManager.setSize(windowSize);
+    final windowSize = await DataPersistence().loadWindowSize();
+    windowManager.setTitle('VNT app');
+    if (windowSize != null) {
+      await windowManager.setSize(windowSize);
+    }
+
+    windowManager.waitUntilReadyToShow().then((_) async {
+      await appWindow.show();
+    });
   }
-
-  windowManager.waitUntilReadyToShow().then((_) async {
-    await appWindow.show();
-  });
 
   runApp(const VntApp());
 }
@@ -119,15 +121,18 @@ class _HomePageState extends State<HomePage> with WindowListener {
   @override
   void initState() {
     super.initState();
-    copyAppropriateDll();
-    initSystemTray();
-    DataPersistence().loadCloseApp().then((isClose) {
-      if (!(isClose ?? false)) {
-        windowManager.setPreventClose(true);
-      }
-    });
+    if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+      copyAppropriateDll();
+      initSystemTray();
+      DataPersistence().loadCloseApp().then((isClose) {
+        if (!(isClose ?? false)) {
+          windowManager.setPreventClose(true);
+        }
+      });
 
-    windowManager.addListener(this);
+      windowManager.addListener(this);
+    }
+
     _loadData().then((v) {
       loadConnect();
     });
@@ -383,7 +388,7 @@ class _HomePageState extends State<HomePage> with WindowListener {
           default:
             _closeVnt();
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('未知错误')),
+                SnackBar(content: Text('未知错误 ${msg.msg}')),
             );
         }
       } else if (msg is RustConnectInfo) {
@@ -617,7 +622,7 @@ class _HomePageState extends State<HomePage> with WindowListener {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${_configs[index].configName} (虚拟IP:${_configs[index].virtualIPv4.isEmpty ? '自动分配' : _configs[index].virtualIPv4})',
+                          '${_configs[index].configName} (IP:${_configs[index].virtualIPv4.isEmpty ? '自动分配' : _configs[index].virtualIPv4})',
                           textAlign: TextAlign.left,
                           overflow: TextOverflow.ellipsis,
                           maxLines: 1,
@@ -634,7 +639,7 @@ class _HomePageState extends State<HomePage> with WindowListener {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Padding(
-                            padding: const EdgeInsets.only(right: 8.0),
+                            padding: const EdgeInsets.only(right: 3.0),
                             child: Tooltip(
                                 message: '连接',
                                 child: IconButton(
@@ -643,7 +648,7 @@ class _HomePageState extends State<HomePage> with WindowListener {
                                 ))),
                         Padding(
                             padding:
-                                const EdgeInsets.symmetric(horizontal: 8.0),
+                                const EdgeInsets.symmetric(horizontal: 3.0),
                             child: Tooltip(
                                 message: '查看',
                                 child: IconButton(
@@ -653,7 +658,7 @@ class _HomePageState extends State<HomePage> with WindowListener {
                                   },
                                 ))),
                         Padding(
-                            padding: const EdgeInsets.only(right: 8.0),
+                            padding: const EdgeInsets.only(right: 3.0),
                             child: IconButton(
                               icon: const Icon(Icons.edit),
                               onPressed: () =>

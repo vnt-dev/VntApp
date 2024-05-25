@@ -87,7 +87,7 @@ class _ConnectDetailPageState extends State<ConnectDetailPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: CustomAppBar(
-        title: const Text('连接详情', style: TextStyle(color: Colors.white)),
+        title: const Text('组网', style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.teal,
         actions: [
           Padding(
