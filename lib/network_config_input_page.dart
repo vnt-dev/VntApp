@@ -50,6 +50,9 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
   bool _relaySelected = true;
   bool _p2pSelected = true;
 
+  String _compressionMethod = 'none'; // 默认不压缩
+  int _compressionLevel = 3; // 默认压缩级别
+
   _NetworkConfigInputPageState() {}
 
   @override
@@ -134,6 +137,15 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
         config.useChannelType == 'relay' || config.useChannelType == 'all';
     _p2pSelected =
         config.useChannelType == 'p2p' || config.useChannelType == 'all';
+    if (config.compressor == 'lz4') {
+      _compressionMethod = 'lz4';
+    } else if (config.compressor.startsWith('zstd')) {
+      var arr = config.compressor.split(',');
+      if (arr.length == 2) {
+        _compressionMethod = arr[0];
+        _compressionLevel = int.tryParse(arr[1]) ?? 3;
+      }
+    }
     setState(() {
       _routingMode = config.firstLatency ? 'LOW_LATENCY' : 'P2P';
       _builtInIpProxy = config.noInIpProxy ? 'CLOSE' : 'OPEN';
@@ -211,6 +223,8 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                 (!_p2pSelected && !_relaySelected)
             ? 'all'
             : (_p2pSelected ? 'p2p' : 'relay'),
+        compressor:
+            '$_compressionMethod${_compressionMethod == 'zstd' ? ',$_compressionLevel' : ''}',
       );
       Navigator.pop(context, config);
     } else {
@@ -362,6 +376,27 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                   },
                 ),
                 const SizedBox(height: 20),
+                _buildDropdownField(
+                  '压缩',
+                  ['none', 'lz4', 'zstd'],
+                  _compressionMethod,
+                  (value) {
+                    setState(() {
+                      _compressionMethod = value!;
+                    });
+                  },
+                ),
+                if (_compressionMethod == 'zstd')
+                  _buildDropdownField(
+                    '压缩级别',
+                    List.generate(23, (index) => index.toString()),
+                    _compressionLevel.toString(),
+                    (value) {
+                      setState(() {
+                        _compressionLevel = int.parse(value!);
+                      });
+                    },
+                  ),
                 _buildSectionTitle('子网代理&端口映射'),
                 _buildDynamicTooltipFields(
                   'in-ip',

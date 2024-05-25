@@ -425,6 +425,7 @@ class VntConfig {
   final double? packetLossRate;
   final int packetDelay;
   final List<String> portMappingList;
+  final String compressor;
 
   const VntConfig({
     required this.tap,
@@ -453,6 +454,7 @@ class VntConfig {
     this.packetLossRate,
     required this.packetDelay,
     required this.portMappingList,
+    required this.compressor,
   });
 
   @override
@@ -482,7 +484,8 @@ class VntConfig {
       useChannelType.hashCode ^
       packetLossRate.hashCode ^
       packetDelay.hashCode ^
-      portMappingList.hashCode;
+      portMappingList.hashCode ^
+      compressor.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -514,5 +517,6 @@ class VntConfig {
           useChannelType == other.useChannelType &&
           packetLossRate == other.packetLossRate &&
           packetDelay == other.packetDelay &&
-          portMappingList == other.portMappingList;
+          portMappingList == other.portMappingList &&
+          compressor == other.compressor;
 }

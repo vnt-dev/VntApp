@@ -25,6 +25,7 @@ class NetworkConfig {
   int simulatedLatency;
   String punchModel;
   String useChannelType;
+  String compressor;
 
   NetworkConfig({
     required this.itemKey,
@@ -53,6 +54,7 @@ class NetworkConfig {
     required this.simulatedLatency,
     required this.punchModel,
     required this.useChannelType,
+    required this.compressor,
   });
   Map<String, dynamic> toJson() {
     return {
@@ -82,6 +84,7 @@ class NetworkConfig {
       'packet_delay': simulatedLatency,
       'punch_model': punchModel,
       'use_channel': useChannelType,
+      'compressor': compressor,
     };
   }
 
@@ -113,6 +116,7 @@ class NetworkConfig {
       if (simulatedLatency != 0) 'packet_delay': simulatedLatency,
       if (punchModel.isNotEmpty) 'punch_model': punchModel,
       if (useChannelType.isNotEmpty) 'use_channel': useChannelType,
+      if (compressor.isNotEmpty) 'compressor': compressor,
     };
   }
 
@@ -144,6 +148,7 @@ class NetworkConfig {
       simulatedLatency: json['packet_delay'],
       punchModel: json['punch_model'],
       useChannelType: json['use_channel'],
+      compressor: json['compressor'] ?? 'none',
     );
   }
 }

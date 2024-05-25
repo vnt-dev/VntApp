@@ -8,6 +8,7 @@ use tokio::runtime::Runtime;
 use vnt::channel::punch::{NatInfo, PunchModel};
 use vnt::channel::{Route, UseChannelType};
 use vnt::cipher::CipherModel;
+use vnt::compression::Compressor;
 use vnt::core::{Config, Vnt};
 use vnt::handle::{CurrentDeviceInfo, PeerDeviceInfo};
 #[cfg(target_os = "android")]
@@ -63,6 +64,7 @@ pub struct VntConfig {
     pub packet_delay: u32,
     // 端口映射
     pub port_mapping_list: Vec<String>,
+    pub compressor: String,
 }
 
 pub struct VntApi {
@@ -91,6 +93,10 @@ impl VntApi {
         };
         let use_channel_type = match UseChannelType::from_str(&vnt_config.use_channel_type) {
             Ok(use_channel_type) => use_channel_type,
+            Err(e) => Err(anyhow!("{:?}", e))?,
+        };
+        let compressor = match Compressor::from_str(&vnt_config.compressor) {
+            Ok(compressor) => compressor,
             Err(e) => Err(anyhow!("{:?}", e))?,
         };
         let conf = Config::new(
@@ -122,6 +128,7 @@ impl VntApi {
             vnt_config.packet_loss_rate,
             vnt_config.packet_delay,
             vnt_config.port_mapping_list,
+            compressor,
         )?;
         Ok(Self {
             vnt: Vnt::new(conf, call)?,

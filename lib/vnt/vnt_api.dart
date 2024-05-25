@@ -22,36 +22,38 @@ class VntApiUtils {
     addLog(ConnectLogEntry(message: '连接vnts ${config.serverAddress}'));
     networkConfig = config;
     vntConfig = VntConfig(
-        tap: false,
-        token: config.token,
-        deviceId: config.deviceID,
-        name: config.deviceName,
-        serverAddressStr: config.serverAddress,
-        nameServers: config.dns,
-        stunServer: config.stunServers,
-        inIps: config.inIps.map((v) => IpUtils.parseInIpString(v)).toList(),
-        outIps: config.outIps.map((v) => IpUtils.parseOutIpString(v)).toList(),
-        password: config.groupPassword.isEmpty ? null : config.groupPassword,
-        mtu: config.mtu == 0 ? null : config.mtu,
-        tcp: config.isTcp,
-        ip: config.virtualIPv4.isEmpty ? null : config.virtualIPv4,
-        noProxy: config.noInIpProxy,
-        serverEncrypt: config.isServerEncrypted,
-        parallel: 0,
-        cipherModel: config.encryptionAlgorithm,
-        finger: config.dataFingerprintVerification,
-        punchModel: config.punchModel,
-        ports: config.ports.isEmpty ? null : Uint16List.fromList(config.ports),
-        firstLatency: config.firstLatency,
-        deviceName: config.virtualNetworkCardName.isEmpty
-            ? null
-            : config.virtualNetworkCardName,
-        useChannelType: config.useChannelType,
-        packetLossRate: config.simulatedPacketLossRate == 0
-            ? null
-            : config.simulatedPacketLossRate,
-        packetDelay: config.simulatedLatency,
-        portMappingList: config.portMappings);
+      tap: false,
+      token: config.token,
+      deviceId: config.deviceID,
+      name: config.deviceName,
+      serverAddressStr: config.serverAddress,
+      nameServers: config.dns,
+      stunServer: config.stunServers,
+      inIps: config.inIps.map((v) => IpUtils.parseInIpString(v)).toList(),
+      outIps: config.outIps.map((v) => IpUtils.parseOutIpString(v)).toList(),
+      password: config.groupPassword.isEmpty ? null : config.groupPassword,
+      mtu: config.mtu == 0 ? null : config.mtu,
+      tcp: config.isTcp,
+      ip: config.virtualIPv4.isEmpty ? null : config.virtualIPv4,
+      noProxy: config.noInIpProxy,
+      serverEncrypt: config.isServerEncrypted,
+      parallel: 0,
+      cipherModel: config.encryptionAlgorithm,
+      finger: config.dataFingerprintVerification,
+      punchModel: config.punchModel,
+      ports: config.ports.isEmpty ? null : Uint16List.fromList(config.ports),
+      firstLatency: config.firstLatency,
+      deviceName: config.virtualNetworkCardName.isEmpty
+          ? null
+          : config.virtualNetworkCardName,
+      useChannelType: config.useChannelType,
+      packetLossRate: config.simulatedPacketLossRate == 0
+          ? null
+          : config.simulatedPacketLossRate,
+      packetDelay: config.simulatedLatency,
+      portMappingList: config.portMappings,
+      compressor: config.compressor.isEmpty ? 'none' : config.compressor,
+    );
 
     var vntCall = VntApiCallback(successFn: () {
       if (first) {

@@ -1200,8 +1200,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   VntConfig dco_decode_vnt_config(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 26)
-      throw Exception('unexpected arr length: expect 26 but see ${arr.length}');
+    if (arr.length != 27)
+      throw Exception('unexpected arr length: expect 27 but see ${arr.length}');
     return VntConfig(
       tap: dco_decode_bool(arr[0]),
       token: dco_decode_String(arr[1]),
@@ -1229,6 +1229,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       packetLossRate: dco_decode_opt_box_autoadd_f_64(arr[23]),
       packetDelay: dco_decode_u_32(arr[24]),
       portMappingList: dco_decode_list_String(arr[25]),
+      compressor: dco_decode_String(arr[26]),
     );
   }
 
@@ -1748,6 +1749,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_packetLossRate = sse_decode_opt_box_autoadd_f_64(deserializer);
     var var_packetDelay = sse_decode_u_32(deserializer);
     var var_portMappingList = sse_decode_list_String(deserializer);
+    var var_compressor = sse_decode_String(deserializer);
     return VntConfig(
         tap: var_tap,
         token: var_token,
@@ -1774,7 +1776,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         useChannelType: var_useChannelType,
         packetLossRate: var_packetLossRate,
         packetDelay: var_packetDelay,
-        portMappingList: var_portMappingList);
+        portMappingList: var_portMappingList,
+        compressor: var_compressor);
   }
 
   @protected
@@ -2301,5 +2304,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_opt_box_autoadd_f_64(self.packetLossRate, serializer);
     sse_encode_u_32(self.packetDelay, serializer);
     sse_encode_list_String(self.portMappingList, serializer);
+    sse_encode_String(self.compressor, serializer);
   }
 }
