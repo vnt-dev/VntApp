@@ -7,7 +7,8 @@ class CustomTooltipTextField extends StatefulWidget {
   final int maxLength;
   final String? Function(String?)? validator;
 
-  const CustomTooltipTextField({super.key, 
+  const CustomTooltipTextField({
+    super.key,
     required this.controller,
     required this.labelText,
     required this.tooltipMessage,
@@ -55,8 +56,9 @@ class _CustomTooltipTextFieldState extends State<CustomTooltipTextField> {
             '${widget.labelText} ${widget.tooltipMessage}',
             style: const TextStyle(color: Colors.black, fontSize: 13),
           ),
-        TextField(
+        TextFormField(
           controller: widget.controller,
+          validator: widget.validator,
           focusNode: _focusNode,
           decoration: InputDecoration(
             labelText: !_showTooltip ? widget.labelText : null,
