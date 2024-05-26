@@ -388,7 +388,7 @@ class _HomePageState extends State<HomePage> with WindowListener {
           default:
             _closeVnt();
             ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('未知错误 ${msg.msg}')),
+              SnackBar(content: Text('未知错误 ${msg.msg}')),
             );
         }
       } else if (msg is RustConnectInfo) {
@@ -618,23 +618,33 @@ class _HomePageState extends State<HomePage> with WindowListener {
                 return Container(
                   color: index % 2 == 0 ? Colors.grey[200] : Colors.white,
                   child: ListTile(
-                    title: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${_configs[index].configName} (IP:${_configs[index].virtualIPv4.isEmpty ? '自动分配' : _configs[index].virtualIPv4})',
-                          textAlign: TextAlign.left,
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
-                        Text(
-                          _configs[index].deviceName,
-                          textAlign: TextAlign.left,
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
-                      ],
-                    ),
+                    title: InkWell(
+                        onTap: () {
+                          _showConfigDialog(_configs[index]);
+                        },
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _configs[index].configName,
+                              textAlign: TextAlign.left,
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                            Text(
+                              'IP:${_configs[index].virtualIPv4.isEmpty ? '自动分配' : _configs[index].virtualIPv4}',
+                              textAlign: TextAlign.left,
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                            Text(
+                              _configs[index].deviceName,
+                              textAlign: TextAlign.left,
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ],
+                        )),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -645,17 +655,6 @@ class _HomePageState extends State<HomePage> with WindowListener {
                                 child: IconButton(
                                   icon: const Icon(Icons.link),
                                   onPressed: () => _connect(_configs[index]),
-                                ))),
-                        Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 3.0),
-                            child: Tooltip(
-                                message: '查看',
-                                child: IconButton(
-                                  icon: const Icon(Icons.content_copy),
-                                  onPressed: () {
-                                    _showConfigDialog(_configs[index]);
-                                  },
                                 ))),
                         Padding(
                             padding: const EdgeInsets.only(right: 3.0),
