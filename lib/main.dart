@@ -392,7 +392,7 @@ class _HomePageState extends State<HomePage> with WindowListener {
             );
         }
       } else if (msg is RustConnectInfo) {
-        if (onece && msg.count > 2) {
+        if (onece && msg.count > 60) {
           onece = false;
           Navigator.of(context).pop();
           _closeVnt();

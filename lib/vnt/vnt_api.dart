@@ -12,7 +12,6 @@ import 'package:synchronized/synchronized.dart';
 
 class VntApiUtils {
   static VntApi? vntApi;
-  static bool first = true;
   static VntConfig? vntConfig;
   static NetworkConfig? networkConfig;
   static Queue<ConnectLogEntry> logQueue = Queue();
@@ -59,11 +58,7 @@ class VntApiUtils {
     );
 
     var vntCall = VntApiCallback(successFn: () {
-      if (first) {
-        uiCall.send('success');
-        //进入详情页
-      }
-      first = false;
+      uiCall.send('success');
     }, createTunFn: (info) {
       lock.synchronized(() {
         addLog(
@@ -132,7 +127,6 @@ class VntApiUtils {
       return;
     }
     await vntApi?.stop();
-    first = true;
     vntApi = null;
     addLog(ConnectLogEntry(message: '关闭vnt连接'));
   }
