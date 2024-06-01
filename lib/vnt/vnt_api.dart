@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
 
@@ -39,7 +40,7 @@ class VntApiUtils {
       ip: config.virtualIPv4.isEmpty ? null : config.virtualIPv4,
       noProxy: config.noInIpProxy,
       serverEncrypt: config.isServerEncrypted,
-      parallel: 0,
+      parallel: BigInt.zero,
       cipherModel: config.encryptionAlgorithm,
       finger: config.dataFingerprintVerification,
       punchModel: config.punchModel,
@@ -84,9 +85,7 @@ class VntApiUtils {
     }, generateTunFn: (info) async {
       //创建vpn
       try {
-        const method_channel = MethodChannel('top.wherewego.vnt/vpn');
-        int fd = await method_channel.invokeMethod(
-            'startVpn', rustDeviceConfigToMap(info));
+        int fd = await VntAppCall.startVpn(info, vntConfig?.mtu ?? 1400);
         return fd;
       } catch (e) {
         debugPrint('创建vpn异常 $e');
@@ -106,28 +105,15 @@ class VntApiUtils {
     vntApi = await vntInit(vntConfig: vntConfig!, call: vntCall);
   }
 
-  static Map<String, dynamic> rustDeviceConfigToMap(
-      RustDeviceConfig deviceConfig) {
-    return {
-      'virtualIp': deviceConfig.virtualIp,
-      'virtualNetmask': deviceConfig.virtualNetmask,
-      'virtualGateway': deviceConfig.virtualGateway,
-      'mtu': vntConfig?.mtu ?? 1400,
-      'externalRoute': deviceConfig.externalRoute.map((v) {
-        return {
-          'destination': v.$1,
-          'netmask': v.$2,
-        };
-      }).toList(),
-    };
-  }
-
   static close() async {
     if (vntApi == null) {
       return;
     }
     await vntApi?.stop();
     vntApi = null;
+    if (Platform.isAndroid) {
+      await VntAppCall.stopVpn();
+    }
     addLog(ConnectLogEntry(message: '关闭vnt连接'));
   }
 
@@ -209,4 +195,46 @@ class ConnectLogEntry {
 
   ConnectLogEntry({DateTime? date, required this.message})
       : date = date ?? DateTime.now();
+}
+
+class VntAppCall {
+  static MethodChannel channel = const MethodChannel('top.wherewego.vnt/vpn');
+  static void init() {
+    channel.setMethodCallHandler((MethodCall call) async {
+      switch (call.method) {
+        case 'stopVnt':
+          VntApiUtils.close();
+        default:
+          throw PlatformException(
+            code: 'Unimplemented',
+            details: 'methodName is not implemented',
+          );
+      }
+    });
+  }
+
+  static Future<int> startVpn(RustDeviceConfig info, int mtu) async {
+    return await VntAppCall.channel
+        .invokeMethod('startVpn', rustDeviceConfigToMap(info, mtu));
+  }
+
+  static Future<void> stopVpn() async {
+    return await VntAppCall.channel.invokeMethod('stopVpn');
+  }
+
+  static Map<String, dynamic> rustDeviceConfigToMap(
+      RustDeviceConfig deviceConfig, int mtu) {
+    return {
+      'virtualIp': deviceConfig.virtualIp,
+      'virtualNetmask': deviceConfig.virtualNetmask,
+      'virtualGateway': deviceConfig.virtualGateway,
+      'mtu': mtu,
+      'externalRoute': deviceConfig.externalRoute.map((v) {
+        return {
+          'destination': v.$1,
+          'netmask': v.$2,
+        };
+      }).toList(),
+    };
+  }
 }

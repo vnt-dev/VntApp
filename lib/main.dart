@@ -42,6 +42,9 @@ Future<void> main() async {
       await appWindow.show();
     });
   }
+  if (Platform.isAndroid) {
+    VntAppCall.init();
+  }
 
   runApp(const VntApp());
 }
@@ -340,6 +343,10 @@ class _HomePageState extends State<HomePage> with WindowListener {
           }
         } else if (msg == 'stop') {
           _closeVnt();
+          if (onece) {
+            onece = false;
+            Navigator.of(context).pop();
+          }
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('VNT服务停止')),
           );
@@ -392,7 +399,7 @@ class _HomePageState extends State<HomePage> with WindowListener {
             );
         }
       } else if (msg is RustConnectInfo) {
-        if (onece && msg.count > 60) {
+        if (onece && msg.count > BigInt.from(60)) {
           onece = false;
           Navigator.of(context).pop();
           _closeVnt();

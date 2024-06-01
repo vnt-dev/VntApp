@@ -30,6 +30,25 @@ public class DeviceConfig {
             this.destination = destination;
             this.netmask = netmask;
         }
+
+        @Override
+        public String toString() {
+            return "Route{" +
+                    "destination=" + destination +
+                    ", netmask=" + netmask +
+                    '}';
+        }
+    }
+
+    @Override
+    public String toString() {
+        return "DeviceConfig{" +
+                "virtualIp=" + virtualIp +
+                ", virtualNetmask=" + virtualNetmask +
+                ", virtualGateway=" + virtualGateway +
+                ", mtu=" + mtu +
+                ", externalRoute=" + externalRoute +
+                '}';
     }
 }
 

@@ -461,7 +461,15 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                 ),
                 _buildDropdownField(
                   '加密算法',
-                  ['aes_gcm', 'aes_cbc', 'aes_ecb', 'sm4_cbc'],
+                  [
+                    'aes_gcm',
+                    'chacha20_poly1305',
+                    'chacha20',
+                    'aes_cbc',
+                    'aes_ecb',
+                    'sm4_cbc',
+                    'xor'
+                  ],
                   _encryptionAlgorithm,
                   (value) {
                     setState(() {

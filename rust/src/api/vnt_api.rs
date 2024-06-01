@@ -2,7 +2,7 @@ use std::net::Ipv4Addr;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
+use anyhow::anyhow;
 use flutter_rust_bridge::DartFnFuture;
 use tokio::runtime::Runtime;
 use vnt::channel::punch::{NatInfo, PunchModel};
@@ -21,9 +21,20 @@ use vnt::{
 
 #[flutter_rust_bridge::frb] // Synchronous mode for simplicity of the demo
 pub async fn vnt_init(vnt_config: VntConfig, call: VntApiCallback) -> anyhow::Result<VntApi> {
-    log::debug!("vnt_init:{:?}",vnt_config);
-    tokio::task::spawn_blocking(|| VntApi::new(vnt_config, call))
-        .await.context("spawn_blocking fail")?.context("VntApi fail")
+    log::debug!("vnt_init:{:?}", vnt_config);
+    match tokio::task::spawn_blocking(|| VntApi::new(vnt_config, call)).await {
+        Ok(rs) => match rs {
+            Ok(rs) => Ok(rs),
+            Err(e) => {
+                log::error!("vnt_init {:?}", e);
+                Err(anyhow!("vnt_init {:?}", e))
+            }
+        },
+        Err(e) => {
+            log::error!("vnt_init spawn_blocking {:?}", e);
+            Err(anyhow!("vnt_init spawn_blocking {:?}", e))
+        }
+    }
 }
 
 #[flutter_rust_bridge::frb(init)]
@@ -87,7 +98,7 @@ pub struct VntApi {
 
 impl VntApi {
     pub fn new(vnt_config: VntConfig, call: VntApiCallback) -> anyhow::Result<VntApi> {
-        log::debug!("解析参数:{:?}",vnt_config);
+        log::debug!("解析参数:{:?}", vnt_config);
         // 转换 in_ips
         let mut in_ips: Vec<(u32, u32, Ipv4Addr)> = Vec::with_capacity(vnt_config.in_ips.len());
         for (a, b, ip_str) in vnt_config.in_ips {
