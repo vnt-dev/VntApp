@@ -87,8 +87,7 @@ public class MyVpnService extends VpnService {
             for (DeviceConfig.Route routeItem : config.externalRoute) {
                 int routePrefixLength = IpUtils.subnetMaskToPrefixLength(routeItem.netmask);
                 String routeDest = IpUtils.intToIpAddress(routeItem.destination);
-
-                builder.addAddress(routeDest, routePrefixLength);
+                builder.addRoute(routeDest, routePrefixLength);
             }
         }
         try {
