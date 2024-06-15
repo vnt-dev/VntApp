@@ -702,29 +702,28 @@ Future<void> copyAppropriateDll() async {
   switch (arch) {
     case 'x86_64':
     case 'amd64':
-      dllPath = 'windows/dlls/amd64/wintun.dll';
+      dllPath = 'dlls/amd64/wintun.dll';
       break;
     case 'arm':
-      dllPath = 'windows/dlls/arm/wintun.dll';
+      dllPath = 'dlls/arm/wintun.dll';
       break;
     case 'aarch64':
     case 'arm64':
-      dllPath = 'windows/dlls/arm64/wintun.dll';
+      dllPath = 'dlls/arm64/wintun.dll';
       break;
     case 'i386':
     case 'i686':
     case 'x86':
-      dllPath = 'windows/dlls/x86/wintun.dll';
+      dllPath = 'dlls/x86/wintun.dll';
       break;
     default:
       throw UnsupportedError('Unsupported architecture: $arch');
   }
 
   final dllFile = File('wintun.dll');
-
-  final byteData = await rootBundle.load(dllPath);
-  await dllFile.writeAsBytes(byteData.buffer
-      .asUint8List(byteData.offsetInBytes, byteData.lengthInBytes));
+  final sourceFile = File(dllPath);
+  // 将 DLL 文件复制到目标位置
+  await sourceFile.copy(dllFile.path);
 }
 
 Future<void> copyLogConfig() async {

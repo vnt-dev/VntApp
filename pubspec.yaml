@@ -104,10 +104,6 @@ flutter:
   # see https://flutter.dev/custom-fonts/#from-packages
 
   assets:
-    - windows/dlls/amd64/wintun.dll
-    - windows/dlls/arm/wintun.dll
-    - windows/dlls/arm64/wintun.dll
-    - windows/dlls/x86/wintun.dll
     - assets/app_icon.ico
     - assets/app_icon.png
     - assets/log4rs.yaml

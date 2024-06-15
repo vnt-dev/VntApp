@@ -42,3 +42,12 @@ target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 add_dependencies(${BINARY_NAME} flutter_assemble)
 
 SET_TARGET_PROPERTIES(${BINARY_NAME} PROPERTIES LINK_FLAGS    "/MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\" /SUBSYSTEM:WINDOWS")
+
+
+set(DLLS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../dlls")
+
+# Copy the entire DLLs directory to the output directory
+add_custom_command(TARGET ${BINARY_NAME} POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+  ${DLLS_DIR}
+  $<TARGET_FILE_DIR:${BINARY_NAME}>/dlls)
