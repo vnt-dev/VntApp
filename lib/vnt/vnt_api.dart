@@ -40,7 +40,6 @@ class VntApiUtils {
       ip: config.virtualIPv4.isEmpty ? null : config.virtualIPv4,
       noProxy: config.noInIpProxy,
       serverEncrypt: config.isServerEncrypted,
-      parallel: BigInt.zero,
       cipherModel: config.encryptionAlgorithm,
       finger: config.dataFingerprintVerification,
       punchModel: config.punchModel,
@@ -109,12 +108,16 @@ class VntApiUtils {
     if (vntApi == null) {
       return;
     }
-    await vntApi?.stop();
+    vntApi?.stop();
     vntApi = null;
     if (Platform.isAndroid) {
       await VntAppCall.stopVpn();
     }
     addLog(ConnectLogEntry(message: '关闭vnt连接'));
+  }
+
+  static bool isClosed() {
+    return vntApi == null || vntApi!.isStopped();
   }
 
   static Map<String, dynamic> currentDevice() {

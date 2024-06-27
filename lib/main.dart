@@ -117,7 +117,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> with WindowListener {
   final DataPersistence _dataPersistence = DataPersistence();
   List<NetworkConfig> _configs = [];
-  bool _connected = false;
+  bool _connected = !VntApiUtils.isClosed();
   NetworkConfig? connectedConfig;
   bool rememberChoice = false;
 

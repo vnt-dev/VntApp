@@ -56,7 +56,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.0.0-dev.37';
 
   @override
-  int get rustContentHash => -693620171;
+  int get rustContentHash => -1806396767;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -87,6 +87,8 @@ abstract class RustLibApi extends BaseApi {
 
   String crateApiVntApiVntApiDownStream({required VntApi that});
 
+  bool crateApiVntApiVntApiIsStopped({required VntApi that});
+
   RustNatInfo crateApiVntApiVntApiNatInfo({required VntApi that});
 
   Future<VntApi> crateApiVntApiVntApiNew(
@@ -101,7 +103,7 @@ abstract class RustLibApi extends BaseApi {
   List<(String, List<RustRoute>)> crateApiVntApiVntApiRouteList(
       {required VntApi that});
 
-  Future<void> crateApiVntApiVntApiStop({required VntApi that});
+  void crateApiVntApiVntApiStop({required VntApi that});
 
   String crateApiVntApiVntApiUpStream({required VntApi that});
 
@@ -286,13 +288,38 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  RustNatInfo crateApiVntApiVntApiNatInfo({required VntApi that}) {
+  bool crateApiVntApiVntApiIsStopped({required VntApi that}) {
     return handler.executeSync(SyncTask(
       callFfi: () {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVntApi(
             that, serializer);
         return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 5)!;
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_bool,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiVntApiVntApiIsStoppedConstMeta,
+      argValues: [that],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiVntApiVntApiIsStoppedConstMeta =>
+      const TaskConstMeta(
+        debugName: "VntApi_is_stopped",
+        argNames: ["that"],
+      );
+
+  @override
+  RustNatInfo crateApiVntApiVntApiNatInfo({required VntApi that}) {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVntApi(
+            that, serializer);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 6)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_rust_nat_info,
@@ -320,7 +347,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVntApiCallback(
             call, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 6, port: port_);
+            funcId: 7, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData:
@@ -347,7 +374,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVntApi(
             that, serializer);
         sse_encode_String(ip, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 7)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 8)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_opt_box_autoadd_rust_nat_info,
@@ -374,7 +401,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVntApi(
             that, serializer);
         sse_encode_String(ip, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 8)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 9)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_opt_box_autoadd_rust_route,
@@ -399,7 +426,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVntApi(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 9)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 10)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_list_record_string_list_rust_route,
@@ -418,14 +445,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<void> crateApiVntApiVntApiStop({required VntApi that}) {
-    return handler.executeNormal(NormalTask(
-      callFfi: (port_) {
+  void crateApiVntApiVntApiStop({required VntApi that}) {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVntApi(
             that, serializer);
-        pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 10, port: port_);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 11)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -449,7 +475,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVntApi(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 11)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 12)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_String,
@@ -473,7 +499,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 12, port: port_);
+            funcId: 13, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -496,7 +522,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 13, port: port_);
+            funcId: 14, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -523,7 +549,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVntApiCallback(
             call, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 14, port: port_);
+            funcId: 15, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData:
@@ -1324,8 +1350,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   VntConfig dco_decode_vnt_config(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 27)
-      throw Exception('unexpected arr length: expect 27 but see ${arr.length}');
+    if (arr.length != 26)
+      throw Exception('unexpected arr length: expect 26 but see ${arr.length}');
     return VntConfig(
       tap: dco_decode_bool(arr[0]),
       token: dco_decode_String(arr[1]),
@@ -1342,18 +1368,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       ip: dco_decode_opt_String(arr[12]),
       noProxy: dco_decode_bool(arr[13]),
       serverEncrypt: dco_decode_bool(arr[14]),
-      parallel: dco_decode_usize(arr[15]),
-      cipherModel: dco_decode_String(arr[16]),
-      finger: dco_decode_bool(arr[17]),
-      punchModel: dco_decode_String(arr[18]),
-      ports: dco_decode_opt_list_prim_u_16_strict(arr[19]),
-      firstLatency: dco_decode_bool(arr[20]),
-      deviceName: dco_decode_opt_String(arr[21]),
-      useChannelType: dco_decode_String(arr[22]),
-      packetLossRate: dco_decode_opt_box_autoadd_f_64(arr[23]),
-      packetDelay: dco_decode_u_32(arr[24]),
-      portMappingList: dco_decode_list_String(arr[25]),
-      compressor: dco_decode_String(arr[26]),
+      cipherModel: dco_decode_String(arr[15]),
+      finger: dco_decode_bool(arr[16]),
+      punchModel: dco_decode_String(arr[17]),
+      ports: dco_decode_opt_list_prim_u_16_strict(arr[18]),
+      firstLatency: dco_decode_bool(arr[19]),
+      deviceName: dco_decode_opt_String(arr[20]),
+      useChannelType: dco_decode_String(arr[21]),
+      packetLossRate: dco_decode_opt_box_autoadd_f_64(arr[22]),
+      packetDelay: dco_decode_u_32(arr[23]),
+      portMappingList: dco_decode_list_String(arr[24]),
+      compressor: dco_decode_String(arr[25]),
     );
   }
 
@@ -1862,7 +1887,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_ip = sse_decode_opt_String(deserializer);
     var var_noProxy = sse_decode_bool(deserializer);
     var var_serverEncrypt = sse_decode_bool(deserializer);
-    var var_parallel = sse_decode_usize(deserializer);
     var var_cipherModel = sse_decode_String(deserializer);
     var var_finger = sse_decode_bool(deserializer);
     var var_punchModel = sse_decode_String(deserializer);
@@ -1890,7 +1914,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         ip: var_ip,
         noProxy: var_noProxy,
         serverEncrypt: var_serverEncrypt,
-        parallel: var_parallel,
         cipherModel: var_cipherModel,
         finger: var_finger,
         punchModel: var_punchModel,
@@ -2431,7 +2454,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_opt_String(self.ip, serializer);
     sse_encode_bool(self.noProxy, serializer);
     sse_encode_bool(self.serverEncrypt, serializer);
-    sse_encode_usize(self.parallel, serializer);
     sse_encode_String(self.cipherModel, serializer);
     sse_encode_bool(self.finger, serializer);
     sse_encode_String(self.punchModel, serializer);

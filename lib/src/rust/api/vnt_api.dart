@@ -50,6 +50,10 @@ class VntApi extends RustOpaque {
         that: this,
       );
 
+  bool isStopped() => RustLib.instance.api.crateApiVntApiVntApiIsStopped(
+        that: this,
+      );
+
   RustNatInfo natInfo() => RustLib.instance.api.crateApiVntApiVntApiNatInfo(
         that: this,
       );
@@ -71,7 +75,7 @@ class VntApi extends RustOpaque {
         that: this,
       );
 
-  Future<void> stop() => RustLib.instance.api.crateApiVntApiVntApiStop(
+  void stop() => RustLib.instance.api.crateApiVntApiVntApiStop(
         that: this,
       );
 
@@ -427,7 +431,6 @@ class VntConfig {
   final String? ip;
   final bool noProxy;
   final bool serverEncrypt;
-  final BigInt parallel;
   final String cipherModel;
   final bool finger;
   final String punchModel;
@@ -456,7 +459,6 @@ class VntConfig {
     this.ip,
     required this.noProxy,
     required this.serverEncrypt,
-    required this.parallel,
     required this.cipherModel,
     required this.finger,
     required this.punchModel,
@@ -487,7 +489,6 @@ class VntConfig {
       ip.hashCode ^
       noProxy.hashCode ^
       serverEncrypt.hashCode ^
-      parallel.hashCode ^
       cipherModel.hashCode ^
       finger.hashCode ^
       punchModel.hashCode ^
@@ -520,7 +521,6 @@ class VntConfig {
           ip == other.ip &&
           noProxy == other.noProxy &&
           serverEncrypt == other.serverEncrypt &&
-          parallel == other.parallel &&
           cipherModel == other.cipherModel &&
           finger == other.finger &&
           punchModel == other.punchModel &&

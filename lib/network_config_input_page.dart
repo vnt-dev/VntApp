@@ -85,9 +85,10 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
   }
 
   void _loadDefault() {
-    _stunServers.add(TextEditingController(text: "stun1.l.google.com:19302"));
-    _stunServers.add(TextEditingController(text: "stun2.l.google.com:19302"));
-    _stunServers.add(TextEditingController(text: "stun.miwifi.com:3478"));
+    _stunServers.add(TextEditingController(text: "stun.miwifi.com"));
+    _stunServers.add(TextEditingController(text: "stun.chat.bilibili.com"));
+    _stunServers.add(TextEditingController(text: "stun.hitv.com"));
+    _stunServers.add(TextEditingController(text: "stun.cdnbye.com"));
     _mtuController.text = "1410";
     _serverAddressController.text = "vnt.wherewego.top:29872";
     _simulatedPacketLossRateController.text = "0";

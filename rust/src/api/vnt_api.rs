@@ -76,7 +76,6 @@ pub struct VntConfig {
     pub ip: Option<String>,
     pub no_proxy: bool,
     pub server_encrypt: bool,
-    pub parallel: usize,
     pub cipher_model: String,
     pub finger: bool,
     pub punch_model: String,
@@ -142,7 +141,6 @@ impl VntApi {
             ip,
             vnt_config.no_proxy,
             vnt_config.server_encrypt,
-            vnt_config.parallel,
             cipher_model,
             vnt_config.finger,
             punch_model,
@@ -160,8 +158,13 @@ impl VntApi {
             vnt: Vnt::new(conf, call)?,
         })
     }
+    #[flutter_rust_bridge::frb(sync)]
     pub fn stop(&self) {
         self.vnt.stop();
+    }
+    #[flutter_rust_bridge::frb(sync)]
+    pub fn is_stopped(&self) -> bool {
+        self.vnt.is_stopped()
     }
     #[flutter_rust_bridge::frb(sync)]
     pub fn device_list(&self) -> Vec<RustPeerClientInfo> {
@@ -326,11 +329,11 @@ impl VntCallback for VntApiCallback {
             .block_on(async { f(info.into()).await })
     }
     #[cfg(target_os = "android")]
-    fn generate_tun(&self, info: DeviceConfig) -> u32 {
+    fn generate_tun(&self, info: DeviceConfig) -> usize {
         let f = &self.inner.generate_tun_fn;
         Runtime::new()
             .unwrap()
-            .block_on(async { f(info.into()).await })
+            .block_on(async { f(info.into()).await }) as _
     }
     fn peer_client_list(&self, info: Vec<PeerClientInfo>) {
         let f = &self.inner.peer_client_list_fn;
