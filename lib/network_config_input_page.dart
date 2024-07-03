@@ -19,9 +19,9 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
   final _nameController = TextEditingController();
   final _groupNumberController = TextEditingController();
   final _deviceNameController = TextEditingController(
-      text: Platform.operatingSystemVersion.length > 64
-          ? Platform.operatingSystemVersion.substring(0, 64)
-          : Platform.operatingSystemVersion);
+      text: Platform.localHostname.length > 32
+          ? Platform.localHostname.substring(0, 32)
+          : Platform.localHostname);
   final _virtualIPv4Controller = TextEditingController();
   final _serverAddressController = TextEditingController();
   final _stunServers = <TextEditingController>[];
@@ -335,16 +335,46 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                 CustomTooltipTextField(
                   controller: _serverAddressController,
                   labelText: '服务器地址',
-                  tooltipMessage: '(VNTS地址,可以使用txt:前缀启用TXT记录解析)',
+                  tooltipMessage: '(VNTS地址,udp和tcp模式可以使用txt:前缀启用TXT记录解析)',
                   maxLength: 64,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return '地址不能为空';
                     }
+                    value = value.toLowerCase();
+                    var last = stripPrefix(value, 'udp://');
+                    if (last != null) {
+                      _communicationMethod = 'UDP';
+                    } else {
+                      last = stripPrefix(value, 'tcp://');
+                      if (last != null) {
+                        _communicationMethod = 'TCP';
+                      } else {
+                        last = stripPrefix(value, 'ws://');
+                        if (last != null) {
+                          _communicationMethod = 'WS';
+                        } else {
+                          last = stripPrefix(value, 'wss://');
+                          if (last != null) {
+                            _communicationMethod = 'WSS';
+                          }
+                        }
+                      }
+                    }
+                    if (last != null) {
+                      value = last;
+                      setState(() {
+                        _communicationMethod;
+                      });
+                    }
                     final txtRegex = RegExp(r'^txt:');
                     final addressPortRegex = RegExp(r'^(.+):(\d{1,5})$');
 
                     if (txtRegex.hasMatch(value)) {
+                      if (_communicationMethod != 'UDP' &&
+                          _communicationMethod != 'TCP') {
+                        return '只有UDP或TCP模式支持txt解析';
+                      }
                       final txtDomainRegex =
                           RegExp(r'^txt:[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
                       if (txtDomainRegex.hasMatch(value)) {
@@ -368,9 +398,23 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                 ),
                 _buildRadioGroup(
                   '通信方式',
-                  [('UDP', 'UDP'), ('TCP', 'TCP')],
+                  [
+                    ('UDP', 'UDP'),
+                    ('TCP', 'TCP'),
+                    ('WS', 'WS'),
+                    ('WSS', 'WSS')
+                  ],
                   _communicationMethod,
                   (value) {
+                    var text = stripScheme(_serverAddressController.text);
+                    if (value == 'TCP') {
+                      text = "tcp://$text";
+                    } else if (value == 'WS') {
+                      text = "ws://$text";
+                    } else if (value == 'WSS') {
+                      text = "wss://$text";
+                    }
+                    _serverAddressController.text = text;
                     setState(() {
                       _communicationMethod = value!;
                     });
@@ -896,4 +940,17 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
       },
     );
   }
+}
+
+String? stripPrefix(String input, String prefix) {
+  if (input.startsWith(prefix)) {
+    return input.substring(prefix.length);
+  } else {
+    return null;
+  }
+}
+
+String stripScheme(String input) {
+  final pattern = RegExp(r'^[^:]+://');
+  return input.replaceFirst(pattern, '');
 }

@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:vnt_app/data_persistence.dart';
 
+import 'connect_log.dart';
+
 class SettingsPage extends StatefulWidget {
   @override
   _SettingsPageState createState() => _SettingsPageState();
@@ -299,6 +301,20 @@ class _SettingsPageState extends State<SettingsPage> {
                       ],
                     );
                   },
+                );
+              },
+            ),
+          ),
+          ListTile(
+            title: const Text('应用日志'),
+            trailing: IconButton(
+              icon: const Icon(Icons.sms_failed),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => LogPage(),
+                  ),
                 );
               },
             ),
