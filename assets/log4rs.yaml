@@ -5,7 +5,7 @@ appenders:
     path: logs/vnt-core.log
     append: true
     encoder:
-      pattern: "{d} [{f}:{L}] {h({l})} {M}:{m}{n}"
+      pattern: "{d(%Y-%m-%d %H:%M:%S.%3f)} [{f}:{L}] {h({l})} {M}:{m}{n}{n}"
     policy:
       kind: compound
       trigger:
