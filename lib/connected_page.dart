@@ -3,13 +3,16 @@ import 'connect_log.dart';
 import 'network_config.dart';
 import 'custom_app_bar.dart';
 import 'src/rust/api/vnt_api.dart';
-import 'vnt/vnt_api.dart';
 import 'package:json2yaml/json2yaml.dart';
+
+import 'vnt/vnt_manager.dart';
 
 class ConnectDetailPage extends StatefulWidget {
   final NetworkConfig config;
+  final VntBox vntBox;
 
-  const ConnectDetailPage({super.key, required this.config});
+  const ConnectDetailPage(
+      {super.key, required this.config, required this.vntBox});
 
   @override
   _ConnectDetailPageState createState() => _ConnectDetailPageState();
@@ -48,9 +51,9 @@ class _ConnectDetailPageState extends State<ConnectDetailPage> {
   }
 
   List<Map<String, String>> _fetchDeviceList() {
-    var list = VntApiUtils.peerDeviceList();
+    var list = widget.vntBox.peerDeviceList();
     return list.map((item) {
-      var route = VntApiUtils.route(item.virtualIp);
+      var route = widget.vntBox.route(item.virtualIp);
       var p2pRelay = '';
       var rt = '';
       if (route != null) {
@@ -68,7 +71,7 @@ class _ConnectDetailPageState extends State<ConnectDetailPage> {
   }
 
   List<Map<String, String>> _fetchRouteList() {
-    var list = VntApiUtils.routeList();
+    var list = widget.vntBox.routeList();
     List<Map<String, String>> rs = [];
     for ((String, List<RustRoute>) x in list) {
       for (var route in x.$2) {
@@ -98,7 +101,7 @@ class _ConnectDetailPageState extends State<ConnectDetailPage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => ConnectLogPage(),
+                    builder: (context) => LogPage(),
                   ),
                 );
               },
@@ -130,9 +133,10 @@ class _ConnectDetailPageState extends State<ConnectDetailPage> {
                       title: const Text('是否断开连接'),
                       actions: [
                         TextButton(
-                          onPressed: () {
+                          onPressed: () async {
                             Navigator.of(context).pop();
                             Navigator.pop(context, true);
+                            await vntManager.remove(widget.config.itemKey);
                           },
                           style: TextButton.styleFrom(
                             foregroundColor: Colors.white,
@@ -141,7 +145,7 @@ class _ConnectDetailPageState extends State<ConnectDetailPage> {
                           child: const Text('断开连接'),
                         ),
                         TextButton(
-                          onPressed: () {
+                          onPressed: () async {
                             Navigator.of(context).pop();
                           },
                           child: const Icon(Icons.close),
@@ -179,13 +183,16 @@ class _ConnectDetailPageState extends State<ConnectDetailPage> {
 
   List<Widget> _buildWidgetOptions() {
     return [
-      DeviceList(deviceList: deviceList),
+      DeviceList(
+        deviceList: deviceList,
+        vntBox: widget.vntBox,
+      ),
       RouteList(routeList: routeList),
     ];
   }
 
   void _showConfigDialog() {
-    var conf = json2yaml(VntApiUtils.getNetConfig()!.toJsonSimple());
+    var conf = json2yaml(widget.vntBox.getNetConfig()!.toJsonSimple());
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -206,10 +213,10 @@ class _ConnectDetailPageState extends State<ConnectDetailPage> {
   }
 
   void _showCurrentDeviceDialog() {
-    Map<String, dynamic> map = VntApiUtils.currentDevice();
+    Map<String, dynamic> map = widget.vntBox.currentDevice();
     map.addEntries({
-      "upStream": VntApiUtils.upStream(),
-      "downStream": VntApiUtils.downStream(),
+      "upStream": widget.vntBox.upStream(),
+      "downStream": widget.vntBox.downStream(),
     }.entries);
     var info = json2yaml(map);
     showDialog(
@@ -233,9 +240,10 @@ class _ConnectDetailPageState extends State<ConnectDetailPage> {
 }
 
 class DeviceList extends StatelessWidget {
+  final VntBox vntBox;
   final List<Map<String, String>> deviceList;
 
-  const DeviceList({super.key, required this.deviceList});
+  const DeviceList({super.key, required this.deviceList, required this.vntBox});
 
   @override
   Widget build(BuildContext context) {
@@ -271,8 +279,8 @@ class DeviceList extends StatelessWidget {
   }
 
   void _showPeerInfoDialog(BuildContext context, String ip, String name) {
-    var natInfo = VntApiUtils.peerNatInfo(ip);
-    var allRouteList = VntApiUtils.routeList();
+    var natInfo = vntBox.peerNatInfo(ip);
+    var allRouteList = vntBox.routeList();
     List<RustRoute>? routeList;
     for ((String, List<RustRoute>) routes in allRouteList) {
       if (routes.$1 == ip) {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
 import 'dart:isolate';
@@ -5,26 +6,24 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
-import '../network_config.dart';
-import '../src/rust/api/vnt_api.dart';
-import '../utils/ip_utils.dart';
 import 'package:synchronized/synchronized.dart';
+import 'package:vnt_app/network_config.dart';
+import 'package:vnt_app/src/rust/api/vnt_api.dart';
+import 'package:vnt_app/utils/ip_utils.dart';
 
-class VntApiUtils {
-  static VntApi? vntApi;
-  static VntConfig? vntConfig;
-  static NetworkConfig? networkConfig;
-  static Queue<ConnectLogEntry> logQueue = Queue();
-  static final lock = Lock();
-  static NetworkConfig? getNetConfig() {
-    return networkConfig;
-  }
+final VntManager vntManager = VntManager();
 
-  static Future<void> open(NetworkConfig config, SendPort uiCall) async {
-    addLog(ConnectLogEntry(message: '连接vnts ${config.serverAddress}'));
-    networkConfig = config;
-    vntConfig = VntConfig(
+class VntBox {
+  final VntApi vntApi;
+  final VntConfig vntConfig;
+  final NetworkConfig networkConfig;
+  VntBox({
+    required this.vntApi,
+    required this.vntConfig,
+    required this.networkConfig,
+  });
+  static Future<VntBox> create(NetworkConfig config, SendPort uiCall) async {
+    var vntConfig = VntConfig(
       tap: false,
       token: config.token,
       deviceId: config.deviceID,
@@ -56,35 +55,22 @@ class VntApiUtils {
       portMappingList: config.portMappings,
       compressor: config.compressor.isEmpty ? 'none' : config.compressor,
     );
-
     var vntCall = VntApiCallback(successFn: () {
       uiCall.send('success');
     }, createTunFn: (info) {
-      lock.synchronized(() {
-        addLog(
-            ConnectLogEntry(message: '创建虚拟网卡 ${info.name}  ${info.version}'));
-      });
       // uiCall.send(info);
     }, connectFn: (info) {
-      lock.synchronized(() {
-        addLog(ConnectLogEntry(message: '第${info.count}次连接目标 ${info.address}'));
-      });
       uiCall.send(info);
     }, handshakeFn: (info) {
-      addLog(ConnectLogEntry(
-          message: '握手成功 vnts版本 ${info.version} vnts指纹 ${info.finger}'));
       // uiCall.send(info);
       return true;
     }, registerFn: (info) {
-      addLog(ConnectLogEntry(
-          message:
-              '注册成功 虚拟IP ${info.virtualIp}  ${info.virtualGateway}/${info.virtualNetmask}'));
       // uiCall.send(info);
       return true;
     }, generateTunFn: (info) async {
       //创建vpn
       try {
-        int fd = await VntAppCall.startVpn(info, vntConfig?.mtu ?? 1400);
+        int fd = await VntAppCall.startVpn(info, vntConfig.mtu ?? 1400);
         return fd;
       } catch (e) {
         debugPrint('创建vpn异常 $e');
@@ -95,38 +81,34 @@ class VntApiUtils {
       // uiCall.send(info);
     }, errorFn: (info) {
       debugPrint('服务异常 类型 ${info.code.name} ${info.msg ?? ''}');
-      addLog(ConnectLogEntry(
-          message: '服务异常 类型 ${info.code.name} ${info.msg ?? ''}'));
       uiCall.send(info);
     }, stopFn: () {
       uiCall.send('stop');
     });
-    vntApi = await vntInit(vntConfig: vntConfig!, call: vntCall);
+    var vntApi = await vntInit(vntConfig: vntConfig, call: vntCall);
+
+    return VntBox(vntApi: vntApi, vntConfig: vntConfig, networkConfig: config);
   }
 
-  static close() async {
-    if (vntApi == null) {
-      return;
-    }
-    vntApi?.stop();
-    vntApi = null;
+  Future<void> close() async {
+    vntApi.stop();
     if (Platform.isAndroid) {
       await VntAppCall.stopVpn();
     }
-    addLog(ConnectLogEntry(message: '关闭vnt连接'));
   }
 
-  static bool isClosed() {
-    return vntApi == null || vntApi!.isStopped();
+  bool isClosed() {
+    return vntApi.isStopped();
   }
 
-  static Map<String, dynamic> currentDevice() {
-    if (vntApi == null) {
-      return {};
-    }
-    var currentDevice = vntApi!.currentDevice();
+  NetworkConfig? getNetConfig() {
+    return networkConfig;
+  }
 
-    var natInfo = vntApi!.natInfo();
+  Map<String, dynamic> currentDevice() {
+    var currentDevice = vntApi.currentDevice();
+
+    var natInfo = vntApi.natInfo();
     return {
       'virtualIp': currentDevice.virtualIp,
       'virtualNetmask': currentDevice.virtualNetmask,
@@ -142,62 +124,93 @@ class VntApiUtils {
     };
   }
 
-  static List<RustPeerClientInfo> peerDeviceList() {
-    if (vntApi == null) {
-      return List.empty();
-    }
-    return vntApi!.deviceList();
+  List<RustPeerClientInfo> peerDeviceList() {
+    return vntApi.deviceList();
   }
 
-  static List<(String, List<RustRoute>)> routeList() {
-    if (vntApi == null) {
-      return List.empty();
-    }
-    return vntApi!.routeList();
+  List<(String, List<RustRoute>)> routeList() {
+    return vntApi.routeList();
   }
 
-  static RustRoute? route(String ip) {
-    if (vntApi == null) {
-      return null;
-    }
-    return vntApi!.route(ip: ip);
+  RustRoute? route(String ip) {
+    return vntApi.route(ip: ip);
   }
 
-  static RustNatInfo? peerNatInfo(String ip) {
-    if (vntApi == null) {
-      return null;
-    }
-    return vntApi!.peerNatInfo(ip: ip);
+  RustNatInfo? peerNatInfo(String ip) {
+    return vntApi.peerNatInfo(ip: ip);
   }
 
-  static String downStream() {
-    if (vntApi == null) {
-      return '';
-    }
-    return vntApi!.downStream();
+  String downStream() {
+    return vntApi.downStream();
   }
 
-  static String upStream() {
-    if (vntApi == null) {
-      return '';
-    }
-    return vntApi!.upStream();
-  }
-
-  static void addLog(ConnectLogEntry log) {
-    logQueue.addFirst(log);
-    if (logQueue.length > 100) {
-      logQueue.removeLast();
-    }
+  String upStream() {
+    return vntApi.upStream();
   }
 }
 
-class ConnectLogEntry {
-  final DateTime date;
-  final String message;
+class VntManager {
+  HashMap<String, VntBox> map = HashMap();
+  Future<VntBox> create(NetworkConfig config, SendPort uiCall) async {
+    var key = config.itemKey;
+    if (map.containsKey(key)) {
+      return map[key]!;
+    }
+    var vntBox = await VntBox.create(config, uiCall);
+    map[key] = vntBox;
+    return vntBox;
+  }
 
-  ConnectLogEntry({DateTime? date, required this.message})
-      : date = date ?? DateTime.now();
+  VntBox? get(String key) {
+    var vntBox = map[key];
+    if (vntBox != null && !vntBox.isClosed()) {
+      return vntBox;
+    }
+    return null;
+  }
+
+  Future<void> remove(String key) async {
+    var vnt = map.remove(key);
+    if (vnt != null) {
+      await vnt.close();
+    }
+  }
+
+  Future<void> removeAll() async {
+    for (var element in map.entries) {
+      await element.value.close();
+    }
+    map.clear();
+  }
+
+  bool hasConnectionItem(String key) {
+    var vntBox = map[key];
+    return vntBox != null && !vntBox.isClosed();
+  }
+
+  bool hasConnection() {
+    if (map.isEmpty) {
+      return false;
+    }
+    map.removeWhere((key, val) => val.isClosed());
+    return map.isNotEmpty;
+  }
+
+  int size() {
+    map.removeWhere((key, val) => val.isClosed());
+    return map.length;
+  }
+
+  bool supportMultiple() {
+    return !Platform.isAndroid;
+  }
+
+  VntBox? getOne() {
+    if (map.isEmpty) {
+      return null;
+    }
+    return map.entries.first.value;
+  }
 }
 
 class VntAppCall {
@@ -206,7 +219,7 @@ class VntAppCall {
     channel.setMethodCallHandler((MethodCall call) async {
       switch (call.method) {
         case 'stopVnt':
-          VntApiUtils.close();
+          await vntManager.removeAll();
         default:
           throw PlatformException(
             code: 'Unimplemented',
