@@ -387,7 +387,7 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                       final match = addressPortRegex.firstMatch(value);
                       if (match != null) {
                         final domainRegex =
-                            RegExp(r'^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+                            RegExp(r'^[a-zA-Z0-9.-]');
                         if (!domainRegex.hasMatch(match.group(1)!)) {
                           return '地址格式错误';
                         }
