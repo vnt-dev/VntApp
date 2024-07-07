@@ -402,6 +402,7 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                         return '地址格式错误';
                       }
                     }
+                    return null;
                   },
                 ),
                 _buildRadioGroup(

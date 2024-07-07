@@ -27,7 +27,6 @@ class StatisticsChartState extends State<StatisticsChart> {
   bool showB = false;
   Uint64List upList = Uint64List(0);
   double lineMax = 0;
-  double lineMin = 0;
   Uint64List downList = Uint64List(0);
   List<(String, BigInt, BigInt)> barChartDataList = [];
   String uploadTotal = '';
@@ -85,33 +84,25 @@ class StatisticsChartState extends State<StatisticsChart> {
     downList = widget.vntBox.vntApi.downStreamLine(ip: ip);
     ipUpload = widget.vntBox.vntApi.ipUpStreamTotal(ip: ip);
     ipDownload = widget.vntBox.vntApi.ipDownStreamTotal(ip: ip);
+    var lineMaxTmp = 0.0;
     for (var item in upList) {
       var tmp = item.toDouble();
-      if (tmp > lineMax) {
-        lineMax = tmp;
-      }
-      if (tmp < lineMin) {
-        lineMin = tmp;
+      if (tmp > lineMaxTmp) {
+        lineMaxTmp = tmp;
       }
     }
     for (var item in downList) {
       var tmp = item.toDouble();
-      if (tmp > lineMax) {
-        lineMax = tmp;
-      }
-      if (tmp < lineMin) {
-        lineMin = tmp;
+      if (tmp > lineMaxTmp) {
+        lineMaxTmp = tmp;
       }
     }
-    lineMax += lineMax * 0.05;
-
-    lineMin -= lineMin * 0.1;
+    lineMaxTmp += lineMaxTmp * 0.05;
 
     setState(() {
       upList = upList;
       downList = downList;
-      lineMax = lineMax;
-      lineMin = lineMin;
+      lineMax = lineMaxTmp;
       showB = true;
     });
   }
@@ -173,8 +164,8 @@ class StatisticsChartState extends State<StatisticsChart> {
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: SizedBox(
-            width: barChartDataList.length * 128.0 > constraints.maxWidth
-                ? barChartDataList.length * 128.0
+            width: barChartDataList.length * 140.0 > constraints.maxWidth
+                ? barChartDataList.length * 140.0
                 : constraints.maxWidth,
             child: AspectRatio(
               aspectRatio: 1,
@@ -370,7 +361,7 @@ class StatisticsChartState extends State<StatisticsChart> {
       ),
       minX: 0,
       maxX: 100,
-      minY: lineMin,
+      minY: 0,
       maxY: lineMax,
       lineBarsData: [
         LineChartBarData(
