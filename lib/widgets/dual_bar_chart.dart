@@ -97,7 +97,7 @@ class StatisticsChartState extends State<StatisticsChart> {
         lineMaxTmp = tmp;
       }
     }
-    lineMaxTmp += lineMaxTmp * 0.05;
+    lineMaxTmp += lineMaxTmp * 0.2;
 
     setState(() {
       upList = upList;
