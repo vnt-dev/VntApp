@@ -397,14 +397,15 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                         } else {
                           return '端口错误';
                         }
-                      } else {
+                      } else if (_communicationMethod == 'UDP' ||
+                          _communicationMethod == 'TCP') {
                         return '地址格式错误';
                       }
                     }
                   },
                 ),
                 _buildRadioGroup(
-                  '通信方式',
+                  '协议',
                   [
                     ('UDP', 'UDP'),
                     ('TCP', 'TCP'),
@@ -758,7 +759,7 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
             children: list.map(((String, String) x) {
               return Row(
                 children: [
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 4),
                   Radio<String>(
                     value: x.$2,
                     groupValue: groupValue,
