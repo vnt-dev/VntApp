@@ -6,7 +6,6 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:synchronized/synchronized.dart';
 import 'package:vnt_app/network_config.dart';
 import 'package:vnt_app/src/rust/api/vnt_api.dart';
 import 'package:vnt_app/utils/ip_utils.dart';
@@ -35,7 +34,6 @@ class VntBox {
       outIps: config.outIps.map((v) => IpUtils.parseOutIpString(v)).toList(),
       password: config.groupPassword.isEmpty ? null : config.groupPassword,
       mtu: config.mtu == 0 ? null : config.mtu,
-      tcp: config.isTcp,
       ip: config.virtualIPv4.isEmpty ? null : config.virtualIPv4,
       noProxy: config.noInIpProxy,
       serverEncrypt: config.isServerEncrypted,

@@ -1,10 +1,12 @@
+use std::collections::HashSet;
 use std::net::Ipv4Addr;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::thread;
 
 use anyhow::anyhow;
 use flutter_rust_bridge::DartFnFuture;
-use tokio::runtime::Runtime;
+use tokio::runtime::{Handle, Runtime};
 use vnt::channel::punch::{NatInfo, PunchModel};
 use vnt::channel::{Route, UseChannelType};
 use vnt::cipher::CipherModel;
@@ -72,7 +74,6 @@ pub struct VntConfig {
     pub out_ips: Vec<(u32, u32)>,
     pub password: Option<String>,
     pub mtu: Option<u32>,
-    pub tcp: bool,
     pub ip: Option<String>,
     pub no_proxy: bool,
     pub server_encrypt: bool,
@@ -137,7 +138,6 @@ impl VntApi {
             vnt_config.out_ips,
             vnt_config.password,
             vnt_config.mtu,
-            vnt_config.tcp,
             ip,
             vnt_config.no_proxy,
             vnt_config.server_encrypt,
@@ -153,6 +153,7 @@ impl VntApi {
             vnt_config.packet_delay,
             vnt_config.port_mapping_list,
             compressor,
+            true,
         )?;
         Ok(Self {
             vnt: Vnt::new(conf, call)?,
@@ -216,6 +217,65 @@ impl VntApi {
     #[flutter_rust_bridge::frb(sync)]
     pub fn down_stream(&self) -> String {
         convert(self.vnt.down_stream())
+    }
+    #[flutter_rust_bridge::frb(sync)]
+    pub fn stream_all(&self) -> Vec<(String, u64, u64)> {
+        let (_, up_map) = self.vnt.up_stream_all().unwrap_or_default();
+        let (_, down_map) = self.vnt.down_stream_all().unwrap_or_default();
+        let up_keys: HashSet<Ipv4Addr> = up_map.keys().cloned().collect();
+        let down_keys: HashSet<Ipv4Addr> = down_map.keys().cloned().collect();
+        let mut keys: Vec<Ipv4Addr> = up_keys.union(&down_keys).cloned().collect();
+        keys.sort();
+        let mut list = Vec::with_capacity(keys.len());
+        for key in keys {
+            let up = up_map.get(&key).cloned().unwrap_or_default();
+            let down = down_map.get(&key).cloned().unwrap_or_default();
+            list.push((key.to_string(), up, down));
+        }
+        list
+    }
+    #[flutter_rust_bridge::frb(sync)]
+    pub fn up_stream_line(&self, ip: String) -> Vec<u64> {
+        let ip: Ipv4Addr = if let Ok(ip) = ip.parse() {
+            ip
+        } else {
+            return vec![];
+        };
+        let (_, mut up_map) = self.vnt.up_stream_history().unwrap_or_default();
+        let (_, up_history) = up_map.remove(&ip).unwrap_or_default();
+
+        up_history.into_iter().map(|v| v as u64).collect()
+    }
+    #[flutter_rust_bridge::frb(sync)]
+    pub fn down_stream_line(&self, ip: String) -> Vec<u64> {
+        let ip: Ipv4Addr = if let Ok(ip) = ip.parse() {
+            ip
+        } else {
+            return vec![];
+        };
+        let (_, mut down_map) = self.vnt.down_stream_history().unwrap_or_default();
+        let (_, down_history) = down_map.remove(&ip).unwrap_or_default();
+        down_history.into_iter().map(|v| v as u64).collect()
+    }
+    #[flutter_rust_bridge::frb(sync)]
+    pub fn ip_up_stream_total(&self, ip: String) -> String {
+        let ip: Ipv4Addr = if let Ok(ip) = ip.parse() {
+            ip
+        } else {
+            return String::new();
+        };
+        let (_, up_map) = self.vnt.up_stream_all().unwrap_or_default();
+        convert(up_map.get(&ip).cloned().unwrap_or_default())
+    }
+    #[flutter_rust_bridge::frb(sync)]
+    pub fn ip_down_stream_total(&self, ip: String) -> String {
+        let ip: Ipv4Addr = if let Ok(ip) = ip.parse() {
+            ip
+        } else {
+            return String::new();
+        };
+        let (_, down_map) = self.vnt.down_stream_all().unwrap_or_default();
+        convert(down_map.get(&ip).cloned().unwrap_or_default())
     }
 }
 
@@ -297,61 +357,132 @@ struct VntApiCallbackInner {
 
 impl VntCallback for VntApiCallback {
     fn success(&self) {
-        let f = &self.inner.success_fn;
-        Runtime::new().unwrap().block_on(async { f().await })
+        let inner = self.inner.clone();
+        if let Ok(h) = Handle::try_current() {
+            h.spawn(async move {
+                let f = &inner.success_fn;
+                f().await
+            });
+        } else {
+            let f = &inner.success_fn;
+            Runtime::new().unwrap().block_on(async { f().await })
+        }
     }
     #[cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))]
     fn create_tun(&self, info: DeviceInfo) {
-        let f = &self.inner.create_tun_fn;
-        Runtime::new()
-            .unwrap()
-            .block_on(async { f(info.into()).await })
+        let inner = self.inner.clone();
+        let info = info.into();
+        if let Ok(h) = Handle::try_current() {
+            h.spawn(async move {
+                let f = &inner.create_tun_fn;
+                f(info).await
+            });
+        } else {
+            let f = &inner.create_tun_fn;
+            Runtime::new().unwrap().block_on(async { f(info).await })
+        }
     }
 
     fn connect(&self, info: ConnectInfo) {
-        let f = &self.inner.connect_fn;
-        Runtime::new()
-            .unwrap()
-            .block_on(async { f(info.into()).await })
+        let inner = self.inner.clone();
+        let info = info.into();
+        if let Ok(h) = Handle::try_current() {
+            h.spawn(async move {
+                let f = &inner.connect_fn;
+                f(info).await
+            });
+        } else {
+            let f = &inner.connect_fn;
+            Runtime::new().unwrap().block_on(async { f(info).await })
+        }
     }
 
     fn handshake(&self, info: HandshakeInfo) -> bool {
-        let f = &self.inner.handshake_fn;
-        Runtime::new()
+        let inner = self.inner.clone();
+        let info = info.into();
+        if Handle::try_current().is_ok() {
+            thread::spawn(move || {
+                let f = &inner.handshake_fn;
+                Runtime::new().unwrap().block_on(async { f(info).await })
+            })
+            .join()
             .unwrap()
-            .block_on(async { f(info.into()).await })
+        } else {
+            let f = &inner.handshake_fn;
+            Runtime::new().unwrap().block_on(async { f(info).await })
+        }
     }
 
     fn register(&self, info: RegisterInfo) -> bool {
-        let f = &self.inner.register_fn;
-        Runtime::new()
+        let inner = self.inner.clone();
+        let info = info.into();
+        if Handle::try_current().is_ok() {
+            thread::spawn(move || {
+                let f = &inner.register_fn;
+                Runtime::new().unwrap().block_on(async { f(info).await })
+            })
+            .join()
             .unwrap()
-            .block_on(async { f(info.into()).await })
+        } else {
+            let f = &inner.register_fn;
+            Runtime::new().unwrap().block_on(async { f(info).await })
+        }
     }
     #[cfg(target_os = "android")]
     fn generate_tun(&self, info: DeviceConfig) -> usize {
-        let f = &self.inner.generate_tun_fn;
-        Runtime::new()
-            .unwrap()
-            .block_on(async { f(info.into()).await }) as _
+        let inner = self.inner.clone();
+        let info = info.into();
+        if Handle::try_current().is_ok() {
+            thread::spawn(move || {
+                let f = &inner.generate_tun_fn;
+                Runtime::new().unwrap().block_on(async { f(info).await })
+            })
+            .join()
+            .unwrap() as _
+        } else {
+            let f = &inner.generate_tun_fn;
+            Runtime::new().unwrap().block_on(async { f(info).await }) as _
+        }
     }
     fn peer_client_list(&self, info: Vec<PeerClientInfo>) {
-        let f = &self.inner.peer_client_list_fn;
-        Runtime::new()
-            .unwrap()
-            .block_on(async { f(info.into_iter().map(|v| v.into()).collect()).await })
+        let inner = self.inner.clone();
+        let info = info.into_iter().map(|v| v.into()).collect();
+        if let Ok(h) = Handle::try_current() {
+            h.spawn(async move {
+                let f = &inner.peer_client_list_fn;
+                f(info).await
+            });
+        } else {
+            let f = &inner.peer_client_list_fn;
+            Runtime::new().unwrap().block_on(async { f(info).await })
+        }
     }
 
     fn error(&self, info: ErrorInfo) {
-        let f = &self.inner.error_fn;
-        Runtime::new()
-            .unwrap()
-            .block_on(async { f(info.into()).await })
+        let inner = self.inner.clone();
+        let info = info.into();
+        if let Ok(h) = Handle::try_current() {
+            h.spawn(async move {
+                let f = &inner.error_fn;
+                f(info).await
+            });
+        } else {
+            let f = &inner.error_fn;
+            Runtime::new().unwrap().block_on(async { f(info).await })
+        }
     }
 
     fn stop(&self) {
-        let f = &self.inner.stop_fn;
-        Runtime::new().unwrap().block_on(async { f().await })
+        let inner = self.inner.clone();
+        if let Ok(h) = Handle::try_current() {
+            h.spawn(async move {
+                let f = &inner.stop_fn;
+                f().await
+            });
+        } else {
+            let f = &inner.stop_fn;
+            Runtime::new().unwrap().block_on(async { f().await })
+        }
     }
 }
 
@@ -526,7 +657,7 @@ impl From<ErrorType> for RustErrorType {
 
 #[derive(Debug)]
 pub struct RustRoute {
-    pub is_tcp: bool,
+    pub protocol: String,
     pub addr: String,
     pub metric: u8,
     pub rt: i64,
@@ -535,7 +666,7 @@ pub struct RustRoute {
 impl From<Route> for RustRoute {
     fn from(value: Route) -> Self {
         RustRoute {
-            is_tcp: value.is_tcp,
+            protocol: format!("{:?}", value.protocol),
             addr: value.addr.to_string(),
             metric: value.metric,
             rt: value.rt,

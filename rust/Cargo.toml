@@ -10,7 +10,7 @@ crate-type = ["staticlib", "cdylib"]
 
 serde = { version = "1.0", features = ["derive"] }
 flutter_rust_bridge = "=2.0.0-dev.37"
-vnt = { git = "https://github.com/lbl8603/vnt.git", branch = "1.2.x", features = ["ring-cipher"]}
+vnt = { git = "https://github.com/lbl8603/vnt.git", branch = "1.2.x", features = ["ring-cipher", "wss"] }
 anyhow = "1.0.82"
 tokio = { version = "1.37.0", features = ["full"] }
 

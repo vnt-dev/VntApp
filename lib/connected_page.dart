@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'connect_log.dart';
 import 'network_config.dart';
@@ -6,6 +9,7 @@ import 'src/rust/api/vnt_api.dart';
 import 'package:json2yaml/json2yaml.dart';
 
 import 'vnt/vnt_manager.dart';
+import 'widgets/dual_bar_chart.dart';
 
 class ConnectDetailPage extends StatefulWidget {
   final NetworkConfig config;
@@ -19,34 +23,50 @@ class ConnectDetailPage extends StatefulWidget {
 }
 
 class _ConnectDetailPageState extends State<ConnectDetailPage> {
+  final GlobalKey<StatisticsChartState> _keyChart =
+      GlobalKey<StatisticsChartState>();
+
   int _selectedIndex = 0;
   List<Map<String, String>> deviceList = [];
   List<Map<String, String>> routeList = [];
-
+  Timer? _timer;
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _loadData(false);
+    _timer = Timer.periodic(const Duration(seconds: 5), (Timer timer) {
+      _loadData(true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel(); // 取消定时器以防止内存泄漏
+    super.dispose();
   }
 
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
-      _loadData();
+      _loadData(false);
     });
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadData(bool timer) async {
     if (_selectedIndex == 0) {
-      deviceList = _fetchDeviceList();
       setState(() {
-        deviceList = deviceList;
+        deviceList = _fetchDeviceList();
+      });
+    } else if (_selectedIndex == 1) {
+      setState(() {
+        routeList = _fetchRouteList();
       });
     } else {
-      routeList = _fetchRouteList();
-      setState(() {
-        routeList = routeList;
-      });
+      if (timer) {
+        _keyChart.currentState?.updateData();
+      } else {
+        _keyChart.currentState?.updateBarChart();
+      }
     }
   }
 
@@ -93,20 +113,21 @@ class _ConnectDetailPageState extends State<ConnectDetailPage> {
         title: const Text('组网', style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.teal,
         actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            child: IconButton(
-              icon: const Text('日志', style: TextStyle(color: Colors.white)),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => LogPage(),
-                  ),
-                );
-              },
+          if (!Platform.isAndroid)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: IconButton(
+                icon: const Text('日志', style: TextStyle(color: Colors.white)),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => LogPage(),
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8.0),
             child: IconButton(
@@ -173,6 +194,10 @@ class _ConnectDetailPageState extends State<ConnectDetailPage> {
             icon: Icon(Icons.router),
             label: '路由',
           ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.signal_cellular_alt),
+            label: '统计',
+          ),
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.amber[800],
@@ -182,12 +207,17 @@ class _ConnectDetailPageState extends State<ConnectDetailPage> {
   }
 
   List<Widget> _buildWidgetOptions() {
+    // var chartAList = _chartAList();
     return [
       DeviceList(
         deviceList: deviceList,
         vntBox: widget.vntBox,
       ),
       RouteList(routeList: routeList),
+      StatisticsChart(
+        key: _keyChart,
+        vntBox: widget.vntBox,
+      )
     ];
   }
 
@@ -306,7 +336,7 @@ class DeviceList extends StatelessWidget {
     }
     if (routeList != null) {
       var route = routeList.map((v) {
-        return '${v.isTcp ? "TCP" : "UDP"}-${v.metric <= 1 ? "P2P" : "Relay"}-${v.addr} rt=${v.rt}';
+        return '$v-${v.metric <= 1 ? "P2P" : "Relay"}-${v.addr} rt=${v.rt}';
       }).toList();
       map.addAll({
         'route': route,

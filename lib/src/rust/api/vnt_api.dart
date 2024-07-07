@@ -50,6 +50,15 @@ class VntApi extends RustOpaque {
         that: this,
       );
 
+  Uint64List downStreamLine({required String ip}) => RustLib.instance.api
+      .crateApiVntApiVntApiDownStreamLine(that: this, ip: ip);
+
+  String ipDownStreamTotal({required String ip}) => RustLib.instance.api
+      .crateApiVntApiVntApiIpDownStreamTotal(that: this, ip: ip);
+
+  String ipUpStreamTotal({required String ip}) => RustLib.instance.api
+      .crateApiVntApiVntApiIpUpStreamTotal(that: this, ip: ip);
+
   bool isStopped() => RustLib.instance.api.crateApiVntApiVntApiIsStopped(
         that: this,
       );
@@ -79,9 +88,17 @@ class VntApi extends RustOpaque {
         that: this,
       );
 
+  List<(String, BigInt, BigInt)> streamAll() =>
+      RustLib.instance.api.crateApiVntApiVntApiStreamAll(
+        that: this,
+      );
+
   String upStream() => RustLib.instance.api.crateApiVntApiVntApiUpStream(
         that: this,
       );
+
+  Uint64List upStreamLine({required String ip}) =>
+      RustLib.instance.api.crateApiVntApiVntApiUpStreamLine(that: this, ip: ip);
 }
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<VntApiCallback>>
@@ -388,13 +405,13 @@ class RustRegisterInfo {
 }
 
 class RustRoute {
-  final bool isTcp;
+  final String protocol;
   final String addr;
   final int metric;
   final PlatformInt64 rt;
 
   const RustRoute({
-    required this.isTcp,
+    required this.protocol,
     required this.addr,
     required this.metric,
     required this.rt,
@@ -402,14 +419,14 @@ class RustRoute {
 
   @override
   int get hashCode =>
-      isTcp.hashCode ^ addr.hashCode ^ metric.hashCode ^ rt.hashCode;
+      protocol.hashCode ^ addr.hashCode ^ metric.hashCode ^ rt.hashCode;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is RustRoute &&
           runtimeType == other.runtimeType &&
-          isTcp == other.isTcp &&
+          protocol == other.protocol &&
           addr == other.addr &&
           metric == other.metric &&
           rt == other.rt;
@@ -427,7 +444,6 @@ class VntConfig {
   final List<(int, int)> outIps;
   final String? password;
   final int? mtu;
-  final bool tcp;
   final String? ip;
   final bool noProxy;
   final bool serverEncrypt;
@@ -455,7 +471,6 @@ class VntConfig {
     required this.outIps,
     this.password,
     this.mtu,
-    required this.tcp,
     this.ip,
     required this.noProxy,
     required this.serverEncrypt,
@@ -485,7 +500,6 @@ class VntConfig {
       outIps.hashCode ^
       password.hashCode ^
       mtu.hashCode ^
-      tcp.hashCode ^
       ip.hashCode ^
       noProxy.hashCode ^
       serverEncrypt.hashCode ^
@@ -517,7 +531,6 @@ class VntConfig {
           outIps == other.outIps &&
           password == other.password &&
           mtu == other.mtu &&
-          tcp == other.tcp &&
           ip == other.ip &&
           noProxy == other.noProxy &&
           serverEncrypt == other.serverEncrypt &&

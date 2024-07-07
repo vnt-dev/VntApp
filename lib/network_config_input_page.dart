@@ -115,7 +115,7 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
     }
     _groupPasswordController.text = config.groupPassword;
     _isServerEncrypted = config.isServerEncrypted ? 'OPEN' : 'CLOSE';
-    _communicationMethod = config.isTcp ? 'TCP' : 'UDP';
+    _communicationMethod = config.protocol;
     _dataFingerprintVerification =
         config.dataFingerprintVerification ? 'OPEN' : 'CLOSE';
     _encryptionAlgorithm = config.encryptionAlgorithm;
@@ -196,7 +196,7 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
             .toList(),
         groupPassword: _groupPasswordController.text,
         isServerEncrypted: _isServerEncrypted == 'OPEN',
-        isTcp: _communicationMethod == 'TCP',
+        protocol: _communicationMethod,
         dataFingerprintVerification: _dataFingerprintVerification == 'OPEN',
         encryptionAlgorithm: _encryptionAlgorithm,
         deviceID: _deviceIDController.text,
@@ -357,15 +357,17 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                           last = stripPrefix(value, 'wss://');
                           if (last != null) {
                             _communicationMethod = 'WSS';
+                          } else {
+                            _communicationMethod = 'UDP';
                           }
                         }
                       }
                     }
+                    setState(() {
+                      _communicationMethod;
+                    });
                     if (last != null) {
                       value = last;
-                      setState(() {
-                        _communicationMethod;
-                      });
                     }
                     final txtRegex = RegExp(r'^txt:');
                     final addressPortRegex = RegExp(r'^(.+):(\d{1,5})$');
@@ -384,6 +386,11 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                     } else {
                       final match = addressPortRegex.firstMatch(value);
                       if (match != null) {
+                        final domainRegex =
+                            RegExp(r'^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+                        if (!domainRegex.hasMatch(match.group(1)!)) {
+                          return '地址格式错误';
+                        }
                         final port = int.tryParse(match.group(2)!);
                         if (port != null && port >= 1 && port <= 65535) {
                           return null;

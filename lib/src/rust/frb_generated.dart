@@ -56,7 +56,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.0.0-dev.37';
 
   @override
-  int get rustContentHash => -1806396767;
+  int get rustContentHash => 1486497214;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -87,6 +87,15 @@ abstract class RustLibApi extends BaseApi {
 
   String crateApiVntApiVntApiDownStream({required VntApi that});
 
+  Uint64List crateApiVntApiVntApiDownStreamLine(
+      {required VntApi that, required String ip});
+
+  String crateApiVntApiVntApiIpDownStreamTotal(
+      {required VntApi that, required String ip});
+
+  String crateApiVntApiVntApiIpUpStreamTotal(
+      {required VntApi that, required String ip});
+
   bool crateApiVntApiVntApiIsStopped({required VntApi that});
 
   RustNatInfo crateApiVntApiVntApiNatInfo({required VntApi that});
@@ -105,7 +114,13 @@ abstract class RustLibApi extends BaseApi {
 
   void crateApiVntApiVntApiStop({required VntApi that});
 
+  List<(String, BigInt, BigInt)> crateApiVntApiVntApiStreamAll(
+      {required VntApi that});
+
   String crateApiVntApiVntApiUpStream({required VntApi that});
+
+  Uint64List crateApiVntApiVntApiUpStreamLine(
+      {required VntApi that, required String ip});
 
   Future<void> crateApiVntApiInitApp();
 
@@ -288,13 +303,94 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Uint64List crateApiVntApiVntApiDownStreamLine(
+      {required VntApi that, required String ip}) {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVntApi(
+            that, serializer);
+        sse_encode_String(ip, serializer);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 5)!;
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_list_prim_u_64_strict,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiVntApiVntApiDownStreamLineConstMeta,
+      argValues: [that, ip],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiVntApiVntApiDownStreamLineConstMeta =>
+      const TaskConstMeta(
+        debugName: "VntApi_down_stream_line",
+        argNames: ["that", "ip"],
+      );
+
+  @override
+  String crateApiVntApiVntApiIpDownStreamTotal(
+      {required VntApi that, required String ip}) {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVntApi(
+            that, serializer);
+        sse_encode_String(ip, serializer);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 6)!;
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_String,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiVntApiVntApiIpDownStreamTotalConstMeta,
+      argValues: [that, ip],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiVntApiVntApiIpDownStreamTotalConstMeta =>
+      const TaskConstMeta(
+        debugName: "VntApi_ip_down_stream_total",
+        argNames: ["that", "ip"],
+      );
+
+  @override
+  String crateApiVntApiVntApiIpUpStreamTotal(
+      {required VntApi that, required String ip}) {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVntApi(
+            that, serializer);
+        sse_encode_String(ip, serializer);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 7)!;
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_String,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiVntApiVntApiIpUpStreamTotalConstMeta,
+      argValues: [that, ip],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiVntApiVntApiIpUpStreamTotalConstMeta =>
+      const TaskConstMeta(
+        debugName: "VntApi_ip_up_stream_total",
+        argNames: ["that", "ip"],
+      );
+
+  @override
   bool crateApiVntApiVntApiIsStopped({required VntApi that}) {
     return handler.executeSync(SyncTask(
       callFfi: () {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVntApi(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 5)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 8)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_bool,
@@ -319,7 +415,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVntApi(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 6)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 9)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_rust_nat_info,
@@ -347,7 +443,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVntApiCallback(
             call, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 7, port: port_);
+            funcId: 10, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData:
@@ -374,7 +470,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVntApi(
             that, serializer);
         sse_encode_String(ip, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 8)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 11)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_opt_box_autoadd_rust_nat_info,
@@ -401,7 +497,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVntApi(
             that, serializer);
         sse_encode_String(ip, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 9)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 12)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_opt_box_autoadd_rust_route,
@@ -426,7 +522,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVntApi(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 10)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 13)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_list_record_string_list_rust_route,
@@ -451,7 +547,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVntApi(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 11)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 14)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -469,13 +565,39 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  List<(String, BigInt, BigInt)> crateApiVntApiVntApiStreamAll(
+      {required VntApi that}) {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVntApi(
+            that, serializer);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 15)!;
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_list_record_string_u_64_u_64,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiVntApiVntApiStreamAllConstMeta,
+      argValues: [that],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiVntApiVntApiStreamAllConstMeta =>
+      const TaskConstMeta(
+        debugName: "VntApi_stream_all",
+        argNames: ["that"],
+      );
+
+  @override
   String crateApiVntApiVntApiUpStream({required VntApi that}) {
     return handler.executeSync(SyncTask(
       callFfi: () {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVntApi(
             that, serializer);
-        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 12)!;
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 16)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_String,
@@ -494,12 +616,39 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
+  Uint64List crateApiVntApiVntApiUpStreamLine(
+      {required VntApi that, required String ip}) {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
+        final serializer = SseSerializer(generalizedFrbRustBinding);
+        sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVntApi(
+            that, serializer);
+        sse_encode_String(ip, serializer);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 17)!;
+      },
+      codec: SseCodec(
+        decodeSuccessData: sse_decode_list_prim_u_64_strict,
+        decodeErrorData: null,
+      ),
+      constMeta: kCrateApiVntApiVntApiUpStreamLineConstMeta,
+      argValues: [that, ip],
+      apiImpl: this,
+    ));
+  }
+
+  TaskConstMeta get kCrateApiVntApiVntApiUpStreamLineConstMeta =>
+      const TaskConstMeta(
+        debugName: "VntApi_up_stream_line",
+        argNames: ["that", "ip"],
+      );
+
+  @override
   Future<void> crateApiVntApiInitApp() {
     return handler.executeNormal(NormalTask(
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 13, port: port_);
+            funcId: 18, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -522,7 +671,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       callFfi: (port_) {
         final serializer = SseSerializer(generalizedFrbRustBinding);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 14, port: port_);
+            funcId: 19, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
@@ -549,7 +698,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         sse_encode_Auto_Owned_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerVntApiCallback(
             call, serializer);
         pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 15, port: port_);
+            funcId: 20, port: port_);
       },
       codec: SseCodec(
         decodeSuccessData:
@@ -1036,6 +1185,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  Uint64List dco_decode_list_prim_u_64_strict(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return Uint64List.from(raw);
+  }
+
+  @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Uint8List;
@@ -1054,6 +1209,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   List<(String, String)> dco_decode_list_record_string_string(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_record_string_string).toList();
+  }
+
+  @protected
+  List<(String, BigInt, BigInt)> dco_decode_list_record_string_u_64_u_64(
+      dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>)
+        .map(dco_decode_record_string_u_64_u_64)
+        .toList();
   }
 
   @protected
@@ -1145,6 +1309,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     return (
       dco_decode_String(arr[0]),
       dco_decode_String(arr[1]),
+    );
+  }
+
+  @protected
+  (String, BigInt, BigInt) dco_decode_record_string_u_64_u_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 3) {
+      throw Exception('Expected 3 elements, got ${arr.length}');
+    }
+    return (
+      dco_decode_String(arr[0]),
+      dco_decode_u_64(arr[1]),
+      dco_decode_u_64(arr[2]),
     );
   }
 
@@ -1309,7 +1487,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     if (arr.length != 4)
       throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
     return RustRoute(
-      isTcp: dco_decode_bool(arr[0]),
+      protocol: dco_decode_String(arr[0]),
       addr: dco_decode_String(arr[1]),
       metric: dco_decode_u_8(arr[2]),
       rt: dco_decode_i_64(arr[3]),
@@ -1326,6 +1504,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   int dco_decode_u_32(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as int;
+  }
+
+  @protected
+  BigInt dco_decode_u_64(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dcoDecodeU64(raw);
   }
 
   @protected
@@ -1350,8 +1534,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   VntConfig dco_decode_vnt_config(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 26)
-      throw Exception('unexpected arr length: expect 26 but see ${arr.length}');
+    if (arr.length != 25)
+      throw Exception('unexpected arr length: expect 25 but see ${arr.length}');
     return VntConfig(
       tap: dco_decode_bool(arr[0]),
       token: dco_decode_String(arr[1]),
@@ -1364,21 +1548,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       outIps: dco_decode_list_record_u_32_u_32(arr[8]),
       password: dco_decode_opt_String(arr[9]),
       mtu: dco_decode_opt_box_autoadd_u_32(arr[10]),
-      tcp: dco_decode_bool(arr[11]),
-      ip: dco_decode_opt_String(arr[12]),
-      noProxy: dco_decode_bool(arr[13]),
-      serverEncrypt: dco_decode_bool(arr[14]),
-      cipherModel: dco_decode_String(arr[15]),
-      finger: dco_decode_bool(arr[16]),
-      punchModel: dco_decode_String(arr[17]),
-      ports: dco_decode_opt_list_prim_u_16_strict(arr[18]),
-      firstLatency: dco_decode_bool(arr[19]),
-      deviceName: dco_decode_opt_String(arr[20]),
-      useChannelType: dco_decode_String(arr[21]),
-      packetLossRate: dco_decode_opt_box_autoadd_f_64(arr[22]),
-      packetDelay: dco_decode_u_32(arr[23]),
-      portMappingList: dco_decode_list_String(arr[24]),
-      compressor: dco_decode_String(arr[25]),
+      ip: dco_decode_opt_String(arr[11]),
+      noProxy: dco_decode_bool(arr[12]),
+      serverEncrypt: dco_decode_bool(arr[13]),
+      cipherModel: dco_decode_String(arr[14]),
+      finger: dco_decode_bool(arr[15]),
+      punchModel: dco_decode_String(arr[16]),
+      ports: dco_decode_opt_list_prim_u_16_strict(arr[17]),
+      firstLatency: dco_decode_bool(arr[18]),
+      deviceName: dco_decode_opt_String(arr[19]),
+      useChannelType: dco_decode_String(arr[20]),
+      packetLossRate: dco_decode_opt_box_autoadd_f_64(arr[21]),
+      packetDelay: dco_decode_u_32(arr[22]),
+      portMappingList: dco_decode_list_String(arr[23]),
+      compressor: dco_decode_String(arr[24]),
     );
   }
 
@@ -1523,6 +1706,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  Uint64List sse_decode_list_prim_u_64_strict(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var len_ = sse_decode_i_32(deserializer);
+    return deserializer.buffer.getUint64List(len_);
+  }
+
+  @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
@@ -1551,6 +1741,19 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var ans_ = <(String, String)>[];
     for (var idx_ = 0; idx_ < len_; ++idx_) {
       ans_.add(sse_decode_record_string_string(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<(String, BigInt, BigInt)> sse_decode_list_record_string_u_64_u_64(
+      SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <(String, BigInt, BigInt)>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_record_string_u_64_u_64(deserializer));
     }
     return ans_;
   }
@@ -1694,6 +1897,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  (String, BigInt, BigInt) sse_decode_record_string_u_64_u_64(
+      SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_field0 = sse_decode_String(deserializer);
+    var var_field1 = sse_decode_u_64(deserializer);
+    var var_field2 = sse_decode_u_64(deserializer);
+    return (var_field0, var_field1, var_field2);
+  }
+
+  @protected
   (int, int) sse_decode_record_u_32_u_32(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_field0 = sse_decode_u_32(deserializer);
@@ -1832,12 +2045,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   RustRoute sse_decode_rust_route(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    var var_isTcp = sse_decode_bool(deserializer);
+    var var_protocol = sse_decode_String(deserializer);
     var var_addr = sse_decode_String(deserializer);
     var var_metric = sse_decode_u_8(deserializer);
     var var_rt = sse_decode_i_64(deserializer);
     return RustRoute(
-        isTcp: var_isTcp, addr: var_addr, metric: var_metric, rt: var_rt);
+        protocol: var_protocol, addr: var_addr, metric: var_metric, rt: var_rt);
   }
 
   @protected
@@ -1850,6 +2063,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   int sse_decode_u_32(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getUint32();
+  }
+
+  @protected
+  BigInt sse_decode_u_64(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return deserializer.buffer.getBigUint64();
   }
 
   @protected
@@ -1883,7 +2102,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_outIps = sse_decode_list_record_u_32_u_32(deserializer);
     var var_password = sse_decode_opt_String(deserializer);
     var var_mtu = sse_decode_opt_box_autoadd_u_32(deserializer);
-    var var_tcp = sse_decode_bool(deserializer);
     var var_ip = sse_decode_opt_String(deserializer);
     var var_noProxy = sse_decode_bool(deserializer);
     var var_serverEncrypt = sse_decode_bool(deserializer);
@@ -1910,7 +2128,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         outIps: var_outIps,
         password: var_password,
         mtu: var_mtu,
-        tcp: var_tcp,
         ip: var_ip,
         noProxy: var_noProxy,
         serverEncrypt: var_serverEncrypt,
@@ -2145,6 +2362,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_list_prim_u_64_strict(
+      Uint64List self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    serializer.buffer.putUint64List(self);
+  }
+
+  @protected
   void sse_encode_list_prim_u_8_strict(
       Uint8List self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
@@ -2169,6 +2394,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_32(self.length, serializer);
     for (final item in self) {
       sse_encode_record_string_string(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_record_string_u_64_u_64(
+      List<(String, BigInt, BigInt)> self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_record_string_u_64_u_64(item, serializer);
     }
   }
 
@@ -2292,6 +2527,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_record_string_u_64_u_64(
+      (String, BigInt, BigInt) self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.$1, serializer);
+    sse_encode_u_64(self.$2, serializer);
+    sse_encode_u_64(self.$3, serializer);
+  }
+
+  @protected
   void sse_encode_record_u_32_u_32((int, int) self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_u_32(self.$1, serializer);
@@ -2401,7 +2645,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   @protected
   void sse_encode_rust_route(RustRoute self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
-    sse_encode_bool(self.isTcp, serializer);
+    sse_encode_String(self.protocol, serializer);
     sse_encode_String(self.addr, serializer);
     sse_encode_u_8(self.metric, serializer);
     sse_encode_i_64(self.rt, serializer);
@@ -2417,6 +2661,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   void sse_encode_u_32(int self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putUint32(self);
+  }
+
+  @protected
+  void sse_encode_u_64(BigInt self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    serializer.buffer.putBigUint64(self);
   }
 
   @protected
@@ -2450,7 +2700,6 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_list_record_u_32_u_32(self.outIps, serializer);
     sse_encode_opt_String(self.password, serializer);
     sse_encode_opt_box_autoadd_u_32(self.mtu, serializer);
-    sse_encode_bool(self.tcp, serializer);
     sse_encode_opt_String(self.ip, serializer);
     sse_encode_bool(self.noProxy, serializer);
     sse_encode_bool(self.serverEncrypt, serializer);

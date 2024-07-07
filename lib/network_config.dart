@@ -11,7 +11,7 @@ class NetworkConfig {
   List<String> portMappings;
   String groupPassword;
   bool isServerEncrypted;
-  bool isTcp;
+  String protocol;
   bool dataFingerprintVerification;
   String encryptionAlgorithm;
   String deviceID;
@@ -40,7 +40,7 @@ class NetworkConfig {
     required this.portMappings,
     required this.groupPassword,
     required this.isServerEncrypted,
-    required this.isTcp,
+    required this.protocol,
     required this.dataFingerprintVerification,
     required this.encryptionAlgorithm,
     required this.deviceID,
@@ -70,7 +70,7 @@ class NetworkConfig {
       'mapping': portMappings,
       'password': groupPassword,
       'server_encrypt': isServerEncrypted,
-      'tcp': isTcp,
+      'tcp': protocol,
       'finger': dataFingerprintVerification,
       'cipher_model': encryptionAlgorithm,
       'device_id': deviceID,
@@ -101,7 +101,7 @@ class NetworkConfig {
       if (portMappings.isNotEmpty) 'mapping': portMappings,
       if (groupPassword.isNotEmpty) 'password': groupPassword,
       if (isServerEncrypted) 'server_encrypt': isServerEncrypted,
-      if (isTcp) 'tcp': isTcp,
+      if (protocol.isNotEmpty) 'protocol': protocol,
       if (dataFingerprintVerification) 'finger': dataFingerprintVerification,
       if (encryptionAlgorithm.isNotEmpty) 'cipher_model': encryptionAlgorithm,
       if (deviceID.isNotEmpty) 'device_id': deviceID,
@@ -134,7 +134,7 @@ class NetworkConfig {
       portMappings: List<String>.from(json['mapping']),
       groupPassword: json['password'],
       isServerEncrypted: json['server_encrypt'],
-      isTcp: json['tcp'],
+      protocol: json['protocol']??'UDP',
       dataFingerprintVerification: json['finger'],
       encryptionAlgorithm: json['cipher_model'],
       deviceID: json['device_id'],

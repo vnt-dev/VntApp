@@ -47,7 +47,7 @@ class AboutPage extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               const Text(
-                '版本号: 1.2.10-测试版',
+                '版本号: 1.2.11-预发布版',
                 style: TextStyle(fontSize: 16),
                 textAlign: TextAlign.center,
               ),

@@ -305,20 +305,21 @@ class _SettingsPageState extends State<SettingsPage> {
               },
             ),
           ),
-          ListTile(
-            title: const Text('应用日志'),
-            trailing: IconButton(
-              icon: const Icon(Icons.sms_failed),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => LogPage(),
-                  ),
-                );
-              },
+          if (!Platform.isAndroid)
+            ListTile(
+              title: const Text('应用日志'),
+              trailing: IconButton(
+                icon: const Icon(Icons.sms_failed),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => LogPage(),
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
         ],
       ),
     );

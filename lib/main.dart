@@ -506,9 +506,9 @@ class _HomePageState extends State<HomePage> with WindowListener {
           actions: [
             TextButton(
               onPressed: () async {
+                Navigator.of(context).pop();
                 await vntManager.removeAll();
                 loadConnectState();
-                Navigator.of(context).pop();
               },
               style: TextButton.styleFrom(
                 foregroundColor: Colors.white,
