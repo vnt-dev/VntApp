@@ -218,6 +218,9 @@ class VntAppCall {
       switch (call.method) {
         case 'stopVnt':
           await vntManager.removeAll();
+          break;
+        case 'startVnt':
+          break;
         default:
           throw PlatformException(
             code: 'Unimplemented',
@@ -230,6 +233,10 @@ class VntAppCall {
   static Future<int> startVpn(RustDeviceConfig info, int mtu) async {
     return await VntAppCall.channel
         .invokeMethod('startVpn', rustDeviceConfigToMap(info, mtu));
+  }
+
+  static Future<void> moveTaskToBack() async {
+    return await VntAppCall.channel.invokeMethod('moveTaskToBack');
   }
 
   static Future<void> stopVpn() async {

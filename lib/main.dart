@@ -65,7 +65,15 @@ class VntApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: const HomePage(),
+      home: PopScope(
+          canPop: false,
+          onPopInvoked: (didPop) {
+            if (didPop) {
+              return;
+            }
+            VntAppCall.moveTaskToBack();
+          },
+          child: const HomePage()),
     );
   }
 }

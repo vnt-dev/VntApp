@@ -3,6 +3,7 @@ package top.wherewego.vnt_app;
 import android.content.Intent;
 import android.net.VpnService;
 import android.os.Bundle;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 
@@ -27,13 +28,17 @@ public class MainActivity extends FlutterActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
     }
-
-
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        MyVpnService.stopVpn();
+    }
     @Override
     public void configureFlutterEngine(@NonNull FlutterEngine flutterEngine) {
         super.configureFlutterEngine(flutterEngine);
         channel = new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), CHANNEL);
         channel.setMethodCallHandler((call, result) -> {
+            Log.i("moveTaskToBack","moveTaskToBack");
                     if (call.method.equals("startVpn")) {
                         try {
                             Map<String, Object> arguments = call.arguments();
@@ -48,6 +53,11 @@ public class MainActivity extends FlutterActivity {
                         } catch (Exception e) {
                             result.error("VPN_ERROR", "stopVpn", e);
                         }
+                        result.success(null);
+                    }else if (call.method.equals("moveTaskToBack")) {
+                        // 将应用移至后台而不是退出应用
+                        moveTaskToBack(true);
+                        result.success(null);
                     } else {
                         result.notImplemented();
                     }
