@@ -150,7 +150,8 @@ class StatisticsChartState extends State<StatisticsChart> {
                       height: 38,
                     ),
                     Expanded(
-                      child: LineChart(mainData()),
+                      child: LineChart(mainData(),
+                          duration: const Duration(milliseconds: 0)),
                     ),
                   ],
                 ),
@@ -265,6 +266,7 @@ class StatisticsChartState extends State<StatisticsChart> {
               }).toList(),
               gridData: const FlGridData(show: false),
             ),
+            swapAnimationDuration: const Duration(milliseconds: 0),
           ),
         ),
         const SizedBox(
