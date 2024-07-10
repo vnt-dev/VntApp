@@ -77,14 +77,24 @@ class DataPersistence {
     prefs.setBool('is-auto-start', autoStart);
   }
 
-  Future<String?> loadAutoConnect() async {
+  Future<bool?> loadAutoConnect() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('auto-connect-key');
+    return prefs.getBool('is-auto-connect');
   }
 
-  Future<void> saveAutoConnect(String autoConnect) async {
+  Future<void> saveAutoConnect(bool autoConnect) async {
     final prefs = await SharedPreferences.getInstance();
-    prefs.setString('auto-connect-key', autoConnect);
+    prefs.setBool('is-auto-connect', autoConnect);
+  }
+
+  Future<String?> loadDefaultKey() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('default-key');
+  }
+
+  Future<void> saveDefaultKey(String defaultKey) async {
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setString('default-key', defaultKey);
   }
 
   Future<void> clear() async {

@@ -129,6 +129,11 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> with WindowListener {
   final DataPersistence _dataPersistence = DataPersistence();
+  _HomePageState() {
+    VntAppCall.setStartCall(() async {
+      await loadConnect();
+    });
+  }
   // 所有网络配置
   List<NetworkConfig> _configs = [];
   bool _connected = vntManager.hasConnection();
@@ -148,7 +153,14 @@ class _HomePageState extends State<HomePage> with WindowListener {
       windowManager.addListener(this);
     }
 
-    _loadData().then((v) {
+    _loadData().then((v) async {
+      var isAuto = await _dataPersistence.loadAutoConnect() ?? false;
+
+      if (!isAuto) {
+        if (!Platform.isAndroid || !await VntAppCall.isTileStart()) {
+          return;
+        }
+      }
       loadConnect();
     });
   }
@@ -159,16 +171,24 @@ class _HomePageState extends State<HomePage> with WindowListener {
     });
   }
 
-  void loadConnect() async {
-    var connectItemKey = await _dataPersistence.loadAutoConnect();
+  Future<void> loadConnect() async {
+    if (_configs.isEmpty) {
+      return;
+    }
+
+    var connectItemKey = await _dataPersistence.loadDefaultKey();
+    var defaultConf = _configs[0];
     if (connectItemKey != null && connectItemKey.isNotEmpty) {
       for (var conf in _configs) {
         if (conf.itemKey == connectItemKey) {
-          _connect(conf);
+          defaultConf = conf;
           break;
         }
       }
     }
+    debugPrint('defaultConf $defaultConf');
+
+    await _connect(defaultConf);
   }
 
   @override
@@ -288,7 +308,7 @@ class _HomePageState extends State<HomePage> with WindowListener {
     }
   }
 
-  void _connect(NetworkConfig config) {
+  Future<void> _connect(NetworkConfig config) async {
     if (vntManager.hasConnectionItem(config.itemKey)) {
       connectDetailPage(config);
       return;
@@ -353,39 +373,43 @@ class _HomePageState extends State<HomePage> with WindowListener {
 
       return;
     }
-    connectVntAndSetBackground(config);
+    await connectVntAndSetBackground(config);
   }
 
-  void connectVntAndSetBackground(NetworkConfig config) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min, // 使内容尽可能紧凑
-              children: <Widget>[
-                const CircularProgressIndicator(),
-                const SizedBox(height: 20), // 添加一些垂直间距
-                ElevatedButton(
-                  onPressed: () {
-                    vntManager.remove(config.itemKey);
-                  },
-                  child: const Text('取消'),
-                ),
-              ],
+  Future<void> connectVntAndSetBackground(NetworkConfig config) async {
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min, // 使内容尽可能紧凑
+                children: <Widget>[
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 20), // 添加一些垂直间距
+                  ElevatedButton(
+                    onPressed: () {
+                      vntManager.remove(config.itemKey);
+                    },
+                    child: const Text('取消'),
+                  ),
+                ],
+              ),
             ),
-          ),
-        );
-      },
-    );
+          );
+        },
+      );
+    } catch (e) {
+      debugPrint('connectVntAndSetBackground showDialog $e');
+    }
 
-    _connectVnt(config);
+    await _connectVnt(config);
   }
 
-  void _connectVnt(NetworkConfig config) async {
+  Future<void> _connectVnt(NetworkConfig config) async {
     var onece = true;
     ReceivePort receivePort = ReceivePort();
     var itemKey = config.itemKey;
@@ -395,14 +419,14 @@ class _HomePageState extends State<HomePage> with WindowListener {
         if (msg == 'success') {
           if (onece) {
             onece = false;
-            Navigator.of(context).pop();
+            Navigator.of(context).popUntil((route) => route.isFirst);
             connectDetailPage(config);
           }
         } else if (msg == 'stop') {
           _closeVnt(itemKey);
           if (onece) {
             onece = false;
-            Navigator.of(context).pop();
+            Navigator.of(context).popUntil((route) => route.isFirst);
           }
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('VNT服务停止[$configName]')),
@@ -412,7 +436,7 @@ class _HomePageState extends State<HomePage> with WindowListener {
         if (onece) {
           //没成功就失败的，就断开不重试了
           onece = false;
-          Navigator.of(context).pop();
+          Navigator.of(context).popUntil((route) => route.isFirst);
           _closeVnt(itemKey);
         }
         switch (msg.code) {
@@ -472,7 +496,7 @@ class _HomePageState extends State<HomePage> with WindowListener {
       debugPrint('dart catch e: $e');
       if (!mounted) return;
 
-      Navigator.of(context).pop();
+      Navigator.of(context).popUntil((route) => route.isFirst);
       var msg = e.toString();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

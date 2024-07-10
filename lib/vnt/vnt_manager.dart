@@ -149,14 +149,20 @@ class VntBox {
 
 class VntManager {
   HashMap<String, VntBox> map = HashMap();
+  bool connecting = false;
   Future<VntBox> create(NetworkConfig config, SendPort uiCall) async {
     var key = config.itemKey;
     if (map.containsKey(key)) {
       return map[key]!;
     }
-    var vntBox = await VntBox.create(config, uiCall);
-    map[key] = vntBox;
-    return vntBox;
+    try {
+      connecting = true;
+      var vntBox = await VntBox.create(config, uiCall);
+      map[key] = vntBox;
+      return vntBox;
+    } finally {
+      connecting = false;
+    }
   }
 
   VntBox? get(String key) {
@@ -186,6 +192,10 @@ class VntManager {
     return vntBox != null && !vntBox.isClosed();
   }
 
+  bool isConnecting() {
+    return connecting;
+  }
+
   bool hasConnection() {
     if (map.isEmpty) {
       return false;
@@ -211,8 +221,15 @@ class VntManager {
   }
 }
 
+typedef StartCallback = Future<void> Function();
+
 class VntAppCall {
   static MethodChannel channel = const MethodChannel('top.wherewego.vnt/vpn');
+  static StartCallback startCall = () async {};
+  static void setStartCall(StartCallback startCall) {
+    VntAppCall.startCall = startCall;
+  }
+
   static void init() {
     channel.setMethodCallHandler((MethodCall call) async {
       switch (call.method) {
@@ -220,7 +237,11 @@ class VntAppCall {
           await vntManager.removeAll();
           break;
         case 'startVnt':
-          break;
+          await startCall();
+          return vntManager.hasConnection();
+        case 'isRunning':
+          debugPrint("isRunning ${vntManager.hasConnection()}");
+          return vntManager.hasConnection();
         default:
           throw PlatformException(
             code: 'Unimplemented',
@@ -237,6 +258,10 @@ class VntAppCall {
 
   static Future<void> moveTaskToBack() async {
     return await VntAppCall.channel.invokeMethod('moveTaskToBack');
+  }
+
+  static Future<bool> isTileStart() async {
+    return await VntAppCall.channel.invokeMethod('isTileStart');
   }
 
   static Future<void> stopVpn() async {

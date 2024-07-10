@@ -14,8 +14,9 @@ class _SettingsPageState extends State<SettingsPage> {
   final DataPersistence _dataPersistence = DataPersistence();
 
   bool _autoStart = false;
-  List<(String, String)> _configNames = [('', '不自动连接')];
-  String _connectionConfig = '';
+  bool _autoConnect = false;
+  final List<(String, String)> _configNames = [];
+  String _defaultKey = '';
   @override
   void initState() {
     super.initState();
@@ -23,26 +24,26 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _loadData() async {
-    var autoStart = await _dataPersistence.loadAutoStart();
-    if (autoStart != null) {
-      setState(() {
-        _autoStart = autoStart;
-      });
-    }
-
+    _autoStart = await _dataPersistence.loadAutoStart() ?? false;
+    _autoConnect = await _dataPersistence.loadAutoConnect() ?? false;
+    _defaultKey = await _dataPersistence.loadDefaultKey() ?? '';
     var list = await _dataPersistence.loadData();
+    var isExists = false;
     for (var conf in list) {
       _configNames.add((conf.itemKey, conf.configName));
+      if (conf.itemKey == _defaultKey) {
+        isExists = true;
+      }
+    }
+    if (list.isNotEmpty && !isExists) {
+      _defaultKey = list[0].itemKey;
     }
     setState(() {
-      _configNames = _configNames;
+      _autoConnect;
+      _configNames;
+      _autoStart;
+      _defaultKey;
     });
-    var connectItemKey = await _dataPersistence.loadAutoConnect();
-    if (connectItemKey != null && connectItemKey.isNotEmpty) {
-      setState(() {
-        _connectionConfig = connectItemKey;
-      });
-    }
   }
 
   // Future<bool> checkStartup() async {
@@ -214,43 +215,58 @@ class _SettingsPageState extends State<SettingsPage> {
         children: <Widget>[
           if (Platform.isWindows)
             ListTile(
-              title: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('开机启动'),
-                  Switch(
-                    value: _autoStart,
-                    onChanged: (bool value) async {
-                      await setStartupWithAdmin(value);
-                      await DataPersistence().saveAutoStart(value);
+              title: const Text('开机启动'),
+              trailing: SizedBox(
+                width: MediaQuery.of(context).size.width * 0.5,
+                child: Row(
+                  children: [
+                    Switch(
+                      value: _autoStart,
+                      onChanged: (bool value) async {
+                        await setStartupWithAdmin(value);
+                        await DataPersistence().saveAutoStart(value);
 
-                      setState(() {
-                        _autoStart = value;
-                      });
-                    },
-                  ),
-                  IconButton(
-                    icon: const Text('编辑任务计划'),
-                    onPressed: () async {
-                      openTaskScheduler();
-                    },
-                  ),
-                ],
+                        setState(() {
+                          _autoStart = value;
+                        });
+                      },
+                    ),
+                    IconButton(
+                      icon: const Text('编辑任务计划'),
+                      onPressed: () async {
+                        openTaskScheduler();
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
           ListTile(
-            title: const Text('自动连接配置'),
+            title: const Text('自动连接'),
+            trailing: Switch(
+              value: _autoConnect,
+              onChanged: (bool value) async {
+                await DataPersistence().saveAutoConnect(value);
+
+                setState(() {
+                  _autoConnect = value;
+                });
+              },
+            ),
+          ),
+          ListTile(
+            title: const Text('默认网络配置'),
             trailing: SizedBox(
               width: MediaQuery.of(context).size.width * 0.5, // 设置宽度为屏幕宽度的50%
               child: DropdownButton<String>(
                 isExpanded: true, // 使下拉框扩展到最大宽度
-                value: _connectionConfig,
+                value: _defaultKey,
                 onChanged: (String? newValue) {
                   if (newValue != null) {
                     setState(() {
-                      _connectionConfig = newValue;
+                      _defaultKey = newValue;
                     });
-                    DataPersistence().saveAutoConnect(newValue);
+                    DataPersistence().saveDefaultKey(newValue);
                   }
                 },
                 items: _configNames

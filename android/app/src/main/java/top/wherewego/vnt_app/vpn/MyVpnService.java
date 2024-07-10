@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.ConnectivityManager;
 import android.net.VpnService;
+import android.os.Build;
 import android.os.ParcelFileDescriptor;
 import android.system.OsConstants;
 import android.util.Log;
@@ -11,29 +12,17 @@ import android.util.Log;
 import java.io.IOException;
 
 import io.flutter.plugin.common.MethodChannel;
+import top.wherewego.vnt_app.FlutterMethodChannel;
 import top.wherewego.vnt_app.MainActivity;
+import top.wherewego.vnt_app.MyTileService;
 
 public class MyVpnService extends VpnService {
     private static final String TAG = "MyVpnService";
     private static ParcelFileDescriptor vpnInterface;
     private volatile static MyVpnService vpnService;
 
-    public static MethodChannel.Result pendingResult;
     public static DeviceConfig pendingConfig;
 
-    public static synchronized void callSuccess(int fd) {
-        if (pendingResult != null) {
-            pendingResult.success(fd);
-        }
-        pendingResult = null;
-    }
-
-    public static synchronized void callError(String msg, Exception e) {
-        if (pendingResult != null) {
-            pendingResult.error("VPN_ERROR", msg, e);
-        }
-        pendingResult = null;
-    }
 
     @Override
     public synchronized int onStartCommand(Intent intent, int flags, int startId) {
@@ -41,10 +30,10 @@ public class MyVpnService extends VpnService {
         new Thread(() -> {
             try {
                 int fd = startVpn(pendingConfig);
-                callSuccess(fd);
+                FlutterMethodChannel.callSuccess(fd);
             } catch (Exception e) {
                 Log.e(TAG, "pendingConfig =" + pendingConfig.toString(), e);
-                callError("Failed to start VPN", e);
+                FlutterMethodChannel.callError("Failed to start VPN", e);
             }
         }).start();
         return START_STICKY;
@@ -59,7 +48,10 @@ public class MyVpnService extends VpnService {
     }
 
     public static void stopVpn() {
-        MainActivity.channel.invokeMethod("stopVnt", null);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            MyTileService.setState(false);
+        }
+        FlutterMethodChannel.stopVnt();
         if (vpnService != null) {
             vpnService.stopSelf();
         }

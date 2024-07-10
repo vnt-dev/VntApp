@@ -49,6 +49,7 @@ dependencies:
   window_manager: ^0.3.9
   synchronized: ^3.0.0
   fl_chart: ^0.68.0
+  uuid: ^3.0.7
 dev_dependencies:
   flutter_test:
     sdk: flutter
