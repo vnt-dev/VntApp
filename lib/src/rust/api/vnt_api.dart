@@ -395,6 +395,8 @@ class VntConfig {
   final int packetDelay;
   final List<String> portMappingList;
   final String compressor;
+  final bool allowWireGuard;
+  final String? localIpv4;
 
   const VntConfig({
     required this.tap,
@@ -422,6 +424,8 @@ class VntConfig {
     required this.packetDelay,
     required this.portMappingList,
     required this.compressor,
+    required this.allowWireGuard,
+    this.localIpv4,
   });
 
   @override
@@ -450,7 +454,9 @@ class VntConfig {
       packetLossRate.hashCode ^
       packetDelay.hashCode ^
       portMappingList.hashCode ^
-      compressor.hashCode;
+      compressor.hashCode ^
+      allowWireGuard.hashCode ^
+      localIpv4.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -481,5 +487,7 @@ class VntConfig {
           packetLossRate == other.packetLossRate &&
           packetDelay == other.packetDelay &&
           portMappingList == other.portMappingList &&
-          compressor == other.compressor;
+          compressor == other.compressor &&
+          allowWireGuard == other.allowWireGuard &&
+          localIpv4 == other.localIpv4;
 }

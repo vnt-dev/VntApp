@@ -23,36 +23,37 @@ class VntBox {
   });
   static Future<VntBox> create(NetworkConfig config, SendPort uiCall) async {
     var vntConfig = VntConfig(
-      tap: false,
-      token: config.token,
-      deviceId: config.deviceID,
-      name: config.deviceName,
-      serverAddressStr: config.serverAddress,
-      nameServers: config.dns,
-      stunServer: config.stunServers,
-      inIps: config.inIps.map((v) => IpUtils.parseInIpString(v)).toList(),
-      outIps: config.outIps.map((v) => IpUtils.parseOutIpString(v)).toList(),
-      password: config.groupPassword.isEmpty ? null : config.groupPassword,
-      mtu: config.mtu == 0 ? null : config.mtu,
-      ip: config.virtualIPv4.isEmpty ? null : config.virtualIPv4,
-      noProxy: config.noInIpProxy,
-      serverEncrypt: config.isServerEncrypted,
-      cipherModel: config.encryptionAlgorithm,
-      finger: config.dataFingerprintVerification,
-      punchModel: config.punchModel,
-      ports: config.ports.isEmpty ? null : Uint16List.fromList(config.ports),
-      firstLatency: config.firstLatency,
-      deviceName: config.virtualNetworkCardName.isEmpty
-          ? null
-          : config.virtualNetworkCardName,
-      useChannelType: config.useChannelType,
-      packetLossRate: config.simulatedPacketLossRate == 0
-          ? null
-          : config.simulatedPacketLossRate,
-      packetDelay: config.simulatedLatency,
-      portMappingList: config.portMappings,
-      compressor: config.compressor.isEmpty ? 'none' : config.compressor,
-    );
+        tap: false,
+        token: config.token,
+        deviceId: config.deviceID,
+        name: config.deviceName,
+        serverAddressStr: config.serverAddress,
+        nameServers: config.dns,
+        stunServer: config.stunServers,
+        inIps: config.inIps.map((v) => IpUtils.parseInIpString(v)).toList(),
+        outIps: config.outIps.map((v) => IpUtils.parseOutIpString(v)).toList(),
+        password: config.groupPassword.isEmpty ? null : config.groupPassword,
+        mtu: config.mtu == 0 ? null : config.mtu,
+        ip: config.virtualIPv4.isEmpty ? null : config.virtualIPv4,
+        noProxy: config.noInIpProxy,
+        serverEncrypt: config.isServerEncrypted,
+        cipherModel: config.encryptionAlgorithm,
+        finger: config.dataFingerprintVerification,
+        punchModel: config.punchModel,
+        ports: config.ports.isEmpty ? null : Uint16List.fromList(config.ports),
+        firstLatency: config.firstLatency,
+        deviceName: config.virtualNetworkCardName.isEmpty
+            ? null
+            : config.virtualNetworkCardName,
+        useChannelType: config.useChannelType,
+        packetLossRate: config.simulatedPacketLossRate == 0
+            ? null
+            : config.simulatedPacketLossRate,
+        packetDelay: config.simulatedLatency,
+        portMappingList: config.portMappings,
+        compressor: config.compressor.isEmpty ? 'none' : config.compressor,
+        allowWireGuard: config.allowWg,
+        localIpv4: config.localIpv4.isEmpty ? null : config.localIpv4);
     var vntCall = VntApiCallback(successFn: () {
       uiCall.send('success');
     }, createTunFn: (info) {

@@ -19,10 +19,11 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
   final _nameController = TextEditingController();
   final _groupNumberController = TextEditingController();
   final _deviceNameController = TextEditingController(
-      text: Platform.localHostname.length > 32
-          ? Platform.localHostname.substring(0, 32)
-          : Platform.localHostname);
+      text: Platform.operatingSystemVersion.length > 16
+          ? Platform.operatingSystemVersion.substring(0, 16)
+          : Platform.operatingSystemVersion);
   final _virtualIPv4Controller = TextEditingController();
+  final _localIPv4Controller = TextEditingController();
   final _serverAddressController = TextEditingController();
   final _stunServers = <TextEditingController>[];
   final _inIps = <TextEditingController>[];
@@ -49,6 +50,7 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
   bool _ipv6Selected = true;
   bool _relaySelected = true;
   bool _p2pSelected = true;
+  String _allowWg = 'FALSE';
 
   String _compressionMethod = 'none'; // 默认不压缩
   int _compressionLevel = 3; // 默认压缩级别
@@ -147,6 +149,8 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
         _compressionLevel = int.tryParse(arr[1]) ?? 3;
       }
     }
+    _allowWg = config.allowWg ? 'FALSE' : 'TRUE';
+    _localIPv4Controller.text = config.localIpv4;
     setState(() {
       _routingMode = config.firstLatency ? 'LOW_LATENCY' : 'P2P';
       _builtInIpProxy = config.noInIpProxy ? 'CLOSE' : 'OPEN';
@@ -226,6 +230,8 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
             : (_p2pSelected ? 'p2p' : 'relay'),
         compressor:
             '$_compressionMethod${_compressionMethod == 'zstd' ? ',$_compressionLevel' : ''}',
+        allowWg: _allowWg == 'FALSE' ? false : true,
+        localIpv4: _localIPv4Controller.text,
       );
       Navigator.pop(context, config);
     } else {
@@ -386,8 +392,7 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                     } else {
                       final match = addressPortRegex.firstMatch(value);
                       if (match != null) {
-                        final domainRegex =
-                            RegExp(r'^[a-zA-Z0-9.-]');
+                        final domainRegex = RegExp(r'^[a-zA-Z0-9.-]');
                         if (!domainRegex.hasMatch(match.group(1)!)) {
                           return '地址格式错误';
                         }
@@ -451,6 +456,16 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                       });
                     },
                   ),
+                _buildRadioGroup(
+                  '允许WireGuard流量',
+                  [('允许', 'TRUE'), ('不允许', 'FALSE')],
+                  _allowWg,
+                  (value) {
+                    setState(() {
+                      _allowWg = value!;
+                    });
+                  },
+                ),
                 _buildSectionTitle('子网代理&端口映射'),
                 _buildDynamicTooltipFields(
                   'in-ip',
@@ -564,6 +579,23 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                         null,
                         null,
                         false,
+                      ),
+                      CustomTooltipTextField(
+                        controller: _localIPv4Controller,
+                        labelText: '本地IPv4',
+                        tooltipMessage: '(不输入则自动获取)',
+                        maxLength: 15,
+                        validator: (value) {
+                          final regex = RegExp(
+                            r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$',
+                          );
+                          if (value != null &&
+                              value.isNotEmpty &&
+                              !regex.hasMatch(value)) {
+                            return '请输入有效的 IPv4 地址';
+                          }
+                          return null;
+                        },
                       ),
                       _buildTextFormField(
                         _virtualNetworkCardNameController,

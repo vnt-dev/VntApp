@@ -2,6 +2,7 @@ package top.wherewego.vnt_app.vpn;
 
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.VpnService;
 import android.os.Build;
@@ -64,7 +65,7 @@ public class MyVpnService extends VpnService {
         }
     }
 
-    private int startVpn(DeviceConfig config) {
+    private int startVpn(DeviceConfig config) throws PackageManager.NameNotFoundException {
         Builder builder = new Builder();
         String ip = IpUtils.intToIpAddress(config.virtualIp);
         int prefixLength = IpUtils.subnetMaskToPrefixLength(config.virtualNetmask);
@@ -74,6 +75,8 @@ public class MyVpnService extends VpnService {
                 .setBlocking(false)
                 .setMtu(config.mtu)
                 .addAddress(ip, prefixLength)
+                // 自己的流量不走网卡
+                .addDisallowedApplication("top.wherewego.vnt_app")
                 .addRoute(ipRoute, prefixLength);
         if (config.externalRoute != null) {
             for (DeviceConfig.Route routeItem : config.externalRoute) {

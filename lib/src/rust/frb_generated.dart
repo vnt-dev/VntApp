@@ -1536,8 +1536,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   VntConfig dco_decode_vnt_config(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 25)
-      throw Exception('unexpected arr length: expect 25 but see ${arr.length}');
+    if (arr.length != 27)
+      throw Exception('unexpected arr length: expect 27 but see ${arr.length}');
     return VntConfig(
       tap: dco_decode_bool(arr[0]),
       token: dco_decode_String(arr[1]),
@@ -1564,6 +1564,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       packetDelay: dco_decode_u_32(arr[22]),
       portMappingList: dco_decode_list_String(arr[23]),
       compressor: dco_decode_String(arr[24]),
+      allowWireGuard: dco_decode_bool(arr[25]),
+      localIpv4: dco_decode_opt_String(arr[26]),
     );
   }
 
@@ -2118,6 +2120,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_packetDelay = sse_decode_u_32(deserializer);
     var var_portMappingList = sse_decode_list_String(deserializer);
     var var_compressor = sse_decode_String(deserializer);
+    var var_allowWireGuard = sse_decode_bool(deserializer);
+    var var_localIpv4 = sse_decode_opt_String(deserializer);
     return VntConfig(
         tap: var_tap,
         token: var_token,
@@ -2143,7 +2147,9 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
         packetLossRate: var_packetLossRate,
         packetDelay: var_packetDelay,
         portMappingList: var_portMappingList,
-        compressor: var_compressor);
+        compressor: var_compressor,
+        allowWireGuard: var_allowWireGuard,
+        localIpv4: var_localIpv4);
   }
 
   @protected
@@ -2723,6 +2729,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_u_32(self.packetDelay, serializer);
     sse_encode_list_String(self.portMappingList, serializer);
     sse_encode_String(self.compressor, serializer);
+    sse_encode_bool(self.allowWireGuard, serializer);
+    sse_encode_opt_String(self.localIpv4, serializer);
   }
 }
 

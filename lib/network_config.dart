@@ -26,6 +26,8 @@ class NetworkConfig {
   String punchModel;
   String useChannelType;
   String compressor;
+  bool allowWg;
+  String localIpv4;
 
   NetworkConfig({
     required this.itemKey,
@@ -55,6 +57,8 @@ class NetworkConfig {
     required this.punchModel,
     required this.useChannelType,
     required this.compressor,
+    required this.allowWg,
+    required this.localIpv4,
   });
   Map<String, dynamic> toJson() {
     return {
@@ -85,6 +89,8 @@ class NetworkConfig {
       'punch_model': punchModel,
       'use_channel': useChannelType,
       'compressor': compressor,
+      'allow_wire_guard': allowWg,
+      'local_ipv4': localIpv4,
     };
   }
 
@@ -117,6 +123,8 @@ class NetworkConfig {
       if (punchModel.isNotEmpty) 'punch_model': punchModel,
       if (useChannelType.isNotEmpty) 'use_channel': useChannelType,
       if (compressor.isNotEmpty) 'compressor': compressor,
+      if (allowWg) 'allow_wire_guard': allowWg,
+      if (localIpv4.isNotEmpty) 'local_ipv4': localIpv4,
     };
   }
 
@@ -134,7 +142,7 @@ class NetworkConfig {
       portMappings: List<String>.from(json['mapping']),
       groupPassword: json['password'],
       isServerEncrypted: json['server_encrypt'],
-      protocol: json['protocol']??'UDP',
+      protocol: json['protocol'] ?? 'UDP',
       dataFingerprintVerification: json['finger'],
       encryptionAlgorithm: json['cipher_model'],
       deviceID: json['device_id'],
@@ -149,6 +157,8 @@ class NetworkConfig {
       punchModel: json['punch_model'],
       useChannelType: json['use_channel'],
       compressor: json['compressor'] ?? 'none',
+      allowWg: json['allow_wire_guard'] ?? false,
+      localIpv4: json['local_ipv4'] ?? '',
     );
   }
 }

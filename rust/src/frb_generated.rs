@@ -1844,6 +1844,8 @@ impl SseDecode for crate::api::vnt_api::VntConfig {
         let mut var_packetDelay = <u32>::sse_decode(deserializer);
         let mut var_portMappingList = <Vec<String>>::sse_decode(deserializer);
         let mut var_compressor = <String>::sse_decode(deserializer);
+        let mut var_allowWireGuard = <bool>::sse_decode(deserializer);
+        let mut var_localIpv4 = <Option<String>>::sse_decode(deserializer);
         return crate::api::vnt_api::VntConfig {
             tap: var_tap,
             token: var_token,
@@ -1870,6 +1872,8 @@ impl SseDecode for crate::api::vnt_api::VntConfig {
             packet_delay: var_packetDelay,
             port_mapping_list: var_portMappingList,
             compressor: var_compressor,
+            allow_wire_guard: var_allowWireGuard,
+            local_ipv4: var_localIpv4,
         };
     }
 }
@@ -2233,6 +2237,8 @@ impl flutter_rust_bridge::IntoDart for crate::api::vnt_api::VntConfig {
             self.packet_delay.into_into_dart().into_dart(),
             self.port_mapping_list.into_into_dart().into_dart(),
             self.compressor.into_into_dart().into_dart(),
+            self.allow_wire_guard.into_into_dart().into_dart(),
+            self.local_ipv4.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -2731,6 +2737,8 @@ impl SseEncode for crate::api::vnt_api::VntConfig {
         <u32>::sse_encode(self.packet_delay, serializer);
         <Vec<String>>::sse_encode(self.port_mapping_list, serializer);
         <String>::sse_encode(self.compressor, serializer);
+        <bool>::sse_encode(self.allow_wire_guard, serializer);
+        <Option<String>>::sse_encode(self.local_ipv4, serializer);
     }
 }
 
