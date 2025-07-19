@@ -74,7 +74,7 @@ class NetworkConfig {
       'mapping': portMappings,
       'password': groupPassword,
       'server_encrypt': isServerEncrypted,
-      'tcp': protocol,
+      'protocol': protocol,
       'finger': dataFingerprintVerification,
       'cipher_model': encryptionAlgorithm,
       'device_id': deviceID,
