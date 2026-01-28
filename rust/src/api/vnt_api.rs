@@ -162,7 +162,7 @@ impl VntApi {
             compressor,
             true,
             vnt_config.allow_wire_guard,
-            local_ipv4,
+            None,
         )?;
         Ok(Self {
             vnt: Vnt::new(conf, call)?,
@@ -649,6 +649,8 @@ pub enum RustErrorType {
     InvalidIp,
     LocalIpExists,
     Unknown,
+    FailedToCrateDevice,
+    Warn,
 }
 impl From<ErrorType> for RustErrorType {
     fn from(value: ErrorType) -> Self {
@@ -660,6 +662,8 @@ impl From<ErrorType> for RustErrorType {
             ErrorType::InvalidIp => RustErrorType::InvalidIp,
             ErrorType::LocalIpExists => RustErrorType::LocalIpExists,
             ErrorType::Unknown => RustErrorType::Unknown,
+            ErrorType::FailedToCrateDevice => RustErrorType::FailedToCrateDevice,
+            ErrorType::Warn => RustErrorType::Warn,
         }
     }
 }

@@ -38,7 +38,7 @@ class Ipv4Addr {
 
 class IpUtils {
   static String toInIpString(int dest, int mask, String ip) {
-    return '${Ipv4Addr.fromInt(dest).toString()}/${_countBits(mask)},${ip}';
+    return '${Ipv4Addr.fromInt(dest).toString()}/${_countBits(mask)},$ip';
   }
 
   static (int, int, String) parseInIpString(String input) {

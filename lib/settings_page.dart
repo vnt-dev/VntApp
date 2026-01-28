@@ -6,6 +6,8 @@ import 'package:vnt_app/data_persistence.dart';
 import 'connect_log.dart';
 
 class SettingsPage extends StatefulWidget {
+  const SettingsPage({super.key});
+
   @override
   _SettingsPageState createState() => _SettingsPageState();
 }
@@ -330,7 +332,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => LogPage(),
+                      builder: (context) => const LogPage(),
                     ),
                   );
                 },

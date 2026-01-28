@@ -5,7 +5,8 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final Color backgroundColor;
   final List<Widget> actions;
 
-  const CustomAppBar({super.key, 
+  const CustomAppBar({
+    super.key,
     required this.title,
     this.backgroundColor = Colors.blue,
     this.actions = const [],
@@ -21,5 +22,5 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   }
 
   @override
-  Size get preferredSize => Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 }
