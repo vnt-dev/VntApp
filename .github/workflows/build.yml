@@ -2,8 +2,13 @@ name: VntApp
 
 on:
   push:
-    tags:
-      - '*' 
+    branches:
+      - flutter
+  workflow_dispatch:  
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
@@ -29,6 +34,8 @@ jobs:
     runs-on: ${{ matrix.OS }}
     steps:
       - uses: actions/checkout@v4
+        with:
+         ref: flutter
         
       - name: 设置JDK环境
         if: matrix.NAME == 'vntApp-android'
@@ -65,7 +72,7 @@ jobs:
           cp .github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff $(dirname $(dirname $(which flutter)))
           cd $(dirname $(dirname $(which flutter)))
           git apply flutter_3.24.4_dropdown_menu_enableFilter.diff || true
-
+          
       - name: Install Android rust target
         if: matrix.NAME == 'vntApp-android'
         run: |
@@ -79,6 +86,9 @@ jobs:
         run: |
            cd rust
            rm -rf .cargo/config
+           sed -i 's|main|Android|' Cargo.toml
+           sed -i '0,/local_ipv4,/{s/local_ipv4,/local_ipv4.map(|ip| ip.to_string()),/}' src/api/vnt_api.rs
+           sed -i '/ErrorType::Unknown => RustErrorType::Unknown,/a\    _ => RustErrorType::Unknown,' src/api/vnt_api.rs
            export PATH=/opt/ndk/android-ndk-r26d:/opt/ndk/android-ndk-r26d/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH  
            cat >>./.cargo/config <<EOF
             [target.armv7-linux-androideabi]
@@ -124,9 +134,8 @@ jobs:
         if: matrix.NAME == 'vntApp-android'
         run: |
          #sed -i 's|branch = "1.2.x"|rev = "501a9e8"|' rust/Cargo.toml
-         
-         sed -i '0,/local_ipv4,/{s/local_ipv4,/local_ipv4.map(|ip| ip.to_string()),/}' rust/src/api/vnt_api.rs
-         sed -i '/ErrorType::Unknown => RustErrorType::Unknown,/a\    _ => RustErrorType::Unknown,' rust/src/api/vnt_api.rs
+         #sed -i '0,/local_ipv4,/{s/local_ipv4,/local_ipv4.map(|ip| ip.to_string()),/}' rust/src/api/vnt_api.rs
+         #sed -i '/ErrorType::Unknown => RustErrorType::Unknown,/a\    _ => RustErrorType::Unknown,' rust/src/api/vnt_api.rs
          
          flutter clean
          flutter doctor -v
@@ -134,13 +143,41 @@ jobs:
          flutter build apk --release 
          find . -type f -name "*.apk"
          mkdir -p /opt/vntAPP
-         #mv -f build/app/outputs/apk/release/app-release.apk app-release.apk
-         mv -f build/app/outputs/flutter-apk/app-release.apk app-release.apk
+         mv -f build/app/outputs/apk/release/app-release.apk app-release.apk
+         #mv -f build/app/outputs/flutter-apk/app-release.apk app-release.apk
+
+         password=vntAPP
+         keytool -genkeypair \
+          -v \
+          -keystore keystore.jks \
+          -storepass "$password" \
+          -alias key \
+          -keypass "$password" \
+          -keyalg RSA \
+          -keysize 2048 \
+          -validity 10000 \
+          -dname "CN=Android, OU=Android, O=Android, L=BeiJing, ST=BeiJing, C=CN"
+          
+          /usr/local/lib/android/sdk/build-tools/34.0.0/apksigner sign \
+            --ks keystore.jks \
+            --ks-key-alias key \
+            --ks-pass pass:$password \
+            --key-pass pass:$password \
+            --out vntApp-android.apk \
+            --in app-release.apk \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --v4-signing-enabled true
 
       - name: 构建 Windows vntAPP
         if: matrix.NAME == 'vntApp-windows'
         shell: pwsh
         run: |
+          #sed -i '0,/local_ipv4,/{s/local_ipv4,/local_ipv4.map(|ip| ip.to_string()),/}' rust/src/api/vnt_api.rs
+          # 新的库增加了禁止中继参数 这里默认不启用吧
+          sed -i '0,/local_ipv4,/{s/local_ipv4,/local_ipv4.map(|ip| ip.to_string()),\n            false,/}' rust/src/api/vnt_api.rs
+          sed -i '/ErrorType::Unknown => RustErrorType::Unknown,/a\    _ => RustErrorType::Unknown,' rust/src/api/vnt_api.rs
           flutter pub get
           flutter build windows --release -v
 
@@ -155,10 +192,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.NAME }}
-          path: ${{ runner.os == 'Windows' && 'vntApp-windows.zip' || 'app-release.apk' }}
+          path: ${{ runner.os == 'Windows' && 'vntApp-windows.zip' || 'vntApp-android.apk' }}
 
   deploy:
-    if: startsWith(github.ref, 'refs/tags/')
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -168,13 +204,3 @@ jobs:
           path: ./artifacts
       - name: List
         run: find ./artifacts
-      - name: Release
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: |
-            ./artifacts/vntApp-windows/vntApp-windows.zip
-            ./artifacts/vntApp-android/app-release.apk
-          tag: ${{ github.ref }}
-          overwrite: true
-          file_glob: true
