@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 class LogPage extends StatefulWidget {
+  const LogPage({super.key});
+
   @override
   _LogPageState createState() => _LogPageState();
 }
