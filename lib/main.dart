@@ -1,4 +1,5 @@
 import 'dart:isolate';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:json2yaml/json2yaml.dart';
 import 'package:vnt_app/vnt/vnt_manager.dart';
@@ -17,6 +18,9 @@ import 'dart:io';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:system_tray/system_tray.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:vnt_app/file_saver.dart';
 
 final SystemTray systemTray = SystemTray();
 final AppWindow appWindow = AppWindow();
@@ -429,7 +433,7 @@ class _HomePageState extends State<HomePage> with WindowListener {
             Navigator.of(context).popUntil((route) => route.isFirst);
           }
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('VNT服务停止[$configName]')),
+            SnackBar(content: Text('[$configName] 服务已停止')),
           );
         }
       } else if (msg is RustErrorInfo) {
@@ -443,7 +447,7 @@ class _HomePageState extends State<HomePage> with WindowListener {
           case RustErrorType.tokenError:
             _closeVnt(itemKey);
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('token错误[$configName]')),
+              SnackBar(content: Text('[$configName] token错误')),
             );
             break;
           case RustErrorType.disconnect:
@@ -452,31 +456,31 @@ class _HomePageState extends State<HomePage> with WindowListener {
           case RustErrorType.addressExhausted:
             _closeVnt(itemKey);
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('IP地址用尽[$configName]')),
+              SnackBar(content: Text('[$configName] IP地址用尽')),
             );
             break;
           case RustErrorType.ipAlreadyExists:
             _closeVnt(itemKey);
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('和其他设备的虚拟IP冲突[$configName]')),
+              SnackBar(content: Text('[$configName] 当前配置和其他设备的虚拟IP冲突')),
             );
             break;
           case RustErrorType.invalidIp:
             _closeVnt(itemKey);
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('虚拟IP地址无效[$configName]')),
+              SnackBar(content: Text('[$configName] 虚拟IP地址无效')),
             );
             break;
           case RustErrorType.localIpExists:
             _closeVnt(itemKey);
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('虚拟IP地址和本地IP冲突[$configName]')),
+              SnackBar(content: Text('[$configName] 虚拟IP地址和本地IP冲突')),
             );
             break;
           default:
             _closeVnt(itemKey);
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('未知错误 ${msg.msg} [$configName]')),
+              SnackBar(content: Text('[$configName] 发生未知错误: ${msg.msg}')),
             );
         }
       } else if (msg is RustConnectInfo) {
@@ -485,7 +489,7 @@ class _HomePageState extends State<HomePage> with WindowListener {
           Navigator.of(context).pop();
           _closeVnt(itemKey);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('连接超时 ${msg.address} [$configName]')),
+            SnackBar(content: Text('[$configName] 连接超时 ${msg.address} ')),
           );
         }
       }
@@ -630,6 +634,113 @@ class _HomePageState extends State<HomePage> with WindowListener {
     );
   }
 
+  Future<void> _exportSingleConfig(NetworkConfig config) async {
+    try {
+      if (Platform.isAndroid) {
+        // Android：先保存到临时文件，然后调用系统文件选择器
+        final directory = await getTemporaryDirectory();
+        final fileName = '${config.configName}_${DateTime.now().millisecondsSinceEpoch}.json';
+        final filePath = '${directory.path}/$fileName';
+
+        debugPrint('开始导出配置到临时文件: $filePath');
+        await _dataPersistence.exportSingleConfig(filePath, config);
+
+        // 调用系统文件选择器让用户选择保存位置
+        final success = await FileSaver.copyFile(
+          sourceFilePath: filePath,
+          fileName: fileName,
+          mimeType: 'application/json',
+        );
+
+        // 清理临时文件
+        final tempFile = File(filePath);
+        if (await tempFile.exists()) {
+          await tempFile.delete();
+        }
+
+        if (mounted) {
+          if (success) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('导出成功: $fileName')),
+            );
+          }
+        }
+      } else {
+        // Windows：使用文件选择器
+        String? path = await FilePicker.platform.saveFile(
+          dialogTitle: '选择保存位置',
+          fileName: '${config.configName}_${DateTime.now().millisecondsSinceEpoch}.json',
+          type: FileType.custom,
+          allowedExtensions: ['json'],
+        );
+
+        if (path == null) {
+          debugPrint('用户取消了文件保存');
+          return;
+        }
+
+        debugPrint('开始导出配置到: $path');
+        await _dataPersistence.exportSingleConfig(path, config);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('导出成功: $path')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('导出配置失败: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('导出失败: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _importSingleConfig() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.any,
+      );
+      if (result != null) {
+        final filePath = result.files.single.path!;
+
+        // 读取文件内容检测类型
+        final file = File(filePath);
+        final content = await file.readAsString();
+        final jsonData = jsonDecode(content);
+
+        // 检查是否是全局备份文件
+        if (jsonData.containsKey('configs')) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('这是全局备份文件，请在设置页面的"恢复备份数据"中导入'),
+                duration: Duration(seconds: 4),
+              ),
+            );
+          }
+          return;
+        }
+
+        await _dataPersistence.importSingleConfig(filePath);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('导入成功')),
+          );
+          _loadData();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('导入失败: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -685,10 +796,18 @@ class _HomePageState extends State<HomePage> with WindowListener {
           Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8.0),
               child: Tooltip(
-                  message: '添加配置',
+                  message: '添加一个新配置',
                   child: IconButton(
                     icon: const Icon(Icons.add, color: Colors.white),
                     onPressed: () => _addOrEditConfig(null, -1),
+                  ))),
+          Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: Tooltip(
+                  message: '导入一个组网配置',
+                  child: IconButton(
+                    icon: const Icon(Icons.file_upload, color: Colors.white),
+                    onPressed: _importSingleConfig,
                   ))),
         ],
       ),
@@ -756,6 +875,12 @@ class _HomePageState extends State<HomePage> with WindowListener {
                               onPressed: () =>
                                   _addOrEditConfig(_configs[index], index),
                             )),
+                        Padding(
+                            padding: const EdgeInsets.only(right: 3.0),
+                            child: IconButton(
+                              icon: const Icon(Icons.file_download),
+                              onPressed: () => _exportSingleConfig(_configs[index]),
+                            )),
                         IconButton(
                           icon: const Icon(Icons.delete),
                           onPressed: () => _deleteConfig(index),
@@ -813,12 +938,24 @@ Future<void> copyAppropriateDll() async {
 }
 
 Future<void> copyLogConfig() async {
-  if (!Platform.isWindows && !Platform.isMacOS && !Platform.isLinux) {
+  File logConfigFile;
+  String logFilePath;
+
+  if (Platform.isAndroid) {
+    // Android平台：使用应用文档目录
+    final dir = await getApplicationDocumentsDirectory();
+    logConfigFile = File('${dir.path}/log4rs.yaml');
+    logFilePath = '${dir.path}/vnt-core.log';
+  } else if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+    // 桌面平台：使用相对路径
+    logConfigFile = File('logs/log4rs.yaml');
+    logFilePath = 'logs/vnt-core.log';
+
+    if (!logConfigFile.parent.existsSync()) {
+      await logConfigFile.parent.create();
+    }
+  } else {
     return;
-  }
-  final logConfigFile = File('logs/log4rs.yaml');
-  if (!logConfigFile.parent.existsSync()) {
-    await logConfigFile.parent.create();
   }
 
   if (await logConfigFile.exists()) {
@@ -826,7 +963,15 @@ Future<void> copyLogConfig() async {
     return;
   }
 
+  // 读取assets中的配置模板
   final byteData = await rootBundle.load('assets/log4rs.yaml');
-  await logConfigFile.writeAsBytes(byteData.buffer
+  String configContent = String.fromCharCodes(byteData.buffer
       .asUint8List(byteData.offsetInBytes, byteData.lengthInBytes));
+
+  // 替换日志文件路径
+  configContent = configContent.replaceAll('logs/vnt-core.log', logFilePath);
+
+  // 写入配置文件
+  await logConfigFile.writeAsString(configContent);
+  debugPrint('日志配置已创建: ${logConfigFile.path}');
 }

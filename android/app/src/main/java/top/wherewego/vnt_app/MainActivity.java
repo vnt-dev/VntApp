@@ -1,19 +1,34 @@
 package top.wherewego.vnt_app;
 
 import android.content.Intent;
+import android.net.Uri;
 import android.net.VpnService;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.OutputStream;
+
 import io.flutter.embedding.android.FlutterActivity;
 import io.flutter.embedding.engine.FlutterEngine;
+import io.flutter.plugin.common.MethodChannel;
 import top.wherewego.vnt_app.vpn.DeviceConfig;
 import top.wherewego.vnt_app.vpn.MyVpnService;
 
 public class MainActivity extends FlutterActivity {
+    private static final String TAG = "MainActivity";
     private static final int VPN_REQUEST_CODE = 1;
+    private static final int CREATE_FILE_REQUEST_CODE = 2;
+
+    private static final String FILE_CHANNEL = "top.wherewego.vnt/file";
+    private MethodChannel fileChannel;
+    private String pendingFilePath;
+    private MethodChannel.Result pendingFileResult;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -28,6 +43,8 @@ public class MainActivity extends FlutterActivity {
     @Override
     public void configureFlutterEngine(@NonNull FlutterEngine flutterEngine) {
         super.configureFlutterEngine(flutterEngine);
+
+        // VPN Channel
         FlutterMethodChannel.init(flutterEngine, new FlutterMethodChannel.Callback() {
             @Override
             public int startVpn(DeviceConfig config) {
@@ -48,9 +65,39 @@ public class MainActivity extends FlutterActivity {
                 moveTaskToBack(true);
             }
         });
+
+        // File Channel - 用于文件保存
+        fileChannel = new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), FILE_CHANNEL);
+        fileChannel.setMethodCallHandler((call, result) -> {
+            if (call.method.equals("saveFile")) {
+                String filePath = call.argument("filePath");
+                String fileName = call.argument("fileName");
+                String mimeType = call.argument("mimeType");
+
+                if (filePath == null || fileName == null) {
+                    result.error("INVALID_ARGUMENT", "filePath and fileName are required", null);
+                    return;
+                }
+
+                pendingFilePath = filePath;
+                pendingFileResult = result;
+
+                // 使用 SAF 创建文件
+                createFile(fileName, mimeType != null ? mimeType : "*/*");
+            } else {
+                result.notImplemented();
+            }
+        });
     }
 
+    private void createFile(String fileName, String mimeType) {
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType(mimeType);
+        intent.putExtra(Intent.EXTRA_TITLE, fileName);
 
+        startActivityForResult(intent, CREATE_FILE_REQUEST_CODE);
+    }
 
     private void startVpnService(DeviceConfig config) {
         MyVpnService.pendingConfig = config;
@@ -69,10 +116,64 @@ public class MainActivity extends FlutterActivity {
                 Intent serviceIntent = new Intent(this, MyVpnService.class);
                 startService(serviceIntent);
             } else {
-                // 用户拒绝授权，返回错误结果给 Flutter
                 FlutterMethodChannel.callError("User denied VPN authorization", null);
             }
+        } else if (requestCode == CREATE_FILE_REQUEST_CODE) {
+            if (resultCode == RESULT_OK && data != null) {
+                Uri uri = data.getData();
+                if (uri != null && pendingFilePath != null) {
+                    // 复制文件到用户选择的位置
+                    copyFileToUri(pendingFilePath, uri);
+                } else {
+                    if (pendingFileResult != null) {
+                        pendingFileResult.error("SAVE_FAILED", "Failed to get URI", null);
+                        pendingFileResult = null;
+                    }
+                }
+            } else {
+                // 用户取消
+                if (pendingFileResult != null) {
+                    pendingFileResult.success(null);
+                    pendingFileResult = null;
+                }
+            }
+            pendingFilePath = null;
         }
         super.onActivityResult(requestCode, resultCode, data);
+    }
+
+    private void copyFileToUri(String sourcePath, Uri destUri) {
+        try {
+            File sourceFile = new File(sourcePath);
+            FileInputStream inputStream = new FileInputStream(sourceFile);
+            OutputStream outputStream = getContentResolver().openOutputStream(destUri);
+
+            if (outputStream == null) {
+                throw new Exception("Cannot open output stream");
+            }
+
+            byte[] buffer = new byte[4096];
+            int length;
+            while ((length = inputStream.read(buffer)) > 0) {
+                outputStream.write(buffer, 0, length);
+            }
+
+            outputStream.flush();
+            outputStream.close();
+            inputStream.close();
+
+            if (pendingFileResult != null) {
+                pendingFileResult.success(destUri.toString());
+                pendingFileResult = null;
+            }
+
+            Log.d(TAG, "File saved successfully to: " + destUri.toString());
+        } catch (Exception e) {
+            Log.e(TAG, "Error saving file", e);
+            if (pendingFileResult != null) {
+                pendingFileResult.error("SAVE_FAILED", e.getMessage(), null);
+                pendingFileResult = null;
+            }
+        }
     }
 }

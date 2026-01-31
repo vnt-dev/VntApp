@@ -4,7 +4,13 @@ on:
   push:
     branches:
       - flutter
-  workflow_dispatch:  
+  workflow_dispatch:
+    inputs:
+      rebuild_android_so:
+        description: '是否重新打包安卓so库？'
+        required: false
+        type: boolean
+        default: false  
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -45,7 +51,7 @@ jobs:
           java-version: 17
           
       - name: 设置NDK环境
-        if: matrix.NAME == 'vntApp-android'
+        if: matrix.NAME == 'vntApp-android' && github.event.inputs.rebuild_android_so == 'true'
         run: |
            wget -q https://dl.google.com/android/repository/android-ndk-r26d-linux.zip
            unzip -q android-ndk-r26d-linux.zip -d /opt/ndk
@@ -80,15 +86,16 @@ jobs:
            rustup target add armv7-linux-androideabi
            rustup target add x86_64-linux-android
            rustup target add i686-linux-android
-        
-      - name: 构建安卓so库
-        if: matrix.NAME == 'vntApp-android'
-        run: |
-           cd rust
-           rm -rf .cargo/config
            sed -i 's|main|Android|' Cargo.toml
            sed -i '0,/local_ipv4,/{s/local_ipv4,/local_ipv4.map(|ip| ip.to_string()),/}' src/api/vnt_api.rs
            sed -i '/ErrorType::Unknown => RustErrorType::Unknown,/a\    _ => RustErrorType::Unknown,' src/api/vnt_api.rs
+
+      - name: 是否重新打包安卓so库？
+        if: matrix.NAME == 'vntApp-android' && github.event.inputs.rebuild_android_so == 'true'
+        run: |
+           cd rust
+           rm -rf .cargo/config
+           
            export PATH=/opt/ndk/android-ndk-r26d:/opt/ndk/android-ndk-r26d/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH  
            cat >>./.cargo/config <<EOF
             [target.armv7-linux-androideabi]
@@ -134,8 +141,6 @@ jobs:
         if: matrix.NAME == 'vntApp-android'
         run: |
          #sed -i 's|branch = "1.2.x"|rev = "501a9e8"|' rust/Cargo.toml
-         #sed -i '0,/local_ipv4,/{s/local_ipv4,/local_ipv4.map(|ip| ip.to_string()),/}' rust/src/api/vnt_api.rs
-         #sed -i '/ErrorType::Unknown => RustErrorType::Unknown,/a\    _ => RustErrorType::Unknown,' rust/src/api/vnt_api.rs
          
          flutter clean
          flutter doctor -v
@@ -204,3 +209,4 @@ jobs:
           path: ./artifacts
       - name: List
         run: find ./artifacts
+

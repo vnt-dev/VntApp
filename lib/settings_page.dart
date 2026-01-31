@@ -1,7 +1,11 @@
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:vnt_app/data_persistence.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:vnt_app/file_saver.dart';
 
 import 'connect_log.dart';
 
@@ -205,6 +209,127 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  // 导出所有配置
+  Future<void> _exportAllConfigs() async {
+    try {
+      if (Platform.isAndroid) {
+        // Android：先保存到临时文件，然后调用系统文件选择器
+        final directory = await getTemporaryDirectory();
+        final fileName = 'vnt_backup_${DateTime.now().millisecondsSinceEpoch}.json';
+        final filePath = '${directory.path}/$fileName';
+
+        debugPrint('开始导出配置到临时文件: $filePath');
+        await _dataPersistence.exportAllConfigs(filePath);
+
+        // 调用系统文件选择器让用户选择保存位置
+        final success = await FileSaver.copyFile(
+          sourceFilePath: filePath,
+          fileName: fileName,
+          mimeType: 'application/json',
+        );
+
+        // 清理临时文件
+        final tempFile = File(filePath);
+        if (await tempFile.exists()) {
+          await tempFile.delete();
+        }
+
+        if (mounted) {
+          if (success) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('备份成功: $fileName')),
+            );
+          }
+        }
+      } else {
+        // Windows：使用文件选择器
+        String? path = await FilePicker.platform.saveFile(
+          dialogTitle: '选择保存位置',
+          fileName: 'vnt_backup_${DateTime.now().millisecondsSinceEpoch}.json',
+          type: FileType.custom,
+          allowedExtensions: ['json'],
+        );
+
+        if (path == null) {
+          debugPrint('用户取消了文件保存');
+          return;
+        }
+
+        debugPrint('开始导出配置到: $path');
+        await _dataPersistence.exportAllConfigs(path);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('备份成功: $path')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('导出配置失败: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('备份失败: $e')),
+        );
+      }
+    }
+  }
+
+  // 导入所有配置
+  Future<void> _importAllConfigs() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.any,
+      );
+
+      // 用户取消选择
+      if (result == null) {
+        debugPrint('用户取消了文件选择');
+        return;
+      }
+
+      final filePath = result.files.single.path;
+      if (filePath == null) {
+        throw Exception('无法获取文件路径');
+      }
+
+      // 读取文件内容检测类型
+      final file = File(filePath);
+      final content = await file.readAsString();
+      final jsonData = jsonDecode(content);
+
+      // 检查是否是单个配置文件
+      if (jsonData.containsKey('config') && !jsonData.containsKey('configs')) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('这是单个组网配置文件，请在主页的导入按钮中导入'),
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
+        return;
+      }
+
+      debugPrint('开始导入配置从: $filePath');
+      await _dataPersistence.importAllConfigs(filePath);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('恢复成功')),
+        );
+        _configNames.clear();
+        _loadData();
+      }
+    } catch (e) {
+      debugPrint('导入配置失败: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('恢复失败: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -286,6 +411,20 @@ class _SettingsPageState extends State<SettingsPage> {
                 dropdownColor: Colors.white,
                 borderRadius: BorderRadius.circular(10),
               ),
+            ),
+          ),
+          ListTile(
+            title: const Text('备份所有配置'),
+            trailing: IconButton(
+              icon: const Icon(Icons.backup),
+              onPressed: _exportAllConfigs,
+            ),
+          ),
+          ListTile(
+            title: const Text('恢复备份数据'),
+            trailing: IconButton(
+              icon: const Icon(Icons.restore),
+              onPressed: _importAllConfigs,
             ),
           ),
           ListTile(

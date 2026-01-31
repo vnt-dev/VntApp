@@ -36,7 +36,7 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.6
   device_info_plus: ^10.0.0
-  shared_preferences: ^2.0.0 
+  shared_preferences: ^2.0.0
   rust_lib_vnt_app:
     path: rust_builder
   flutter_rust_bridge: 2.1.0
@@ -50,6 +50,7 @@ dependencies:
   synchronized: ^3.0.0
   fl_chart: ^0.68.0
   uuid: ^3.0.7
+  file_picker: ^8.0.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
