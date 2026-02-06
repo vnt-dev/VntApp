@@ -15,6 +15,7 @@ import 'package:vnt_app/utils/responsive_utils.dart';
 import 'dart:isolate';
 import 'package:vnt_app/src/rust/api/vnt_api.dart';
 import 'package:vnt_app/widgets/custom_title_bar.dart';
+import 'package:vnt_app/system_tray_manager.dart';
 
 /// 主导航框架 - 响应式布局，支持侧边栏和底部导航
 class MainNavigationShell extends StatefulWidget {
@@ -152,7 +153,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     final receivePort = ReceivePort();
     bool onece = true;
 
-    receivePort.listen((msg) {
+    receivePort.listen((msg) async {
       if (!mounted) return;
 
       if (msg is String) {
@@ -168,6 +169,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             if (Platform.isAndroid) {
               VntAppCall.updateWidgetAndTile(true);
             }
+            // 更新系统托盘
+            await SystemTrayManager().updateMenu();
+            await SystemTrayManager().updateTooltip();
           }
         } else if (msg == 'stop') {
           vntManager.remove(config.itemKey);
@@ -181,6 +185,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
           if (Platform.isAndroid) {
             VntAppCall.updateWidgetAndTile(vntManager.hasConnection());
           }
+          // 更新系统托盘
+          await SystemTrayManager().updateMenu();
+          await SystemTrayManager().updateTooltip();
         }
       } else if (msg is RustErrorInfo) {
         if (onece) {
@@ -193,6 +200,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
         if (Platform.isAndroid) {
           VntAppCall.updateWidgetAndTile(vntManager.hasConnection());
         }
+        // 更新系统托盘
+        await SystemTrayManager().updateMenu();
+        await SystemTrayManager().updateTooltip();
       } else if (msg is RustConnectInfo) {
         if (onece && msg.count > BigInt.from(60)) {
           onece = false;
@@ -203,6 +213,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
           if (Platform.isAndroid) {
             VntAppCall.updateWidgetAndTile(vntManager.hasConnection());
           }
+          // 更新系统托盘
+          await SystemTrayManager().updateMenu();
+          await SystemTrayManager().updateTooltip();
         }
       }
     });
@@ -605,6 +618,15 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             if (mounted) {
               setState(() => _selectedConfig = null);
             }
+
+            // 更新 Android 磁贴和小组件
+            if (Platform.isAndroid) {
+              VntAppCall.updateWidgetAndTile(false);
+            }
+
+            // 更新系统托盘
+            await SystemTrayManager().updateMenu();
+            await SystemTrayManager().updateTooltip();
           },
           onConnect: () async {
             // 尝试连接默认配置

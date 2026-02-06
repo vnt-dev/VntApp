@@ -56,6 +56,8 @@ public class MyVpnService extends VpnService {
         // 更新小组件状态为未连接
         if (vpnService != null) {
             VntWidget.updateAllWidgets(vpnService);
+            // 更新通知栏状态
+            top.wherewego.vnt_app.VntNotificationService.updateNotification(vpnService);
         }
         FlutterMethodChannel.stopVnt();
         if (vpnService != null) {

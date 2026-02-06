@@ -34,6 +34,23 @@ public class MainActivity extends FlutterActivity {
         super.onCreate(savedInstanceState);
         // 设置应用上下文，用于更新磁贴和小组件
         FlutterMethodChannel.setAppContext(this);
+
+        // 启动常驻通知服务
+        startNotificationService();
+    }
+
+    /**
+     * 启动常驻通知服务
+     */
+    private void startNotificationService() {
+        Intent serviceIntent = new Intent(this, VntNotificationService.class);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // Android 8.0+ 使用 startForegroundService
+            startForegroundService(serviceIntent);
+        } else {
+            startService(serviceIntent);
+        }
+        Log.d(TAG, "常驻通知服务已启动");
     }
 
     @Override
@@ -67,6 +84,9 @@ public class MainActivity extends FlutterActivity {
                 moveTaskToBack(true);
             }
         });
+
+        // Flutter 初始化完成后，立即更新通知服务状态
+        VntNotificationService.updateNotification(this);
 
         // File Channel - 用于文件保存
         fileChannel = new MethodChannel(flutterEngine.getDartExecutor().getBinaryMessenger(), FILE_CHANNEL);

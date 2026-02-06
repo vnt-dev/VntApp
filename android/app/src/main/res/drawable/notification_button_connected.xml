@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 通知按钮背景 - 已连接状态（绿色） -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#4CAF50" />
+    <corners android:radius="4dp" />
+</shape>

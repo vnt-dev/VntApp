@@ -71,6 +71,12 @@ public abstract class VntWidget extends AppWidgetProvider {
                 updateAllWidgetsWithState(context, false);
                 // 执行断开操作
                 FlutterMethodChannel.stopVnt();
+                // 更新通知栏状态
+                VntNotificationService.updateNotification(context);
+                // 更新磁贴状态
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                    MyTileService.setState(false);
+                }
             } else {
                 Log.i(TAG, "当前未连接，立即更新UI为已连接状态，然后执行连接操作");
                 // 立即更新UI为已连接状态
@@ -85,6 +91,12 @@ public abstract class VntWidget extends AppWidgetProvider {
                     } else {
                         Log.i(TAG, "连接失败，恢复UI为未连接状态");
                         updateAllWidgetsWithState(context, false);
+                    }
+                    // 更新通知栏状态
+                    VntNotificationService.updateNotification(context);
+                    // 更新磁贴状态
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                        MyTileService.setState(success);
                     }
                     return null;
                 });
@@ -203,7 +215,7 @@ public abstract class VntWidget extends AppWidgetProvider {
                 int offlineCount = deviceInfo.get("offlineCount") != null ? (int) deviceInfo.get("offlineCount") : 0;
 
                 if (configName == null || configName.isEmpty()) {
-                    configName = "未设置";
+                    configName = "默认配置";
                 }
 
                 // 设置配置名称
@@ -222,7 +234,7 @@ public abstract class VntWidget extends AppWidgetProvider {
                     views.setTextViewText(R.id.widget_status, "未连接");
                     views.setImageViewResource(R.id.widget_icon, android.R.drawable.presence_offline);
                     views.setTextViewText(R.id.widget_button, "连接");
-                    // 设置按���背景为红色（未连接状态）
+                    // 设置按钮背景为红色（未连接状态）
                     views.setInt(R.id.widget_button, "setBackgroundResource", R.drawable.widget_button_background_connected);
                     views.setTextViewText(R.id.widget_device_count, "点击连接");
                 }
@@ -239,7 +251,7 @@ public abstract class VntWidget extends AppWidgetProvider {
             });
         } else {
             // Flutter 未初始化，读取配置信息
-            String configName = "未设置";
+            String configName = "默认配置";
             SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
             String defaultKey = prefs.getString(DEFAULT_KEY, "");
 

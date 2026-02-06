@@ -275,6 +275,9 @@ public class FlutterMethodChannel {
 
         // 更新小组件状态
         VntWidget.updateAllWidgets(context);
+
+        // 更新常驻通知
+        VntNotificationService.updateNotification(context);
     }
 
     public interface Callback {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:vnt_app/theme/app_theme.dart';
@@ -8,6 +9,7 @@ import 'package:vnt_app/src/rust/api/vnt_api.dart';
 import 'package:vnt_app/utils/toast_utils.dart';
 import 'package:vnt_app/utils/responsive_utils.dart';
 import 'package:json2yaml/json2yaml.dart';
+import 'package:vnt_app/system_tray_manager.dart';
 
 /// 房间页面 - 显示已连接网络的设备列表、聊天、路由
 class RoomPage extends StatefulWidget {
@@ -1993,6 +1995,15 @@ class _RoomPageState extends State<RoomPage> with SingleTickerProviderStateMixin
 
                         // 清空延迟历史数据
                         _clearLatencyHistory();
+
+                        // 更新 Android 磁贴、小组件和通知栏
+                        if (Platform.isAndroid) {
+                          VntAppCall.updateWidgetAndTile(false);
+                        }
+
+                        // 更新系统托盘
+                        await SystemTrayManager().updateMenu();
+                        await SystemTrayManager().updateTooltip();
 
                         if (widget.onDisconnect != null) {
                           widget.onDisconnect!();

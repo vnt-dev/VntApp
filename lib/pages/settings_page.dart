@@ -11,6 +11,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:vnt_app/file_saver.dart';
 import 'package:vnt_app/connect_log.dart';
+import 'package:vnt_app/vnt/vnt_manager.dart';
+import 'package:vnt_app/system_tray_manager.dart';
 
 /// 设置页面
 class SettingsPage extends StatefulWidget {
@@ -247,6 +249,10 @@ class _SettingsPageState extends State<SettingsPage> {
         await _loadData();
         // 通知配置列表页面刷新
         widget.onDataChanged?.call();
+        // 同步更新通知栏、磁贴、小组件（恢复备份会重置默认配置）
+        VntAppCall.updateWidgetAndTile(false);
+        // 更新系统托盘（配置列表变化）
+        SystemTrayManager().updateMenu();
       }
     } catch (e) {
       debugPrint('导入配置失败: $e');
@@ -677,6 +683,10 @@ class _SettingsPageState extends State<SettingsPage> {
                       _defaultKey = newValue;
                     });
                     _dataPersistence.saveDefaultKey(newValue);
+                    // 更新通知栏、磁贴、小组件显示最新配置
+                    VntAppCall.updateWidgetAndTile(false);
+                    // 更新系统托盘（默认配置变化）
+                    SystemTrayManager().updateMenu();
                   }
                 },
                 items: _configNames.asMap().entries.map<DropdownMenuItem<String>>((entry) {

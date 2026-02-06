@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- VNT 通知图标 - 符合 Android 5.0+ 规范 -->
+<!-- 透明背景 + 白色图标，24x24dp -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- V 字母 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M7,3 L10,3 L12,9 L14,3 L17,3 L13,13 L11,13 Z" />
+
+    <!-- 网络连接图标 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M12,15 m-2,0 a2,2 0,1,1 4,0 a2,2 0,1,1 -4,0" />
+
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M4,18 L8,14 M16,14 L20,18" />
+
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M6,20 L10,16 M14,16 L18,20"
+        android:strokeWidth="1"
+        android:strokeColor="#FFFFFF" />
+</vector>

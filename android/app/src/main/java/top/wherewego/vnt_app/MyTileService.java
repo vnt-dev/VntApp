@@ -109,6 +109,10 @@ public class MyTileService extends TileService {
                     Log.i("Tile", "连接失败，恢复磁贴为未激活状态");
                 }
                 tile.updateTile();
+                // 更新通知栏状态
+                VntNotificationService.updateNotification(getApplicationContext());
+                // 更新小组件状态
+                VntWidget.updateAllWidgets(getApplicationContext());
                 return null;
             });
         } else {
@@ -119,6 +123,10 @@ public class MyTileService extends TileService {
 
             Log.i("Tile", "当前已连接，调用 stopVnt");
             FlutterMethodChannel.stopVnt();
+            // 更新通知栏状态
+            VntNotificationService.updateNotification(getApplicationContext());
+            // 更新小组件状态
+            VntWidget.updateAllWidgets(getApplicationContext());
         }
         Log.i("Tile", "onClick 完成");
     }

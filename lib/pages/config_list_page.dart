@@ -15,6 +15,7 @@ import 'package:vnt_app/utils/responsive_utils.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:vnt_app/file_saver.dart';
+import 'package:vnt_app/system_tray_manager.dart';
 
 /// 配置列表页面
 class ConfigListPage extends StatefulWidget {
@@ -702,6 +703,10 @@ class _ConfigListPageState extends State<ConfigListPage> {
       _dataPersistence.saveData(_configs);
       // 通知设置页面刷新配置列表
       widget.onDataChanged?.call();
+      // 同步更新通知栏、磁贴、小组件（新建/编辑可能影响默认配置）
+      VntAppCall.updateWidgetAndTile(false);
+      // 更新系统托盘（配置列表变化）
+      SystemTrayManager().updateMenu();
     }
   }
 
@@ -745,6 +750,13 @@ class _ConfigListPageState extends State<ConfigListPage> {
             Navigator.of(context).popUntil((route) => route.isFirst);
             setState(() {});
             widget.onConfigSelected?.call(config);
+            // 更新 Android 磁贴和小组件
+            if (Platform.isAndroid) {
+              VntAppCall.updateWidgetAndTile(true);
+            }
+            // 更新系统托盘
+            SystemTrayManager().updateMenu();
+            SystemTrayManager().updateTooltip();
           }
         } else if (msg == 'stop') {
           vntManager.remove(itemKey);
@@ -755,6 +767,13 @@ class _ConfigListPageState extends State<ConfigListPage> {
           // 统一显示"服务已停止"提示
           showTopToast(context, '[$configName] 服务已停止', isSuccess: false);
           setState(() {});
+          // 更新 Android 磁贴和小组件
+          if (Platform.isAndroid) {
+            VntAppCall.updateWidgetAndTile(vntManager.hasConnection());
+          }
+          // 更新系统托盘
+          SystemTrayManager().updateMenu();
+          SystemTrayManager().updateTooltip();
         }
       } else if (msg is RustErrorInfo) {
         if (onece) {
@@ -763,12 +782,26 @@ class _ConfigListPageState extends State<ConfigListPage> {
           vntManager.remove(itemKey);
         }
         _handleConnectionError(msg, configName, itemKey);
+        // 更新 Android 磁贴和小组件
+        if (Platform.isAndroid) {
+          VntAppCall.updateWidgetAndTile(vntManager.hasConnection());
+        }
+        // 更新系统托盘
+        SystemTrayManager().updateMenu();
+        SystemTrayManager().updateTooltip();
       } else if (msg is RustConnectInfo) {
         if (onece && msg.count > BigInt.from(60)) {
           onece = false;
           Navigator.of(context).pop();
           vntManager.remove(itemKey);
           showTopToast(context, '[$configName] 连接超时 ${msg.address}', isSuccess: false);
+          // 更新 Android 磁贴和小组件
+          if (Platform.isAndroid) {
+            VntAppCall.updateWidgetAndTile(vntManager.hasConnection());
+          }
+          // 更新系统托盘
+          SystemTrayManager().updateMenu();
+          SystemTrayManager().updateTooltip();
         }
       }
     });
@@ -977,6 +1010,10 @@ class _ConfigListPageState extends State<ConfigListPage> {
           showTopToast(context, '导入成功', isSuccess: true);
           // 重新加载配置列表以实时显示导入的配置
           await _loadConfigs();
+          // 同步更新通知栏、磁贴、小组件（导入可能影响默认配置）
+          VntAppCall.updateWidgetAndTile(false);
+          // 更新系统托盘（配置列表变化）
+          SystemTrayManager().updateMenu();
         }
       }
     } catch (e) {
@@ -1030,6 +1067,10 @@ class _ConfigListPageState extends State<ConfigListPage> {
               _dataPersistence.saveData(_configs);
               // 通知设置页面刷新配置列表
               widget.onDataChanged?.call();
+              // 同步更新通知栏、磁贴、小组件（删除可能影响默认配置）
+              VntAppCall.updateWidgetAndTile(false);
+              // 更新系统托盘（配置列表变化）
+              SystemTrayManager().updateMenu();
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.errorColor,
@@ -1131,6 +1172,15 @@ class _ConfigListPageState extends State<ConfigListPage> {
                         if (mounted) {
                           setState(() {});
                         }
+
+                        // 更新 Android 磁贴和小组件
+                        if (Platform.isAndroid) {
+                          VntAppCall.updateWidgetAndTile(vntManager.hasConnection());
+                        }
+
+                        // 更新系统托盘
+                        SystemTrayManager().updateMenu();
+                        SystemTrayManager().updateTooltip();
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red,

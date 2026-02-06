@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- VNT 自定义通知布局 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="8dp"
+    android:background="@android:color/transparent">
+
+    <!-- 左侧：大应用图标 -->
+    <ImageView
+        android:id="@+id/notification_icon"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="center_vertical"
+        android:src="@mipmap/ic_launcher"
+        android:contentDescription="VNT 图标" />
+
+    <!-- 右侧：内容区域 -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginStart="12dp"
+        android:orientation="vertical">
+
+        <!-- 第一行：状态 + 按钮 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <!-- 状态：已连接/未连接（作为标题） -->
+            <TextView
+                android:id="@+id/notification_status"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="未连接"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF" />
+
+            <!-- 按钮 -->
+            <Button
+                android:id="@+id/notification_button"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:text="连接"
+                android:textSize="11sp"
+                android:textColor="#FFFFFF"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:minWidth="50dp"
+                android:background="@drawable/notification_button_background" />
+
+        </LinearLayout>
+
+        <!-- 第二行：说明（配置名称） -->
+        <TextView
+            android:id="@+id/notification_description"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="点击连接到"
+            android:textSize="11sp"
+            android:textColor="#1565C0" />
+
+    </LinearLayout>
+
+</LinearLayout>
