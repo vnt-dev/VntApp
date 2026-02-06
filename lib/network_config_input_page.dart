@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
-import 'custom_app_bar.dart';
 import 'data_persistence.dart';
 import 'network_config.dart';
 import 'dart:io';
 import 'widgets/custom_tooltip_text_field.dart';
 import 'utils/ip_utils.dart';
+import 'utils/toast_utils.dart';
+import 'utils/responsive_utils.dart';
+import 'theme/app_theme.dart';
 
 class NetworkConfigInputPage extends StatefulWidget {
   final NetworkConfig? config;
@@ -236,9 +238,7 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
       );
       Navigator.pop(context, config);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('参数校验失败,请检查标红参数')),
-      );
+      showTopToast(context, '参数校验失败,请检查标红参数', isSuccess: false);
     }
   }
 
@@ -258,27 +258,46 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
 
   @override
   Widget build(BuildContext context) {
+    final primaryColor = Theme.of(context).primaryColor;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      appBar: CustomAppBar(
-        title: const Text('组网参数配置', style: TextStyle(color: Colors.white)),
-        backgroundColor: Colors.teal,
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(
+        title: Text(
+          '组网参数配置',
+          style: TextStyle(
+            color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                primaryColor.withOpacity(0.15),
+                primaryColor.withOpacity(0.05),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        iconTheme: IconThemeData(
+          color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+        ),
         actions: [
-          // if (widget.config == null)
-          //   Padding(
-          //       padding: const EdgeInsets.symmetric(horizontal: 8.0),
-          //       child: Tooltip(
-          //           message: '导入',
-          //           child: IconButton(
-          //             icon:
-          //                 const Icon(Icons.call_received, color: Colors.white),
-          //             onPressed: _showImportConfigDialog,
-          //           ))),
           Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8.0),
               child: Tooltip(
                   message: '保存',
                   child: IconButton(
-                    icon: const Icon(Icons.save, color: Colors.white),
+                    icon: Icon(
+                      Icons.save,
+                      color: primaryColor,
+                    ),
                     onPressed: _submitForm,
                   ))),
         ],
@@ -769,7 +788,7 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      style: TextStyle(fontSize: context.fontMedium, fontWeight: FontWeight.bold),
     );
   }
 
@@ -958,11 +977,11 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
               ],
             ),
             if (!selectedValue1 && !selectedValue2)
-              const Padding(
-                padding: EdgeInsets.only(top: 5.0),
+              Padding(
+                padding: const EdgeInsets.only(top: 5.0),
                 child: Text(
                   '至少勾选一个选项',
-                  style: TextStyle(color: Colors.red, fontSize: 12),
+                  style: TextStyle(color: Colors.red, fontSize: context.fontXSmall),
                 ),
               ),
           ],

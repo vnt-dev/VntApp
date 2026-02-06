@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 小组件按钮背景 - 已连接状态（红色） -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#F44336" />
+    <corners android:radius="8dp" />
+</shape>

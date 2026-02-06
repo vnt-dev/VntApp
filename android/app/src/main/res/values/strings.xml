@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">VNT</string>
+    <string name="widget_small_description">VNT 快捷开关</string>
+    <string name="widget_large_description">VNT 状态面板</string>
+</resources>

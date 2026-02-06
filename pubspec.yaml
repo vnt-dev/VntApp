@@ -51,6 +51,7 @@ dependencies:
   fl_chart: ^0.68.0
   uuid: ^3.0.7
   file_picker: ^8.0.0
+  flex_color_picker: ^3.3.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -109,4 +110,5 @@ flutter:
   assets:
     - assets/app_icon.ico
     - assets/app_icon.png
+    - assets/ic_launcher.png
     - assets/log4rs.yaml

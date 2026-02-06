@@ -1,5 +1,6 @@
 package top.wherewego.vnt_app;
 
+import android.content.Context;
 import android.os.Build;
 import android.service.quicksettings.Tile;
 import android.util.Log;
@@ -8,6 +9,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -23,9 +25,21 @@ public class FlutterMethodChannel {
     private volatile static MethodChannel channel;
     private volatile static MethodChannel.Result pendingResult;
     private volatile static boolean tileStart = false;
+    private volatile static String tileConfigKey = null; // 从磁贴选择的配置key
+    private volatile static Context appContext; // 保存应用上下文
 
     public static void setTileStart(boolean tileStart) {
         FlutterMethodChannel.tileStart = tileStart;
+    }
+
+    public static void setTileConfigKey(String configKey) {
+        FlutterMethodChannel.tileConfigKey = configKey;
+    }
+
+    public static String getTileConfigKey() {
+        String key = tileConfigKey;
+        tileConfigKey = null; // 读取后清空
+        return key;
     }
 
     public static boolean initialized() {
@@ -64,6 +78,17 @@ public class FlutterMethodChannel {
                         case "isTileStart":
                             result.success(tileStart);
                             break;
+                        case "getTileConfigKey":
+                            result.success(getTileConfigKey());
+                            break;
+                        case "updateWidgetAndTile":
+                            // 更新磁贴和小组件状态
+                            Boolean isConnected = call.argument("isConnected");
+                            if (isConnected != null && appContext != null) {
+                                updateWidgetAndTileState(appContext, isConnected);
+                            }
+                            result.success(null);
+                            break;
                         default:
                             result.notImplemented();
                             break;
@@ -86,11 +111,11 @@ public class FlutterMethodChannel {
         pendingResult = null;
     }
 
-    public static void startVnt(Function<Boolean, Void> function) {
+    public static void startVnt(String configKey, Function<Boolean, Void> function) {
         if (channel == null) {
             return;
         }
-        channel.invokeMethod("startVnt", null, new MethodChannel.Result() {
+        channel.invokeMethod("startVnt", configKey, new MethodChannel.Result() {
             @Override
             public void success(@Nullable Object result) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -154,6 +179,62 @@ public class FlutterMethodChannel {
         });
     }
 
+    public static void getDeviceInfo(Function<Map<String, Object>, Void> function) {
+        if (channel == null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                Map<String, Object> emptyInfo = new HashMap<>();
+                emptyInfo.put("isConnected", false);
+                emptyInfo.put("configName", "");
+                emptyInfo.put("onlineCount", 0);
+                emptyInfo.put("offlineCount", 0);
+                function.apply(emptyInfo);
+            }
+            return;
+        }
+        channel.invokeMethod("getDeviceInfo", null, new MethodChannel.Result() {
+            @Override
+            public void success(@Nullable Object result) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    if (result instanceof Map) {
+                        function.apply((Map<String, Object>) result);
+                    } else {
+                        Map<String, Object> emptyInfo = new HashMap<>();
+                        emptyInfo.put("isConnected", false);
+                        emptyInfo.put("configName", "");
+                        emptyInfo.put("onlineCount", 0);
+                        emptyInfo.put("offlineCount", 0);
+                        function.apply(emptyInfo);
+                    }
+                }
+            }
+
+            @Override
+            public void error(@NonNull String errorCode, @Nullable String errorMessage, @Nullable Object errorDetails) {
+                Log.e("FlutterChannel", "getDeviceInfo error: " + errorMessage);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    Map<String, Object> emptyInfo = new HashMap<>();
+                    emptyInfo.put("isConnected", false);
+                    emptyInfo.put("configName", "");
+                    emptyInfo.put("onlineCount", 0);
+                    emptyInfo.put("offlineCount", 0);
+                    function.apply(emptyInfo);
+                }
+            }
+
+            @Override
+            public void notImplemented() {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    Map<String, Object> emptyInfo = new HashMap<>();
+                    emptyInfo.put("isConnected", false);
+                    emptyInfo.put("configName", "");
+                    emptyInfo.put("onlineCount", 0);
+                    emptyInfo.put("offlineCount", 0);
+                    function.apply(emptyInfo);
+                }
+            }
+        });
+    }
+
     private static DeviceConfig parseDeviceConfig(Map<String, Object> arguments) {
         String virtualIp = (String) arguments.get("virtualIp");
         String virtualNetmask = (String) arguments.get("virtualNetmask");
@@ -170,6 +251,30 @@ public class FlutterMethodChannel {
             }
         }
         return new DeviceConfig(IpUtils.ipToInt(virtualIp), IpUtils.ipToInt(virtualNetmask), IpUtils.ipToInt(virtualGateway), mtu, externalRoute);
+    }
+
+    /**
+     * 设置应用上下文（在 MainActivity 中调用）
+     */
+    public static void setAppContext(Context context) {
+        appContext = context.getApplicationContext();
+    }
+
+    /**
+     * 更新磁贴和小组件状态
+     * @param context 上下文
+     * @param isConnected 是否已连接
+     */
+    public static void updateWidgetAndTileState(Context context, boolean isConnected) {
+        Log.i("FlutterChannel", "更新磁贴和小组件状态: isConnected=" + isConnected);
+
+        // 更新磁贴状态
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            MyTileService.setState(isConnected);
+        }
+
+        // 更新小组件状态
+        VntWidget.updateAllWidgets(context);
     }
 
     public interface Callback {

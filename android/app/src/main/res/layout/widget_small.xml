@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 小尺寸小组件布局 (1x1) -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_button"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="4dp"
+    android:background="@drawable/widget_background">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="VNT"
+        android:textSize="8sp"
+        android:textColor="#FFFFFF"
+        android:textStyle="bold" />
+
+    <ImageView
+        android:id="@+id/widget_icon"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_marginTop="2dp"
+        android:src="@android:drawable/presence_offline"
+        android:contentDescription="VNT状态图标" />
+
+    <TextView
+        android:id="@+id/widget_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:text="未连接"
+        android:textSize="8sp"
+        android:textColor="#FFFFFF"
+        android:textStyle="bold" />
+
+</LinearLayout>

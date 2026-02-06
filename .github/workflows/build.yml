@@ -36,6 +36,10 @@ jobs:
           - NAME: vntApp-windows
             OS: windows-2022
             flutter-version: 3.24.5
+
+          - NAME: vntApp-macOS
+            OS: macos-latest
+            flutter-version: 3.24.5
             
     runs-on: ${{ matrix.OS }}
     steps:
@@ -62,17 +66,74 @@ jobs:
           channel: stable
           flutter-version: ${{ matrix.flutter-version }}
 
-      - name: 替换 Flutter 引擎为支持 Windows 7 的版本
+      - name: 缓存 Flutter 依赖
+        if: matrix.NAME == 'vntApp-macOS'
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
+      - name: 缓存 Flutter / Pub / Gradle（Windows 7 引擎版）
         if: matrix.NAME == 'vntApp-windows'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ${{ runner.tool_cache }}/flutter
+          key: >
+            windows-flutter-win7-engine-
+            ${{ matrix.flutter-version }}-
+            ${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            windows-flutter-win7-engine-
+
+      - name: 缓存 Flutter / Pub / Gradle（标准版）
+        if: matrix.NAME != 'vntApp-windows'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ${{ runner.tool_cache }}/flutter
+          key: >
+            ${{ runner.os }}-flutter-
+            ${{ matrix.flutter-version }}-
+            ${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-flutter-
+
+      - name: 判断是否已应用 Windows 7 引擎
+        if: matrix.NAME == 'vntApp-windows'
+        id: win7_engine
+        shell: pwsh
+        run: |
+          $flag = "C:/hostedtoolcache/windows/flutter/stable-${{ matrix.flutter-version }}-x64/.win7_engine_applied"
+          if (Test-Path $flag) {
+            echo "applied=true" >> $Env:GITHUB_OUTPUT
+          } else {
+            echo "applied=false" >> $Env:GITHUB_OUTPUT
+          }
+
+      - name: 替换 Flutter 引擎为支持 Windows 7 的版本
+        if: matrix.NAME == 'vntApp-windows' && steps.win7_engine.outputs.applied != 'true'
         shell: pwsh
         run: |
           flutter doctor -v
           flutter precache --windows
+          
           Expand-Archive -Path ".github/patches/windows-x64-release.zip" -DestinationPath "windows-x64-release"
+          
           Copy-Item -Path "windows-x64-release/*" -Destination "C:/hostedtoolcache/windows/flutter/stable-${{ matrix.flutter-version }}-x64/bin/cache/artifacts/engine/windows-x64-release/" -Recurse -Force
           
+          New-Item -ItemType File -Path "C:/hostedtoolcache/windows/flutter/stable-${{ matrix.flutter-version }}-x64/.win7_engine_applied" -Force
+            
       - name: 打补丁以启用 Dropdown Menu 过滤支持
-        if: matrix.NAME == 'vntApp-windows'
+        if: matrix.NAME == 'vntApp-windows' && steps.win7_engine.outputs.applied != 'true'
         shell: bash
         run: |
           cp .github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff $(dirname $(dirname $(which flutter)))
@@ -192,12 +253,39 @@ jobs:
           Set-Location build\windows\x64\runner\Release
 
           Compress-Archive -Path * -DestinationPath $Env:GITHUB_WORKSPACE/vntApp-windows.zip -Force
+          
+      - name: macOS 同步 Rust API 参数
+        if: matrix.NAME == 'vntApp-macOS'
+        shell: bash
+        run: |
+          rustup target add aarch64-apple-darwin
+          rustup target add x86_64-apple-darwin
+          # 新的库增加了禁止中继参数，这里默认不启用
+          FILE="rust/src/api/vnt_api.rs"
+
+          perl -0777 -pe 's/local_ipv4,/local_ipv4.map(|ip| ip.to_string()),\n            false,/' "$FILE" > "$FILE.tmp" && mv "$FILE.tmp" "$FILE"
+          perl -0777 -pe 's/(ErrorType::Unknown => RustErrorType::Unknown,)/$1\n    _ => RustErrorType::Unknown,/' "$FILE" > "$FILE.tmp" && mv "$FILE.tmp" "$FILE"
+
+      - name: 构建 macOS 应用
+        if: matrix.NAME == 'vntApp-macOS'
+        run: |
+          # 构建 Flutter macOS 应用
+          flutter pub get
+          flutter build macos --release
+          # 输出构建结果目录
+          echo "构建完成，产物位于：build/macos/Build/Products/Release"
+
+          APP_PATH="build/macos/Build/Products/Release/vnt_app.app"
+          DMG_PATH="vnt_APP.dmg"
+          
+          # 生成压缩 DMG
+          hdiutil create -volname "vnt_app" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_PATH"
          
       - name: Archive artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.NAME }}
-          path: ${{ runner.os == 'Windows' && 'vntApp-windows.zip' || 'vntApp-android.apk' }}
+          path: ${{ runner.os == 'Windows' && 'vntApp-windows.zip' || runner.os == 'macOS' && 'vnt_APP.dmg' || 'vntApp-android.apk' }}
 
   deploy:
     needs: build
@@ -209,4 +297,8 @@ jobs:
           path: ./artifacts
       - name: List
         run: find ./artifacts
+
+
+
+
 

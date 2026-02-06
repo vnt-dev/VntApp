@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 小尺寸小组件配置 -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="40dp"
+    android:minHeight="40dp"
+    android:minResizeWidth="40dp"
+    android:minResizeHeight="40dp"
+    android:maxResizeWidth="40dp"
+    android:maxResizeHeight="40dp"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/widget_small"
+    android:resizeMode="none"
+    android:widgetCategory="home_screen"
+    android:description="@string/widget_small_description"
+    android:previewImage="@mipmap/ic_launcher" />

@@ -7,6 +7,7 @@ import 'dart:io';
 
 class DataPersistence {
   static const String dataKey = 'data-key';
+  static const String dataKeyForNative = 'data-key-native'; // 供 Android 原生代码读取的 JSON 格式
   static const String vntUniqueIdKey = 'vnt-unique-id-key';
 
   Future<void> saveData(List<NetworkConfig> configs) async {
@@ -14,6 +15,9 @@ class DataPersistence {
     List<String> jsonDataList =
         configs.map((config) => jsonEncode(config.toJson())).toList();
     await prefs.setStringList(dataKey, jsonDataList);
+
+    // 额外存储一个 JSON 数组字符串，供 Android 原生代码（如磁贴）读取
+    await prefs.setString(dataKeyForNative, jsonEncode(jsonDataList));
   }
 
   Future<List<NetworkConfig>> loadData() async {
@@ -68,6 +72,16 @@ class DataPersistence {
     prefs.setBool('is-close-app', isClose);
   }
 
+  Future<bool> loadAlwaysOnTop() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('is-always-on-top') ?? false;
+  }
+
+  Future<void> saveAlwaysOnTop(bool alwaysOnTop) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('is-always-on-top', alwaysOnTop);
+  }
+
   Future<bool?> loadAutoStart() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool('is-auto-start');
@@ -101,6 +115,38 @@ class DataPersistence {
   Future<void> clear() async {
     final prefs = await SharedPreferences.getInstance();
     prefs.clear();
+  }
+
+  // 主题模式持久化
+  Future<ThemeMode?> loadThemeMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    final index = prefs.getInt('theme-mode');
+    if (index != null && index >= 0 && index < ThemeMode.values.length) {
+      return ThemeMode.values[index];
+    }
+    return null;
+  }
+
+  Future<void> saveThemeMode(ThemeMode mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('theme-mode', mode.index);
+  }
+
+  // 自定义主题颜色持久化
+  /// 保存自定义主题颜色（保存为 ARGB 整数值）
+  Future<void> saveCustomThemeColor(Color color) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('custom-theme-color', color.value);
+  }
+
+  /// 加载自定义主题颜色（返回 null 表示使用默认颜色）
+  Future<Color?> loadCustomThemeColor() async {
+    final prefs = await SharedPreferences.getInstance();
+    final colorValue = prefs.getInt('custom-theme-color');
+    if (colorValue != null) {
+      return Color(colorValue);
+    }
+    return null;
   }
 
   // 导出所有配置到文件

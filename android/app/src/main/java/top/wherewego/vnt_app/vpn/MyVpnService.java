@@ -16,6 +16,7 @@ import io.flutter.plugin.common.MethodChannel;
 import top.wherewego.vnt_app.FlutterMethodChannel;
 import top.wherewego.vnt_app.MainActivity;
 import top.wherewego.vnt_app.MyTileService;
+import top.wherewego.vnt_app.VntWidget;
 
 public class MyVpnService extends VpnService {
     private static final String TAG = "MyVpnService";
@@ -51,6 +52,10 @@ public class MyVpnService extends VpnService {
     public static void stopVpn() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             MyTileService.setState(false);
+        }
+        // 更新小组件状态为未连接
+        if (vpnService != null) {
+            VntWidget.updateAllWidgets(vpnService);
         }
         FlutterMethodChannel.stopVnt();
         if (vpnService != null) {

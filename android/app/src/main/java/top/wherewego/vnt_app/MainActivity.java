@@ -32,6 +32,8 @@ public class MainActivity extends FlutterActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // 设置应用上下文，用于更新磁贴和小组件
+        FlutterMethodChannel.setAppContext(this);
     }
 
     @Override

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge.dart';
 
 import '../vnt/vnt_manager.dart';
+import '../utils/responsive_utils.dart';
 import 'legend_widget.dart';
 
 class StatisticsChart extends StatefulWidget {
@@ -131,20 +132,20 @@ class StatisticsChartState extends State<StatisticsChart> {
                         ),
                         Text(
                           'IP: $ip',
-                          style: const TextStyle(
-                              color: Color(0xff77839a), fontSize: 16),
+                          style: TextStyle(
+                              color: const Color(0xff77839a), fontSize: context.fontMedium),
                         ),
                       ],
                     ),
                     Text(
                       '总上传: $ipUpload',
-                      style: const TextStyle(
-                          color: Color(0xff77839a), fontSize: 16),
+                      style: TextStyle(
+                          color: const Color(0xff77839a), fontSize: context.fontMedium),
                     ),
                     Text(
                       '总下载: $ipDownload',
-                      style: const TextStyle(
-                          color: Color(0xff77839a), fontSize: 16),
+                      style: TextStyle(
+                          color: const Color(0xff77839a), fontSize: context.fontMedium),
                     ),
                     const SizedBox(
                       height: 38,
@@ -201,11 +202,11 @@ class StatisticsChartState extends State<StatisticsChart> {
         ),
         Text(
           '总上传: $uploadTotal',
-          style: const TextStyle(color: Color(0xff77839a), fontSize: 16),
+          style: TextStyle(color: const Color(0xff77839a), fontSize: context.fontMedium),
         ),
         Text(
           '总下载: $downloadTotal',
-          style: const TextStyle(color: Color(0xff77839a), fontSize: 16),
+          style: TextStyle(color: const Color(0xff77839a), fontSize: context.fontMedium),
         ),
         const SizedBox(
           height: 38,
@@ -284,10 +285,10 @@ class StatisticsChartState extends State<StatisticsChart> {
   Widget bottomTitles(double value, TitleMeta meta) {
     final Widget text = Text(
       barChartDataList[value.toInt()].$1,
-      style: const TextStyle(
-        color: Color(0xff7589a2),
+      style: TextStyle(
+        color: const Color(0xff7589a2),
         fontWeight: FontWeight.bold,
-        fontSize: 14,
+        fontSize: context.fontBody,
       ),
     );
 

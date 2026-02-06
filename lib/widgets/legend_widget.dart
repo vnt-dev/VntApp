@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vnt_app/utils/responsive_utils.dart';
 
 class LegendWidget extends StatelessWidget {
   const LegendWidget({
@@ -15,19 +16,19 @@ class LegendWidget extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 10,
-          height: 10,
+          width: context.w(10),
+          height: context.w(10),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: color,
           ),
         ),
-        const SizedBox(width: 6),
+        SizedBox(width: context.spacing(6)),
         Text(
           name,
-          style: const TextStyle(
-            color: Color(0xff757391),
-            fontSize: 12,
+          style: TextStyle(
+            color: const Color(0xff757391),
+            fontSize: context.fontSmall,
           ),
         ),
       ],
@@ -45,7 +46,7 @@ class LegendsListWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Wrap(
-      spacing: 16,
+      spacing: context.spacing(16),
       children: legends
           .map(
             (e) => LegendWidget(

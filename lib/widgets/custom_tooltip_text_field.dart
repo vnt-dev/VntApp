@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vnt_app/utils/responsive_utils.dart';
 
 class CustomTooltipTextField extends StatefulWidget {
   final TextEditingController controller;
@@ -58,7 +59,7 @@ class _CustomTooltipTextFieldState extends State<CustomTooltipTextField> {
         if (_showTooltip)
           Text(
             '${widget.labelText} ${widget.tooltipMessage}',
-            style: const TextStyle(color: Colors.black, fontSize: 13),
+            style: TextStyle(color: Colors.black, fontSize: context.fontSmall),
           ),
         TextFormField(
           controller: widget.controller,

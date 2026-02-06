@@ -151,6 +151,24 @@ class VntBox {
 class VntManager {
   HashMap<String, VntBox> map = HashMap();
   bool connecting = false;
+  // 记录主动断开连接的配置key，避免显示"服务已停止"提示
+  final Set<String> _manualDisconnecting = {};
+
+  /// 标记为主动断开连接
+  void markManualDisconnect(String key) {
+    _manualDisconnecting.add(key);
+  }
+
+  /// 检查是否为主动断开连接
+  bool isManualDisconnect(String key) {
+    return _manualDisconnecting.contains(key);
+  }
+
+  /// 清除主动断开标记
+  void clearManualDisconnect(String key) {
+    _manualDisconnecting.remove(key);
+  }
+
   Future<VntBox> create(NetworkConfig config, SendPort uiCall) async {
     var key = config.itemKey;
     if (map.containsKey(key)) {
@@ -179,6 +197,10 @@ class VntManager {
     if (vnt != null) {
       await vnt.close();
     }
+    // 更新磁贴和小组件状态
+    if (Platform.isAndroid) {
+      VntAppCall.updateWidgetAndTile(hasConnection());
+    }
   }
 
   Future<void> removeAll() async {
@@ -186,6 +208,10 @@ class VntManager {
       await element.value.close();
     }
     map.clear();
+    // 更新磁贴和小组件状态
+    if (Platform.isAndroid) {
+      VntAppCall.updateWidgetAndTile(false);
+    }
   }
 
   bool hasConnectionItem(String key) {
@@ -222,11 +248,11 @@ class VntManager {
   }
 }
 
-typedef StartCallback = Future<void> Function();
+typedef StartCallback = Future<void> Function(String? configKey);
 
 class VntAppCall {
   static MethodChannel channel = const MethodChannel('top.wherewego.vnt/vpn');
-  static StartCallback startCall = () async {};
+  static StartCallback startCall = (String? configKey) async {};
   static void setStartCall(StartCallback startCall) {
     VntAppCall.startCall = startCall;
   }
@@ -238,11 +264,16 @@ class VntAppCall {
           await vntManager.removeAll();
           break;
         case 'startVnt':
-          await startCall();
+          // 获取可选的配置key参数
+          String? configKey = call.arguments as String?;
+          await startCall(configKey);
           return vntManager.hasConnection();
         case 'isRunning':
           debugPrint("isRunning ${vntManager.hasConnection()}");
           return vntManager.hasConnection();
+        case 'getDeviceInfo':
+          // 获取设备信息：在线数量、离线数量、配置名称
+          return _getDeviceInfo();
         default:
           throw PlatformException(
             code: 'Unimplemented',
@@ -250,6 +281,41 @@ class VntAppCall {
           );
       }
     });
+  }
+
+  /// 获取设备信息
+  static Map<String, dynamic> _getDeviceInfo() {
+    var vntBox = vntManager.getOne();
+    if (vntBox == null) {
+      return {
+        'isConnected': false,
+        'configName': '',
+        'onlineCount': 0,
+        'offlineCount': 0,
+      };
+    }
+
+    var deviceList = vntBox.peerDeviceList();
+    int onlineCount = 0;
+    int offlineCount = 0;
+
+    for (var device in deviceList) {
+      if (device.status == 'Online') {
+        onlineCount++;
+      } else {
+        offlineCount++;
+      }
+    }
+
+    var networkConfig = vntBox.getNetConfig();
+    String configName = networkConfig?.configName ?? '未知配置';
+
+    return {
+      'isConnected': true,
+      'configName': configName,
+      'onlineCount': onlineCount,
+      'offlineCount': offlineCount,
+    };
   }
 
   static Future<int> startVpn(RustDeviceConfig info, int mtu) async {
@@ -265,8 +331,25 @@ class VntAppCall {
     return await VntAppCall.channel.invokeMethod('isTileStart');
   }
 
+  static Future<String?> getTileConfigKey() async {
+    return await VntAppCall.channel.invokeMethod('getTileConfigKey');
+  }
+
   static Future<void> stopVpn() async {
     return await VntAppCall.channel.invokeMethod('stopVpn');
+  }
+
+  /// 更新磁贴和小组件状态
+  /// @param isConnected 是否已连接
+  static Future<void> updateWidgetAndTile(bool isConnected) async {
+    try {
+      await VntAppCall.channel.invokeMethod('updateWidgetAndTile', {
+        'isConnected': isConnected,
+      });
+      debugPrint('已通知更新磁贴和小组件状态: isConnected=$isConnected');
+    } catch (e) {
+      debugPrint('更新磁贴和小组件状态失败: $e');
+    }
   }
 
   static Map<String, dynamic> rustDeviceConfigToMap(

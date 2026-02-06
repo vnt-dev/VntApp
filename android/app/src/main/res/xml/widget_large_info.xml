@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 大尺寸小组件配置 -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="180dp"
+    android:minHeight="180dp"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/widget_large"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:description="@string/widget_large_description"
+    android:previewImage="@mipmap/ic_launcher" />

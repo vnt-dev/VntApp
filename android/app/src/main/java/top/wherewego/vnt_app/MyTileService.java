@@ -23,23 +23,14 @@ public class MyTileService extends TileService {
             return;
         }
         Tile tile = self.getQsTile();
+        // 只更新磁贴显示状态，不触发连接操作
         if (isActive) {
-            FlutterMethodChannel.startVnt(isRunning -> {
-                if (isRunning) {
-                    tile.setState(Tile.STATE_ACTIVE);
-                } else {
-                    tile.setState(Tile.STATE_INACTIVE);
-                }
-                tile.setLabel("VNT");
-                tile.updateTile();
-                return null;
-            });
+            tile.setState(Tile.STATE_ACTIVE);
         } else {
             tile.setState(Tile.STATE_INACTIVE);
-            tile.setLabel("VNT");
-            tile.updateTile();
         }
-
+        tile.setLabel("VNT");
+        tile.updateTile();
     }
 
     @Override
@@ -84,9 +75,17 @@ public class MyTileService extends TileService {
         super.onClick();
         // 当用户点击磁贴时调用
         Tile tile = getQsTile();
-        Log.i("Tile", "" + (tile.getState() == Tile.STATE_INACTIVE));
+        Log.i("Tile", "onClick - 当前状态: " + (tile.getState() == Tile.STATE_INACTIVE ? "INACTIVE" : "ACTIVE"));
+        Log.i("Tile", "Flutter 初始化状态: " + FlutterMethodChannel.initialized());
+
         if (tile.getState() == Tile.STATE_INACTIVE) {
+            // 立即更新为激活状态，提供即时反馈
+            tile.setState(Tile.STATE_ACTIVE);
+            tile.updateTile();
+            Log.i("Tile", "立即更新磁贴为激活状态");
+
             if (!FlutterMethodChannel.initialized()) {
+                Log.i("Tile", "Flutter 未初始化，启动应用并标记为磁贴启动");
                 //如果由磁贴启动，就自动连接
                 FlutterMethodChannel.setTileStart(true);
                 Intent intent = new Intent(this, MainActivity.class);
@@ -98,23 +97,30 @@ public class MyTileService extends TileService {
                 }
                 return;
             }
-            FlutterMethodChannel.startVnt(isRunning -> {
+            Log.i("Tile", "Flutter 已初始化，调用 startVnt");
+            FlutterMethodChannel.startVnt(null, isRunning -> {
+                Log.i("Tile", "startVnt 回调 - isRunning: " + isRunning);
+                // 根据实际连接结果更新磁贴状态
                 if (isRunning) {
                     tile.setState(Tile.STATE_ACTIVE);
+                    Log.i("Tile", "连接成功，磁贴保持激活状态");
                 } else {
                     tile.setState(Tile.STATE_INACTIVE);
+                    Log.i("Tile", "连接失败，恢复磁贴为未激活状态");
                 }
-                tile.setLabel("VNT");
                 tile.updateTile();
                 return null;
             });
         } else {
-            FlutterMethodChannel.stopVnt();
+            // 立即更新为未激活状态，提供即时反馈
             tile.setState(Tile.STATE_INACTIVE);
-            tile.setLabel("VNT");
             tile.updateTile();
+            Log.i("Tile", "立即更新磁贴为未激活状态");
+
+            Log.i("Tile", "当前已连接，调用 stopVnt");
+            FlutterMethodChannel.stopVnt();
         }
-        Log.i("Tile", "onClick");
+        Log.i("Tile", "onClick 完成");
     }
 }
 
