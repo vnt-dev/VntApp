@@ -58,7 +58,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.1.0';
 
   @override
-  int get rustContentHash => 1486497214;
+  int get rustContentHash => 391655432;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -126,7 +126,7 @@ abstract class RustLibApi extends BaseApi {
 
   Future<void> crateApiVntApiInitApp();
 
-  Future<void> crateApiVntApiInitLog();
+  void crateApiVntApiInitLogWithPath({required String logDir});
 
   Future<VntApi> crateApiVntApiVntInit(
       {required VntConfig vntConfig, required VntApiCallback call});
@@ -668,26 +668,27 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  Future<void> crateApiVntApiInitLog() {
-    return handler.executeNormal(NormalTask(
-      callFfi: (port_) {
+  void crateApiVntApiInitLogWithPath({required String logDir}) {
+    return handler.executeSync(SyncTask(
+      callFfi: () {
         final serializer = SseSerializer(generalizedFrbRustBinding);
-        pdeCallFfi(generalizedFrbRustBinding, serializer,
-            funcId: 19, port: port_);
+        sse_encode_String(logDir, serializer);
+        return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 19)!;
       },
       codec: SseCodec(
         decodeSuccessData: sse_decode_unit,
-        decodeErrorData: null,
+        decodeErrorData: sse_decode_AnyhowException,
       ),
-      constMeta: kCrateApiVntApiInitLogConstMeta,
-      argValues: [],
+      constMeta: kCrateApiVntApiInitLogWithPathConstMeta,
+      argValues: [logDir],
       apiImpl: this,
     ));
   }
 
-  TaskConstMeta get kCrateApiVntApiInitLogConstMeta => const TaskConstMeta(
-        debugName: "init_log",
-        argNames: [],
+  TaskConstMeta get kCrateApiVntApiInitLogWithPathConstMeta =>
+      const TaskConstMeta(
+        debugName: "init_log_with_path",
+        argNames: ["logDir"],
       );
 
   @override

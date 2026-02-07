@@ -15,7 +15,10 @@ Future<VntApi> vntInit(
     RustLib.instance.api
         .crateApiVntApiVntInit(vntConfig: vntConfig, call: call);
 
-Future<void> initLog() => RustLib.instance.api.crateApiVntApiInitLog();
+/// 初始化日志系统，支持所有平台
+/// log_dir: 日志目录路径，例如 "logs" 或 "/data/data/app/logs"
+void initLogWithPath({required String logDir}) =>
+    RustLib.instance.api.crateApiVntApiInitLogWithPath(logDir: logDir);
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<VntApi>>
 abstract class VntApi implements RustOpaqueInterface {

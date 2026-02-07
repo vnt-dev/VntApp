@@ -57,6 +57,33 @@ Future<void> main() async {
 
   await RustLib.init();
 
+  // 初始化日志系统，所有平台统一使用log4rs
+  try {
+    String logDir;
+    if (Platform.isAndroid || Platform.isIOS) {
+      // 移动平台：使用应用文档目录
+      final appDocDir = await getApplicationDocumentsDirectory();
+      logDir = '${appDocDir.path}/logs';
+      debugPrint('应用数据目录: ${appDocDir.path}');
+    } else {
+      // 桌面平台：使用当前目录
+      logDir = 'logs';
+    }
+
+    // 确保日志目录存在
+    final logsDirectory = Directory(logDir);
+    if (!await logsDirectory.exists()) {
+      await logsDirectory.create(recursive: true);
+      debugPrint('创建日志目录: $logDir');
+    }
+
+    // 调用Rust层初始化日志
+    initLogWithPath(logDir: logDir);
+    debugPrint('日志系统初始化成功，日志目录: $logDir');
+  } catch (e) {
+    debugPrint('初始化日志系统失败: $e');
+  }
+
   if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
     await windowManager.ensureInitialized();
 

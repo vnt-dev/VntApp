@@ -38,7 +38,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.1.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1486497214;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 391655432;
 
 // Section: executor
 
@@ -911,17 +911,16 @@ fn wire__crate__api__vnt_api__init_app_impl(
         },
     )
 }
-fn wire__crate__api__vnt_api__init_log_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
+fn wire__crate__api__vnt_api__init_log_with_path_impl(
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "init_log",
-            port: Some(port_),
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+            debug_name: "init_log_with_path",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
         },
         move || {
             let message = unsafe {
@@ -933,15 +932,14 @@ fn wire__crate__api__vnt_api__init_log_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_log_dir = <String>::sse_decode(&mut deserializer);
             deserializer.end();
-            move |context| {
-                transform_result_sse::<_, ()>((move || {
-                    let output_ok = Result::<_, ()>::Ok({
-                        crate::api::vnt_api::init_log();
-                    })?;
+            transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                (move || {
+                    let output_ok = crate::api::vnt_api::init_log_with_path(api_log_dir)?;
                     Ok(output_ok)
-                })())
-            }
+                })(),
+            )
         },
     )
 }
@@ -1889,7 +1887,6 @@ fn pde_ffi_dispatcher_primary_impl(
     match func_id {
         10 => wire__crate__api__vnt_api__VntApi_new_impl(port, ptr, rust_vec_len, data_len),
         18 => wire__crate__api__vnt_api__init_app_impl(port, ptr, rust_vec_len, data_len),
-        19 => wire__crate__api__vnt_api__init_log_impl(port, ptr, rust_vec_len, data_len),
         20 => wire__crate__api__vnt_api__vnt_init_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
@@ -1921,6 +1918,7 @@ fn pde_ffi_dispatcher_sync_impl(
         15 => wire__crate__api__vnt_api__VntApi_stream_all_impl(ptr, rust_vec_len, data_len),
         16 => wire__crate__api__vnt_api__VntApi_up_stream_impl(ptr, rust_vec_len, data_len),
         17 => wire__crate__api__vnt_api__VntApi_up_stream_line_impl(ptr, rust_vec_len, data_len),
+        19 => wire__crate__api__vnt_api__init_log_with_path_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
