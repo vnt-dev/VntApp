@@ -45,12 +45,12 @@ class _LogPageState extends State<LogPage> {
     try {
       // 获取应用数据目录
       String logsDir;
-      if (Platform.isAndroid || Platform.isIOS) {
-        // 移动平台使用应用文档目录
+      if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
+        // 移动平台和 macOS 使用应用文档目录
         final appDocDir = await getApplicationDocumentsDirectory();
         logsDir = path.join(appDocDir.path, 'logs');
       } else {
-        // 桌面平台使用当前目录下的logs
+        // Windows/Linux 桌面平台使用当前目录下的logs
         logsDir = 'logs';
       }
 

@@ -62,6 +62,11 @@ class _RoomPageState extends State<RoomPage> with SingleTickerProviderStateMixin
     super.dispose();
   }
 
+  // 判断设备是否在线 - 不区分大小写，去掉空格和换行
+  bool _isDeviceOnline(String status) {
+    return status.trim().toLowerCase() == 'online';
+  }
+
   void _updateDevices() {
     if (!mounted) return;
 
@@ -273,8 +278,8 @@ class _RoomPageState extends State<RoomPage> with SingleTickerProviderStateMixin
   Widget _buildDevicesTab(bool isDark, bool isWideScreen) {
     final primaryColor = Theme.of(context).primaryColor;
     // 分离在线和离线设备
-    final onlineDevices = _devices.where((device) => device.status == 'Online').toList();
-    final offlineDevices = _devices.where((device) => device.status != 'Online').toList();
+    final onlineDevices = _devices.where((device) => _isDeviceOnline(device.status)).toList();
+    final offlineDevices = _devices.where((device) => !_isDeviceOnline(device.status)).toList();
 
     return RefreshIndicator(
       onRefresh: () async => _updateDevices(),
@@ -529,7 +534,7 @@ class _RoomPageState extends State<RoomPage> with SingleTickerProviderStateMixin
 
   // 重新设计的设备卡片 - 根据UI设计图
   Widget _buildDeviceCard(RustPeerClientInfo device, bool isDark) {
-    final isOnline = device.status == 'Online';
+    final isOnline = _isDeviceOnline(device.status);
     final primaryColor = Theme.of(context).primaryColor;
 
     // 获取路由信息
@@ -1127,7 +1132,7 @@ class _RoomPageState extends State<RoomPage> with SingleTickerProviderStateMixin
 
   void _showDeviceDetails(RustPeerClientInfo device) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isOnline = device.status == 'Online';
+    final isOnline = _isDeviceOnline(device.status);
     final primaryColor = Theme.of(context).primaryColor;
 
     // 获取设备的详细信息

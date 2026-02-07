@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VNT App 安装说明</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            padding: 40px 20px;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 800px;
+            width: 100%;
+            padding: 50px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 36px;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 18px;
+            color: #666;
+        }
+
+        .warning-box {
+            background: #fff3cd;
+            border-left: 5px solid #ffc107;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 8px;
+        }
+
+        .warning-box h2 {
+            color: #856404;
+            font-size: 20px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+
+        .warning-box h2::before {
+            content: "⚠️";
+            margin-right: 10px;
+            font-size: 24px;
+        }
+
+        .warning-box p {
+            color: #856404;
+            line-height: 1.6;
+            font-size: 16px;
+        }
+
+        .steps {
+            margin-bottom: 30px;
+        }
+
+        .step {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-left: 5px solid #667eea;
+        }
+
+        .step h3 {
+            color: #667eea;
+            font-size: 22px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        .step-number {
+            background: #667eea;
+            color: white;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        .step p {
+            color: #555;
+            line-height: 1.8;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .step code {
+            background: #e9ecef;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-family: "Monaco", "Menlo", monospace;
+            font-size: 14px;
+            color: #d63384;
+        }
+
+        .command-box {
+            background: #2d3748;
+            color: #48bb78;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: "Monaco", "Menlo", monospace;
+            font-size: 14px;
+            margin-top: 10px;
+            overflow-x: auto;
+        }
+
+        .success-box {
+            background: #d4edda;
+            border-left: 5px solid #28a745;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 30px;
+        }
+
+        .success-box h3 {
+            color: #155724;
+            font-size: 20px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+
+        .success-box h3::before {
+            content: "✅";
+            margin-right: 10px;
+            font-size: 24px;
+        }
+
+        .success-box p {
+            color: #155724;
+            line-height: 1.6;
+            font-size: 16px;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 2px solid #e9ecef;
+            color: #999;
+            font-size: 14px;
+        }
+
+        .highlight {
+            background: #fff3cd;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 VNT App 安装说明</h1>
+            <h2>欢迎使用 VNT App</h2>
+            <p>简便高效的异地组网、内网穿透工具</p>
+        </div>
+
+        <div class="warning-box">
+            <h2>重要提示</h2>
+            <p>由于应用未签名，首次安装需要移除隔离属性，否则 macOS 会阻止应用启动。</p>
+            <p>请按照以下步骤操作，<span class="highlight">只需要一次</span>，后续使用完全无感！</p>
+        </div>
+
+        <div class="steps">
+            <div class="step">
+                <h3>
+                    <span class="step-number">1</span>
+                    拖动应用到 Applications
+                </h3>
+                <p>将 <code>VNT App.app</code> 拖动到 <code>Applications</code> 文件夹</p>
+                <p>（就像安装其他 macOS 应用一样）</p>
+            </div>
+
+            <div class="step">
+                <h3>
+                    <span class="step-number">2</span>
+                    双击执行移除隔离属性脚本
+                </h3>
+                <p>双击 DMG 中的 <code>移除隔离属性.command</code> 脚本</p>
+                <p>或者打开终端，执行以下命令：</p>
+                <div class="command-box">sudo xattr -cr "/Applications/VNT App.app"</div>
+                <p style="margin-top: 10px;">💡 此操作需要输入管理员密码</p>
+            </div>
+
+            <div class="step">
+                <h3>
+                    <span class="step-number">3</span>
+                    启动应用
+                </h3>
+                <p>打开 <code>Applications</code> 文件夹，双击 <code>VNT App</code></p>
+                <p>首次启动时会要求输入管理员密码（用于创建 TUN 设备）</p>
+                <p>授权后，应用会以管理员权限重新启动</p>
+            </div>
+        </div>
+
+        <div class="success-box">
+            <h3>完成！</h3>
+            <p>后续使用将<span class="highlight">完全无感</span>，不再需要任何权限操作！</p>
+            <p>应用会自动以管理员权限运行，您可以直接使用应用的所有功能。</p>
+        </div>
+
+        <div class="footer">
+            <p>如有问题，请访问：<a href="https://github.com/vnt-dev/vnt" style="color: #667eea;">https://github.com/vnt-dev/vnt</a></p>
+            <p>或加入QQ群：<a href="http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=6z4Vi-XYR24on0Kc_7e-OyvOC4BuCujE&authKey=jVtVXDjUMaQblNKcGfT5WGTzQLhphPGZIggGilq%2BQ4Fpbg8cheDe9hfUqWl5YAUh&noverify=0&group_code=1060550456" style="color: #667eea;">vnt组网互联交流群3</a></p>
+        </div>
+    </div>
+</body>
+</html>

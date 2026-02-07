@@ -799,14 +799,20 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
     ValueChanged<String?> onChanged,
   ) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title),
+        Padding(
+          padding: const EdgeInsets.only(top: 12.0),
+          child: Text(title),
+        ),
         Expanded(
-          child: Row(
+          child: Wrap(
+            spacing: 4,
+            runSpacing: 0,
             children: list.map(((String, String) x) {
               return Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const SizedBox(width: 4),
                   Radio<String>(
                     value: x.$2,
                     groupValue: groupValue,

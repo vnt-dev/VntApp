@@ -56,6 +56,7 @@ jobs:
           
       - name: 设置NDK环境
         if: matrix.NAME == 'vntApp-android' && github.event.inputs.rebuild_android_so == 'true'
+        #if: matrix.NAME == 'vntApp-android'
         run: |
            wget -q https://dl.google.com/android/repository/android-ndk-r26d-linux.zip
            unzip -q android-ndk-r26d-linux.zip -d /opt/ndk
@@ -148,11 +149,22 @@ jobs:
            rustup target add x86_64-linux-android
            rustup target add i686-linux-android
            sed -i 's|main|Android|' rust/Cargo.toml
+           
+           #rust/flutter_rust_bridge_codegen --version
+
+           #echo "生成桥接代码"
+           #cargo install cargo-expand
+           #rust/flutter_rust_bridge_codegen generate
+
+           #echo "列出生成的文件"
+           #find lib/src/rust -type f
+           #find rust/src -name "frb_generated.rs"
            sed -i '0,/local_ipv4,/{s/local_ipv4,/local_ipv4.map(|ip| ip.to_string()),/}' rust/src/api/vnt_api.rs
            sed -i '/ErrorType::Unknown => RustErrorType::Unknown,/a\    _ => RustErrorType::Unknown,' rust/src/api/vnt_api.rs
 
       - name: 是否重新打包安卓so库？
         if: matrix.NAME == 'vntApp-android' && github.event.inputs.rebuild_android_so == 'true'
+        #if: matrix.NAME == 'vntApp-android'
         run: |
            cd rust
            rm -rf .cargo/config
@@ -195,9 +207,9 @@ jobs:
            echo -e "\n\033[1;32m构建 armv7-linux-androideabi\033[0m\n"
            export CC_armv7_linux_androideabi="/opt/ndk/android-ndk-r26d/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang"
            export CC="/opt/ndk/android-ndk-r26d/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang"
-           cargo build --target armv7-linux-androideabi --release 
+           cargo build --target armv7-linux-androideabi --release
            mv -f target/armv7-linux-androideabi/release/*.so ../android/app/src/main/jniLibs/armeabi-v7a/librust_lib_vnt_app.so
-           
+
       - name: 构建 Android vntAPP
         if: matrix.NAME == 'vntApp-android'
         run: |
@@ -272,14 +284,61 @@ jobs:
           # 构建 Flutter macOS 应用
           flutter pub get
           flutter build macos --release
-          # 输出构建结果目录
-          echo "构建完成，产物位于：build/macos/Build/Products/Release"
 
           APP_PATH="build/macos/Build/Products/Release/vnt_app.app"
           DMG_PATH="vnt_APP.dmg"
-          
-          # 生成压缩 DMG
-          hdiutil create -volname "vnt_app" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_PATH"
+          DMG_CONTENTS="dmg-contents"
+
+          echo "构建完成，产物位于：$APP_PATH"
+
+          # 确保可执行文件有正确的权限
+          echo "设置可执行权限..."
+          chmod +x "$APP_PATH/Contents/MacOS/vnt_app"
+
+          # 验证 .app 结构
+          echo "验证应用结构..."
+          ls -la "$APP_PATH/Contents/MacOS/"
+
+          # 检查 entitlements 是否正确（仅显示，不影响构建）
+          if [ -f "$APP_PATH/Contents/Info.plist" ]; then
+            echo "Info.plist 存在"
+            plutil -p "$APP_PATH/Contents/Info.plist" | grep -E "(NSLocalNetworkUsageDescription|NSSystemExtensionUsageDescription)" || echo "警告：权限说明可能缺失"
+          fi
+
+          # 创建 DMG 内容目录
+          echo "准备 DMG 内容..."
+          mkdir -p "$DMG_CONTENTS"
+
+          # 复制应用
+          cp -R "$APP_PATH" "$DMG_CONTENTS/"
+
+          # 复制安装脚本（确保有执行权限）
+          chmod +x macos/移除隔离属性.command
+          cp macos/移除隔离属性.command "$DMG_CONTENTS/"
+
+          # 复制安装说明
+          cp macos/安装说明.html "$DMG_CONTENTS/"
+
+          # 创建 Applications 快捷方式（方便用户拖动）
+          ln -s /Applications "$DMG_CONTENTS/Applications"
+
+          # 列出 DMG 内容
+          echo "DMG 内容："
+          ls -la "$DMG_CONTENTS/"
+
+          # 生成压缩 DMG（UDBZ格式，更好的压缩率）
+          echo "创建 DMG..."
+          hdiutil create -volname "VNT App" -srcfolder "$DMG_CONTENTS" -ov -format UDBZ "$DMG_PATH"
+
+          # 清理临时目录
+          rm -rf "$DMG_CONTENTS"
+
+          # 验证 DMG
+          echo "验证 DMG..."
+          hdiutil verify "$DMG_PATH"
+
+          echo "DMG 创建完成：$DMG_PATH"
+          ls -lh "$DMG_PATH"
          
       - name: Archive artifact
         uses: actions/upload-artifact@v4

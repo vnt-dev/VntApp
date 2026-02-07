@@ -10,6 +10,129 @@ import 'package:vnt_app/network_config.dart';
 import 'package:vnt_app/src/rust/api/vnt_api.dart';
 import 'package:vnt_app/utils/ip_utils.dart';
 
+/// macOS 权限管理器
+class MacOSPrivilegeManager {
+  /// 检查当前进程是否有 root 权限
+  static Future<bool> hasRootPrivilege() async {
+    if (!Platform.isMacOS) return true;
+
+    try {
+      // 尝试执行一个需要 root 权限���命令来检测
+      final result = await Process.run('id', ['-u']);
+      final uid = int.tryParse(result.stdout.toString().trim()) ?? -1;
+      return uid == 0; // uid 0 表示 root
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// 使用 osascript 以管理员权限重新启动 app
+  /// [showPrompt] 是否显示友好的提示信息
+  static Future<bool> restartWithPrivilege({bool showPrompt = false}) async {
+    if (!Platform.isMacOS) return false;
+
+    try {
+      // 获取当前 app 的路径
+      final executablePath = Platform.resolvedExecutable;
+      // 获取 .app bundle 的路径
+      // 例如：/Applications/vnt_app.app/Contents/MacOS/vnt_app
+      // 需要提取到：/Applications/vnt_app.app
+      final appBundlePath = _getAppBundlePath(executablePath);
+
+      if (appBundlePath == null) {
+        debugPrint('无法获取 app bundle 路径');
+        return false;
+      }
+
+      debugPrint('准备以管理员权限重新启动 app: $appBundlePath');
+      debugPrint('可执行文件路径: $executablePath');
+
+      // 构建 AppleScript 脚本
+      // 如果需要显示提示，添加友好的提示信息
+      String script;
+      if (showPrompt) {
+        script = '''
+tell application "System Events"
+    display dialog "VNT 需要管理员权限来创建虚拟网络设备。\\n\\n这是一次性操作，授权后将自动重启应用。" buttons {"取消", "授权"} default button "授权" with icon caution
+    if button returned of result is "授权" then
+        do shell script "\\"$executablePath\\" > /dev/null 2>&1 &" with administrator privileges
+    end if
+end tell
+''';
+      } else {
+        // 直接请求权限，不显示额外提示
+        script = 'do shell script "\\"$executablePath\\" > /dev/null 2>&1 &" with administrator privileges';
+      }
+
+      final result = await Process.run('osascript', ['-e', script]);
+
+      if (result.exitCode == 0) {
+        debugPrint('已请求以管理员权限重新启动 app');
+        // 延迟退出当前 app，给新 app 启动的时间
+        Future.delayed(const Duration(milliseconds: 500), () {
+          exit(0);
+        });
+        return true;
+      } else {
+        debugPrint('重新启动失败或用户取消: ${result.stderr}');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('重新启动异常: $e');
+      return false;
+    }
+  }
+
+  /// 从可执行文件路径提取 .app bundle 路径
+  static String? _getAppBundlePath(String executablePath) {
+    // 例如：/Applications/vnt_app.app/Contents/MacOS/vnt_app
+    // 需要提取：/Applications/vnt_app.app
+
+    final contentsIndex = executablePath.indexOf('/Contents/MacOS/');
+    if (contentsIndex == -1) {
+      return null;
+    }
+
+    return executablePath.substring(0, contentsIndex) + '.app';
+  }
+
+  /// 启动时检查并请求权限（用于 app 启动时调用）
+  /// 返回 true 表示需要重启（已经开始重启流程）
+  /// 返回 false 表示不需要重启（已有权限或不是 macOS）
+  static Future<bool> checkAndRequestPrivilegeOnStartup() async {
+    if (!Platform.isMacOS) return false;
+
+    final hasPrivilege = await hasRootPrivilege();
+    if (hasPrivilege) {
+      debugPrint('✓ 已有管理员权限，app 可以正常创建虚拟网络设备');
+      return false;
+    }
+
+    debugPrint('⚠ 需要管理员权限来创建虚拟网络设备');
+    debugPrint('→ 准备以管理员权限重新启动 app（这是一次性操作）');
+
+    // 启动时直接请求权限，不显示额外提示（系统会显示标准的密码框）
+    return await restartWithPrivilege(showPrompt: false);
+  }
+
+  /// 连接时检查权限（用于连接 VPN 时调用，作为兜底检查）
+  /// 返回 true 表示需要重启（已经开始重启流程）
+  /// 返回 false 表示不需要重启（已有权限或不是 macOS）
+  static Future<bool> checkAndRequestPrivilege() async {
+    if (!Platform.isMacOS) return false;
+
+    final hasPrivilege = await hasRootPrivilege();
+    if (hasPrivilege) {
+      debugPrint('✓ 已有管理员权限');
+      return false;
+    }
+
+    // 如果启动时的权限检查失败了，这里作为兜底
+    debugPrint('⚠ 检测到缺少管理员权限，准备重新启动 app');
+    return await restartWithPrivilege(showPrompt: false);
+  }
+}
+
 final VntManager vntManager = VntManager();
 
 class VntBox {
@@ -154,6 +277,11 @@ class VntManager {
   // 记录主动断开连接的配置key，避免显示"服务已停止"提示
   final Set<String> _manualDisconnecting = {};
 
+  // 判断设备是否在线 - 不区分大小写，去掉空格和换行
+  bool _isDeviceOnline(String status) {
+    return status.trim().toLowerCase() == 'online';
+  }
+
   /// 标记为主动断开连接
   void markManualDisconnect(String key) {
     _manualDisconnecting.add(key);
@@ -176,6 +304,16 @@ class VntManager {
     }
     try {
       connecting = true;
+
+      // macOS 权限检查：如果没有权限，请求重新启动
+      if (Platform.isMacOS) {
+        final needsRestart = await MacOSPrivilegeManager.checkAndRequestPrivilege();
+        if (needsRestart) {
+          // 已经开始重启流程，抛出异常通知 UI
+          throw Exception('需要管理员权限，app 正在重新启动...');
+        }
+      }
+
       var vntBox = await VntBox.create(config, uiCall);
       map[key] = vntBox;
       return vntBox;
@@ -300,7 +438,7 @@ class VntAppCall {
     int offlineCount = 0;
 
     for (var device in deviceList) {
-      if (device.status == 'Online') {
+      if (vntManager._isDeviceOnline(device.status)) {
         onlineCount++;
       } else {
         offlineCount++;

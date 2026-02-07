@@ -43,6 +43,16 @@ bool isWindows10OrGreater() {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // macOS 启动时提权检查
+  // 这样用户双击 app 后只需输入一次密码，后续使用完全无感
+  if (Platform.isMacOS) {
+    final needsRestart = await MacOSPrivilegeManager.checkAndRequestPrivilegeOnStartup();
+    if (needsRestart) {
+      // app 正在以管理员权限重新启动，当前进程将退出
+      return;
+    }
+  }
+
   try {
     await copyLogConfig();
   } catch (e) {
@@ -60,13 +70,13 @@ Future<void> main() async {
   // 初始化日志系统，所有平台统一使用log4rs
   try {
     String logDir;
-    if (Platform.isAndroid || Platform.isIOS) {
-      // 移动平台：使用应用文档目录
+    if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
+      // 移动平台和 macOS：使用应用文档目录
       final appDocDir = await getApplicationDocumentsDirectory();
       logDir = '${appDocDir.path}/logs';
       debugPrint('应用数据目录: ${appDocDir.path}');
     } else {
-      // 桌面平台：使用当前目录
+      // Windows/Linux 桌面平台：使用当前目录
       logDir = 'logs';
     }
 
@@ -87,19 +97,49 @@ Future<void> main() async {
   if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
     await windowManager.ensureInitialized();
 
-    final windowSize = await DataPersistence().loadWindowSize();
-    windowManager.setTitle('VNT App');
-    // 只在 Windows 10+ 上使用自定义标题栏，Windows 7 使用系统标题栏
-    if (!Platform.isWindows || isWindows10OrGreater()) {
-      await windowManager.setTitleBarStyle(TitleBarStyle.hidden);
-    }
-    if (windowSize != null) {
-      await windowManager.setSize(windowSize);
-    }
+    // macOS 使用系统原生标题栏（保留所有原生窗口功能）
+    if (Platform.isMacOS) {
+      // macOS 专用配置 - 使用系统标题栏
+      WindowOptions windowOptions = const WindowOptions(
+        size: Size(1000, 700),
+        minimumSize: Size(800, 600),
+        center: true,
+        backgroundColor: Colors.transparent,
+        skipTaskbar: false,
+        titleBarStyle: TitleBarStyle.normal, // macOS 使用系统标题栏
+      );
 
-    windowManager.waitUntilReadyToShow().then((_) async {
-      await appWindow.show();
-    });
+      await windowManager.waitUntilReadyToShow(windowOptions, () async {
+        // 加载保存的窗口大小
+        final windowSize = await DataPersistence().loadWindowSize();
+        if (windowSize != null) {
+          await windowManager.setSize(windowSize);
+        }
+
+        // 设置窗口标题
+        await windowManager.setTitle('VNT App');
+
+        // 显示窗口
+        await appWindow.show();
+      });
+    } else {
+      // Windows 和 Linux 保持原有逻辑
+      final windowSize = await DataPersistence().loadWindowSize();
+      windowManager.setTitle('VNT App');
+
+      // 只在 Windows 10+ 上使用自定义标题栏，Windows 7 使用系统标题栏
+      if (!Platform.isWindows || isWindows10OrGreater()) {
+        await windowManager.setTitleBarStyle(TitleBarStyle.hidden);
+      }
+
+      if (windowSize != null) {
+        await windowManager.setSize(windowSize);
+      }
+
+      windowManager.waitUntilReadyToShow().then((_) async {
+        await appWindow.show();
+      });
+    }
   }
 
   if (Platform.isAndroid) {

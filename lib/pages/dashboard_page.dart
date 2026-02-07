@@ -124,6 +124,11 @@ class _DashboardPageState extends State<DashboardPage> {
     super.dispose();
   }
 
+  // 判断设备是否在线 - 不区分大小写，去掉空格和换行
+  bool _isDeviceOnline(String status) {
+    return status.trim().toLowerCase() == 'online';
+  }
+
   // 加载默认配置（与设置页面逻辑完全一致）
   Future<void> _loadDefaultConfig() async {
     String defaultKey = await _dataPersistence.loadDefaultKey() ?? '';
@@ -2871,7 +2876,7 @@ class _DashboardPageState extends State<DashboardPage> {
       if (!vntBox.isClosed()) {
         final devices = vntBox.peerDeviceList();
         for (var device in devices) {
-          if (device.status == 'Online') {
+          if (_isDeviceOnline(device.status)) {
             totalOnlineDevices++;
             final route = vntBox.route(device.virtualIp);
             if (route != null) {
@@ -4124,7 +4129,7 @@ class _DashboardPageState extends State<DashboardPage> {
       if (!vntBox.isClosed()) {
         final devices = vntBox.peerDeviceList();
         for (var device in devices) {
-          bool isOnline = device.status == 'Online';
+          bool isOnline = _isDeviceOnline(device.status);
           if (isOnline) {
             onlineCount++;
           } else {

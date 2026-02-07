@@ -28,5 +28,13 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+
+	<!-- 网络权限说明 -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>VNT需要访问本地网络以创建虚拟网络隧道和连接到其他设备</string>
+
+	<!-- 系统扩展说明 -->
+	<key>NSSystemExtensionUsageDescription</key>
+	<string>VNT需要创建虚拟网络设备(TUN)以建立安全的点对点连接</string>
 </dict>
 </plist>

@@ -1,6 +1,8 @@
 package top.wherewego.vnt_app;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.net.VpnService;
 import android.os.Build;
@@ -8,6 +10,8 @@ import android.os.Bundle;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -23,6 +27,7 @@ public class MainActivity extends FlutterActivity {
     private static final String TAG = "MainActivity";
     private static final int VPN_REQUEST_CODE = 1;
     private static final int CREATE_FILE_REQUEST_CODE = 2;
+    private static final int NOTIFICATION_PERMISSION_REQUEST_CODE = 3;
 
     private static final String FILE_CHANNEL = "top.wherewego.vnt/file";
     private MethodChannel fileChannel;
@@ -35,22 +40,67 @@ public class MainActivity extends FlutterActivity {
         // 设置应用上下文，用于更新磁贴和小组件
         FlutterMethodChannel.setAppContext(this);
 
-        // 启动常驻通知服务
-        startNotificationService();
+        // Android 13+ 需要先请求通知权限
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            requestNotificationPermission();
+        } else {
+            // Android 13 以下直接启动通知服务
+            startNotificationService();
+        }
+    }
+
+    /**
+     * 请求通知权限（Android 13+）
+     */
+    private void requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                // 请求通知权限
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                        NOTIFICATION_PERMISSION_REQUEST_CODE);
+            } else {
+                // 已有权限，启动通知服务
+                startNotificationService();
+            }
+        }
+    }
+
+    /**
+     * 处理权限请求结果
+     */
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == NOTIFICATION_PERMISSION_REQUEST_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Log.d(TAG, "通知权限已授予，启动通知服务");
+                startNotificationService();
+            } else {
+                Log.w(TAG, "通知权限被拒绝，跳过通知服务启动");
+                // 即使没有通知权限，应用也应该能正常运行
+            }
+        }
     }
 
     /**
      * 启动常驻通知服务
      */
     private void startNotificationService() {
-        Intent serviceIntent = new Intent(this, VntNotificationService.class);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // Android 8.0+ 使用 startForegroundService
-            startForegroundService(serviceIntent);
-        } else {
-            startService(serviceIntent);
+        try {
+            Intent serviceIntent = new Intent(this, VntNotificationService.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                // Android 8.0+ 使用 startForegroundService
+                startForegroundService(serviceIntent);
+            } else {
+                startService(serviceIntent);
+            }
+            Log.d(TAG, "常驻通知服务已启动");
+        } catch (Exception e) {
+            Log.e(TAG, "启动通知服务失败: " + e.getMessage(), e);
+            // 不要让通知服务启动失败阻止应用运行
         }
-        Log.d(TAG, "常驻通知服务已启动");
     }
 
     @Override

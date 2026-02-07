@@ -2,14 +2,32 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- 禁用App Sandbox以允许创建TUN设备和修改路由表 -->
 	<key>com.apple.security.app-sandbox</key>
-	<true/>
+	<false/>
+
+	<!-- 允许JIT编译（调试需要） -->
 	<key>com.apple.security.cs.allow-jit</key>
 	<true/>
+
+	<!-- 网络服务端权限 -->
 	<key>com.apple.security.network.server</key>
 	<true/>
+
+	<!-- 网络客户端权限 -->
 	<key>com.apple.security.network.client</key>
 	<true/>
 
+	<!-- 允许传入网络连接 -->
+	<key>com.apple.security.network.incoming-connections</key>
+	<true/>
+
+	<!-- 允许传出网络连接 -->
+	<key>com.apple.security.network.outgoing-connections</key>
+	<true/>
+
+	<!-- 设备访问权限（用于TUN设备） -->
+	<key>com.apple.security.device.usb</key>
+	<true/>
 </dict>
 </plist>

@@ -157,11 +157,18 @@ public abstract class VntWidget extends AppWidgetProvider {
         // 设置点击事件
         Intent toggleIntent = new Intent(context, this.getClass());
         toggleIntent.setAction(ACTION_TOGGLE);
+
+        // 根据 Android 版本设置 PendingIntent flags
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            flags |= PendingIntent.FLAG_IMMUTABLE;
+        }
+
         PendingIntent pendingIntent = PendingIntent.getBroadcast(
             context,
             0,
             toggleIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+            flags
         );
         views.setOnClickPendingIntent(R.id.widget_button, pendingIntent);
 
