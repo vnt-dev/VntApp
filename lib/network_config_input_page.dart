@@ -484,14 +484,14 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                 _buildDynamicTooltipFields(
                   'in-ip',
                   _inIps,
-                  '例如想要通过10.26.0.10去访问192.168.0.*网段内其他设备则填：192.168.0.1/24,10.26.0.10',
+                  '例如想要通过10.26.0.10去访问对端192.168.0.*网段内其他设备则填：192.168.0.1/24,10.26.0.10',
                   34,
                   IpUtils.parseInIpString,
                 ),
                 _buildDynamicTooltipFields(
                   'out-ip',
                   _outIps,
-                  '示例：0.0.0.0/0',
+                  '本地网段，示例：0.0.0.0/0',
                   18,
                   IpUtils.parseOutIpString,
                 ),
@@ -594,6 +594,7 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                         null,
                         false,
                       ),
+                      const SizedBox(height: 16),
                       CustomTooltipTextField(
                         controller: _localIPv4Controller,
                         labelText: '本地IPv4',
@@ -685,7 +686,7 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                       ),
                       _buildRadioGroup(
                         '路径模式',
-                        [('P2P优先-表示客户端直连优先', 'P2P'), ('低延迟优先-可能经过服务器转发', 'LOW_LATENCY')],
+                        [('P2P优先', 'P2P'), ('低延迟优先', 'LOW_LATENCY')],
                         _routingMode,
                         (value) {
                           setState(() {
@@ -709,6 +710,7 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                         _addController,
                         _removeController,
                       ),
+                      const SizedBox(height: 16),
                       _buildTextFormField(
                         _simulatedPacketLossRateController,
                         '模拟丢包率',
@@ -722,6 +724,7 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                         },
                         TextInputType.numberWithOptions(decimal: true),
                       ),
+                      const SizedBox(height: 16),
                       _buildTextFormField(
                         _simulatedLatencyController,
                         '模拟延迟',
@@ -735,6 +738,7 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                         },
                         TextInputType.number,
                       ),
+                      const SizedBox(height: 16),
                       _buildDynamicFields(
                         'stun服务器',
                         _stunServers,
@@ -798,6 +802,60 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
     String groupValue,
     ValueChanged<String?> onChanged,
   ) {
+    // 获取屏幕宽度，判断是否为竖屏或窄屏设备
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isNarrowScreen = screenWidth < 600;
+
+    // 竖屏或窄屏设备使用Column布局，宽屏设备使用Row布局
+    if (isNarrowScreen) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 12.0, bottom: 12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Text(
+                title,
+                style: TextStyle(fontWeight: FontWeight.w500),
+                textAlign: TextAlign.left,
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Wrap(
+                alignment: WrapAlignment.start,
+                crossAxisAlignment: WrapCrossAlignment.start,
+                spacing: 4,
+                runSpacing: 4,
+                children: list.map(((String, String) x) {
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Radio<String>(
+                        value: x.$2,
+                        groupValue: groupValue,
+                        onChanged: onChanged,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      Flexible(
+                        child: Text(
+                          x.$1,
+                          style: TextStyle(fontSize: context.fontSmall),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // 宽屏设备使用原有的Row布局
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -954,43 +1012,97 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
     ValueChanged<bool?> onChanged1,
     ValueChanged<bool?> onChanged2,
   ) {
+    // 获取屏幕宽度，判断是否为竖屏或窄屏设备
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isNarrowScreen = screenWidth < 600;
+
     return FormField<bool>(
       builder: (state) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text(title),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Row(
+        return Padding(
+          padding: EdgeInsets.only(
+            top: isNarrowScreen ? 12.0 : 0,
+            bottom: isNarrowScreen ? 12.0 : 0,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 竖屏或窄屏设备使用Column布局
+              if (isNarrowScreen) ...[
+                Text(
+                  title,
+                  style: TextStyle(fontWeight: FontWeight.w500),
+                  textAlign: TextAlign.left,
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wrap(
+                    alignment: WrapAlignment.start,
+                    crossAxisAlignment: WrapCrossAlignment.start,
+                    spacing: 8,
+                    runSpacing: 4,
                     children: [
-                      Checkbox(
-                        value: selectedValue1,
-                        onChanged: onChanged1,
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Checkbox(
+                            value: selectedValue1,
+                            onChanged: onChanged1,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          Text(valueName1, style: TextStyle(fontSize: context.fontSmall)),
+                        ],
                       ),
-                      Text(valueName1),
-                      const SizedBox(width: 10),
-                      Checkbox(
-                        value: selectedValue2,
-                        onChanged: onChanged2,
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Checkbox(
+                            value: selectedValue2,
+                            onChanged: onChanged2,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          Text(valueName2, style: TextStyle(fontSize: context.fontSmall)),
+                        ],
                       ),
-                      Text(valueName2),
                     ],
                   ),
                 ),
-              ],
-            ),
-            if (!selectedValue1 && !selectedValue2)
-              Padding(
-                padding: const EdgeInsets.only(top: 5.0),
-                child: Text(
-                  '至少勾选一个选项',
-                  style: TextStyle(color: Colors.red, fontSize: context.fontXSmall),
+              ] else ...[
+                // 宽屏设备使用Row布局
+                Row(
+                  children: [
+                    Text(title),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Checkbox(
+                            value: selectedValue1,
+                            onChanged: onChanged1,
+                          ),
+                          Text(valueName1),
+                          const SizedBox(width: 10),
+                          Checkbox(
+                            value: selectedValue2,
+                            onChanged: onChanged2,
+                          ),
+                          Text(valueName2),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-          ],
+              ],
+              if (!selectedValue1 && !selectedValue2)
+                Padding(
+                  padding: const EdgeInsets.only(top: 5.0),
+                  child: Text(
+                    '至少勾选一个选项',
+                    style: TextStyle(color: Colors.red, fontSize: context.fontXSmall),
+                  ),
+                ),
+            ],
+          ),
         );
       },
       validator: (value) {

@@ -245,18 +245,13 @@ class _MainAppState extends State<MainApp> with WindowListener {
       initSystemTray();
       DataPersistence().loadCloseApp().then((isClose) {
         if (!(isClose ?? false)) {
-          // Windows 和 Linux 使用 window_manager 的 setPreventClose 来拦截关闭事件
-          // macOS 使用自定义的 performClose 方法，不需要 setPreventClose
-          if (Platform.isWindows || Platform.isLinux) {
-            windowManager.setPreventClose(true);
-          }
+          // 在所有桌面平台上都使用 setPreventClose 来拦截关闭事件
+          // 这样可以在用户点击��闭按钮时显示确认对话框
+          // macOS ���生端的 windowShouldClose 会配合 window_manager 插件工作
+          windowManager.setPreventClose(true);
         }
       });
-
-      // Windows 和 Linux 使用 window_manager 的监听器
-      if (Platform.isWindows || Platform.isLinux) {
-        windowManager.addListener(this);
-      }
+      windowManager.addListener(this);
 
       // macOS 专用：监听原生端的关闭按钮点击事件
       if (Platform.isMacOS) {
@@ -264,8 +259,7 @@ class _MainAppState extends State<MainApp> with WindowListener {
         channel.setMethodCallHandler((call) async {
           if (call.method == 'onCloseButtonClicked') {
             // 调用现有的关闭逻辑，显示确认对话框
-            // onWindowClose 返回 void，不需要 await
-            onWindowClose();
+            await onWindowClose();
           }
         });
       }
@@ -368,10 +362,7 @@ class _MainAppState extends State<MainApp> with WindowListener {
 
   @override
   void dispose() {
-    // 只在 Windows 和 Linux 上移除监听器，因为 macOS 使用自定义的 MethodChannel
-    if (Platform.isWindows || Platform.isLinux) {
-      windowManager.removeListener(this);
-    }
+    windowManager.removeListener(this);
     super.dispose();
   }
 
@@ -392,11 +383,8 @@ class _MainAppState extends State<MainApp> with WindowListener {
       if (isClose) {
         // 退出应用：先断开连接再关闭
         await vntManager.removeAll();
-        // 只在 Windows 和 Linux 上需要取消 preventClose
-        // macOS 使用自定义的 performClose，不需要这一步
-        if (Platform.isWindows || Platform.isLinux) {
-          windowManager.setPreventClose(false);
-        }
+        // 取消 preventClose，允许窗口关闭
+        windowManager.setPreventClose(false);
         await windowManager.close();
       } else {
         // 隐藏窗口：不断开连接
