@@ -53,7 +53,7 @@ class _CustomTitleBarState extends State<CustomTitleBar> {
 
   @override
   Widget build(BuildContext context) {
-    // macOS 使用系统原生标题栏，不显示自定义标题栏
+    // macOS 使用系统原生标题栏和三色按钮，不显示自定义标题栏
     if (Platform.isMacOS) {
       return const SizedBox.shrink();
     }
@@ -63,7 +63,6 @@ class _CustomTitleBarState extends State<CustomTitleBar> {
       return const SizedBox.shrink();
     }
 
-    // 只在 Windows 10+ 和 Linux 上显示自定义标题栏
     if (!Platform.isWindows && !Platform.isLinux) {
       return const SizedBox.shrink();
     }

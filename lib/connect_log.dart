@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:vnt_app/theme/app_theme.dart';
 import 'package:vnt_app/utils/responsive_utils.dart';
+import 'package:vnt_app/utils/log_utils.dart';
 import 'package:path/path.dart' as path;
 import 'package:flutter/services.dart';
 import 'package:vnt_app/utils/toast_utils.dart';
@@ -43,17 +44,8 @@ class _LogPageState extends State<LogPage> {
     });
 
     try {
-      // 获取应用数据目录
-      String logsDir;
-      if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
-        // 移动平台和 macOS 使用应用文档目录
-        final appDocDir = await getApplicationDocumentsDirectory();
-        logsDir = path.join(appDocDir.path, 'logs');
-      } else {
-        // Windows/Linux 桌面平台使用当前目录下的logs
-        logsDir = 'logs';
-      }
-
+      // 使用统一的日志路径工具类获取日志目录
+      final logsDir = await LogUtils.getLogDirectory();
       debugPrint('日志目录: $logsDir');
 
       // 检查 logs 目录是否存在
@@ -556,8 +548,60 @@ class _LogPageState extends State<LogPage> {
 
       debugPrint('准备复制到剪贴板，总长度: ${allLogs.length} 字符');
 
-      // 在 Android 上，如果文本太长，先尝试直接复制
-      // 如果失败，则分批处理或提示用户使用下载功能
+      // macOS 平台特殊处理：使用 pbcopy 命令
+      if (Platform.isMacOS) {
+        try {
+          // 先尝试使用 Flutter 的剪贴板 API
+          await Clipboard.setData(ClipboardData(text: allLogs));
+          await Future.delayed(const Duration(milliseconds: 100));
+
+          // 尝试验证复制是否成功
+          bool copySuccess = false;
+          try {
+            final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
+            if (clipboardData != null && clipboardData.text != null && clipboardData.text!.isNotEmpty) {
+              copySuccess = true;
+              debugPrint('Flutter 剪贴板 API 复制成功');
+            }
+          } catch (e) {
+            debugPrint('Flutter 剪贴板验证失败: $e');
+          }
+
+          // 如果 Flutter API 失败，尝试使用 pbcopy 命令
+          if (!copySuccess) {
+            debugPrint('尝试使用 pbcopy 命令复制到剪贴板');
+            final process = await Process.start('pbcopy', []);
+            process.stdin.write(allLogs);
+            await process.stdin.close();
+            final exitCode = await process.exitCode;
+
+            if (exitCode == 0) {
+              copySuccess = true;
+              debugPrint('pbcopy 命令复制成功');
+            } else {
+              debugPrint('pbcopy 命令失败，退出码: $exitCode');
+            }
+          }
+
+          if (mounted) {
+            if (copySuccess) {
+              final lineCount = allLogs.split('\n').where((line) => line.trim().isNotEmpty).length;
+              showTopToast(context, '已复制 $lineCount 行日志到剪贴板', isSuccess: true);
+            } else {
+              showTopToast(context, '复制失败，建议使用下载功能', isSuccess: false);
+            }
+          }
+          return;
+        } catch (e) {
+          debugPrint('macOS 复制失败: $e');
+          if (mounted) {
+            showTopToast(context, '复制失败，建议使用下载功能', isSuccess: false);
+          }
+          return;
+        }
+      }
+
+      // 其他平台使用标准的剪贴板 API
       try {
         // 使用 Clipboard.setData 复制，添加短暂延迟确保操作完成
         await Clipboard.setData(ClipboardData(text: allLogs));
@@ -566,23 +610,28 @@ class _LogPageState extends State<LogPage> {
         await Future.delayed(const Duration(milliseconds: 100));
 
         // 验证复制是否成功
-        final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
-        if (clipboardData != null && clipboardData.text != null) {
-          final copiedLength = clipboardData.text!.length;
-          debugPrint('剪贴板验证成功，长度: $copiedLength 字符');
+        try {
+            final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
+            if (clipboardData != null && clipboardData.text != null) {
+              final copiedLength = clipboardData.text!.length;
+              debugPrint('剪贴板验证成功，长度: $copiedLength 字符');
 
-          // 检查复制的内容是否完整
-          if (copiedLength < allLogs.length * 0.9) {
-            // 如果复制的内容少于原始内容的90%，认为复制不完整
-            debugPrint('警告：复制内容不完整，原始长度: ${allLogs.length}, 复制长度: $copiedLength');
-            throw Exception('复制内容不完整');
+              // 检查复制的内容是否完整
+              if (copiedLength < allLogs.length * 0.9) {
+                // 如果复制的内容少于原始内容的90%，认为复制不完整
+                debugPrint('警告：复制内容不完整，原始长度: ${allLogs.length}, 复制长度: $copiedLength');
+                throw Exception('复制内容不完整');
+              }
+
+              debugPrint('剪贴板前100个字符: ${clipboardData.text!.substring(0, clipboardData.text!.length > 100 ? 100 : clipboardData.text!.length)}');
+            } else {
+              debugPrint('剪贴板验证失败：无法读取剪贴板内容');
+              throw Exception('无法验证剪贴板内容');
+            }
+          } catch (verifyError) {
+            debugPrint('剪贴板验证失败: $verifyError');
+            // 验证失败不影响复制操作，继续显示成功提示
           }
-
-          debugPrint('剪贴板前100个字符: ${clipboardData.text!.substring(0, clipboardData.text!.length > 100 ? 100 : clipboardData.text!.length)}');
-        } else {
-          debugPrint('剪贴板验证失败：无法读取剪贴板内容');
-          throw Exception('无法验证剪贴板内容');
-        }
 
         if (mounted) {
           final lineCount = allLogs.split('\n').where((line) => line.trim().isNotEmpty).length;
@@ -592,8 +641,8 @@ class _LogPageState extends State<LogPage> {
       } catch (clipboardError) {
         debugPrint('剪贴板操作失败: $clipboardError');
 
-        // 如果是 Android 且文本较大，提示用户使用下载功能
         if (Platform.isAndroid && allLogs.length > 100000) {
+          // 如果是 Android 且文本较大，提示用户使用下载功能
           if (mounted) {
             showTopToast(context, '日志内容过大，建议下载日志', isSuccess: false);
           }

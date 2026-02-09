@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:isolate';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:path_provider/path_provider.dart';
 import 'package:system_tray/system_tray.dart';
 import 'package:window_manager/window_manager.dart';
@@ -13,6 +13,7 @@ import 'package:vnt_app/pages/main_navigation_shell.dart';
 import 'package:vnt_app/data_persistence.dart';
 import 'package:vnt_app/vnt/vnt_manager.dart';
 import 'package:vnt_app/utils/responsive_utils.dart';
+import 'package:vnt_app/utils/log_utils.dart';
 import 'package:vnt_app/network_config.dart';
 import 'package:vnt_app/system_tray_manager.dart';
 
@@ -41,10 +42,8 @@ bool isWindows10OrGreater() {
 }
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  // macOS 启动时提权检查
-  // 这样用户双击 app 后只需输入一次密码，后续使用完全无感
+  // macOS 启动时先检查权限，在Flutter初始化之前
+  // 避免显示窗口后再提示输入密码
   if (Platform.isMacOS) {
     final needsRestart = await MacOSPrivilegeManager.checkAndRequestPrivilegeOnStartup();
     if (needsRestart) {
@@ -52,6 +51,9 @@ Future<void> main() async {
       return;
     }
   }
+
+  // 权限检查通过后，再初始化Flutter
+  WidgetsFlutterBinding.ensureInitialized();
 
   try {
     await copyLogConfig();
@@ -69,16 +71,9 @@ Future<void> main() async {
 
   // 初始化日志系统，所有平台统一使用log4rs
   try {
-    String logDir;
-    if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
-      // 移动平台和 macOS：使用应用文档目录
-      final appDocDir = await getApplicationDocumentsDirectory();
-      logDir = '${appDocDir.path}/logs';
-      debugPrint('应用数据目录: ${appDocDir.path}');
-    } else {
-      // Windows/Linux 桌面平台：使用当前目录
-      logDir = 'logs';
-    }
+    // 使用统一的日志路径工具类获取日志目录
+    final logDir = await LogUtils.getLogDirectory();
+    debugPrint('日志目录: $logDir');
 
     // 确保日志目录存在
     final logsDirectory = Directory(logDir);
@@ -119,8 +114,13 @@ Future<void> main() async {
         // 设置窗口标题
         await windowManager.setTitle('VNT App');
 
-        // 显示窗口 - macOS 使用 windowManager
-        await windowManager.show();
+        // macOS: 由于以root权限运行，隐藏最小化和最大化按钮，只保留关闭按钮
+        // 这是因为macOS安全限制导致这些按钮无法正常工作
+        await windowManager.setMinimizable(false);
+        await windowManager.setMaximizable(false);
+
+        // 显示窗口
+        await appWindow.show();
       });
     } else {
       // Windows 和 Linux 保持原有逻辑
@@ -137,7 +137,7 @@ Future<void> main() async {
       }
 
       windowManager.waitUntilReadyToShow().then((_) async {
-        await windowManager.show();
+        await appWindow.show();
       });
     }
   }
@@ -243,32 +243,19 @@ class _MainAppState extends State<MainApp> with WindowListener {
 
     if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
       initSystemTray();
-      DataPersistence().loadCloseApp().then((isClose) {
-        if (!(isClose ?? false)) {
-          // Windows 和 Linux 使用 window_manager 的 setPreventClose 来拦截关闭事件
-          // macOS 使用自定义的 performClose 方法，不需要 setPreventClose
-          if (Platform.isWindows || Platform.isLinux) {
-            windowManager.setPreventClose(true);
-          }
-        }
-      });
-
-      // Windows 和 Linux 使用 window_manager 的监听器
-      if (Platform.isWindows || Platform.isLinux) {
-        windowManager.addListener(this);
-      }
-
-      // macOS 专用：监听原生端的关闭按钮点击事件
+      // macOS 和其他平台都需要设置 preventClose 来显示确认对话框
+      // Windows 和 Linux 根据用户设置决定是否阻止关闭
+      // macOS 始终阻止关闭以显示自定义确认对话框
       if (Platform.isMacOS) {
-        const channel = MethodChannel('vnt_app/window');
-        channel.setMethodCallHandler((call) async {
-          if (call.method == 'onCloseButtonClicked') {
-            // 调用现有的关闭逻辑，显示确认对话框
-            // onWindowClose 返回 void，不需要 await
-            onWindowClose();
+        windowManager.setPreventClose(true);
+      } else {
+        DataPersistence().loadCloseApp().then((isClose) {
+          if (!(isClose ?? false)) {
+            windowManager.setPreventClose(true);
           }
         });
       }
+      windowManager.addListener(this);
     }
 
     // 设置Android启动回调
@@ -357,7 +344,7 @@ class _MainAppState extends State<MainApp> with WindowListener {
         });
 
         await vntManager.create(config, receivePort.sendPort);
-        debugPrint('磁贴启动：VntBox 完成，等待连接结果');
+        debugPrint('磁贴启动：VntBox��建完成，等待连接结果');
       } catch (e) {
         debugPrint('磁贴启动连接失败: $e');
         // 连接异常，更新磁贴和小组件状态
@@ -368,10 +355,7 @@ class _MainAppState extends State<MainApp> with WindowListener {
 
   @override
   void dispose() {
-    // 只在 Windows 和 Linux 上移除监听器，因为 macOS 使用自定义的 MethodChannel
-    if (Platform.isWindows || Platform.isLinux) {
-      windowManager.removeListener(this);
-    }
+    windowManager.removeListener(this);
     super.dispose();
   }
 
@@ -383,6 +367,20 @@ class _MainAppState extends State<MainApp> with WindowListener {
 
   @override
   void onWindowClose() async {
+    // macOS 显示特殊的确认对话框（说明由于安全限制无法最小化）
+    if (Platform.isMacOS) {
+      final shouldClose = await _showMacOSCloseConfirmationDialog();
+      if (shouldClose == true) {
+        // 退出应用：先断开连接再关闭
+        await vntManager.removeAll();
+        windowManager.setPreventClose(false);
+        appWindow.close();
+      }
+      // 如果用户点��取消，什么都不做（窗口保持打开）
+      return;
+    }
+
+    // Windows 和 Linux 保持原有的确认逻辑
     var isClose = await DataPersistence().loadCloseApp();
     if (isClose == null) {
       final shouldClose = await _showCloseConfirmationDialog();
@@ -392,17 +390,65 @@ class _MainAppState extends State<MainApp> with WindowListener {
       if (isClose) {
         // 退出应用：先断开连接再关闭
         await vntManager.removeAll();
-        // 只在 Windows 和 Linux 上需要取消 preventClose
-        // macOS 使用自定义的 performClose，不需要这一步
-        if (Platform.isWindows || Platform.isLinux) {
-          windowManager.setPreventClose(false);
-        }
-        await windowManager.close();
+        windowManager.setPreventClose(false);
+        appWindow.close();
       } else {
         // 隐藏窗口：不断开连接
-        await windowManager.hide();
+        appWindow.hide();
       }
     }
+  }
+
+  /// macOS 专用的关闭确认对话框
+  Future<bool?> _showMacOSCloseConfirmationDialog() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: isDark ? AppTheme.darkCardBackground : AppTheme.lightCardBackground,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+            '确认退出',
+            style: TextStyle(
+              color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary,
+            ),
+          ),
+          content: Text(
+            '由于 macOS 安全限制，应用无法最小化。\n\n你确认要退出程序吗？',
+            style: TextStyle(
+              color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(
+                '取消',
+                style: TextStyle(
+                  fontSize: context.fontXSmall,
+                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.errorColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text('退出应用', style: TextStyle(fontSize: context.fontXSmall)),
+            ),
+          ],
+        );
+      },
+    );
+
+    return result;
   }
 
   Future<bool?> _showCloseConfirmationDialog() async {

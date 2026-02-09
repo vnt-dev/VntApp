@@ -287,13 +287,20 @@ jobs:
 
           APP_PATH="build/macos/Build/Products/Release/vnt_app.app"
           DMG_PATH="vnt_APP.dmg"
-          DMG_CONTENTS="dmg-contents"
 
           echo "构建完成，产物位于：$APP_PATH"
 
           # 确保可执行文件有正确的权限
           echo "设置可执行权限..."
           chmod +x "$APP_PATH/Contents/MacOS/vnt_app"
+
+          # 代码签名（用 ad-hoc 签名）
+          echo "对应用进行代码签名..."
+          codesign --force --deep --timestamp=none --preserve-metadata=identifier,entitlements,flags --sign - "$APP_PATH"
+
+          # 验证签名
+          echo "验证代码签名..."
+          codesign --verify --verbose "$APP_PATH"
 
           # 验证 .app 结构
           echo "验证应用结构..."
@@ -305,33 +312,10 @@ jobs:
             plutil -p "$APP_PATH/Contents/Info.plist" | grep -E "(NSLocalNetworkUsageDescription|NSSystemExtensionUsageDescription)" || echo "警告：权限说明可能缺失"
           fi
 
-          # 创建 DMG 内容目录
-          echo "准备 DMG 内容..."
-          mkdir -p "$DMG_CONTENTS"
-
-          # 复制应用
-          cp -R "$APP_PATH" "$DMG_CONTENTS/"
-
-          # 复制安装说明
-          cp macos/安装说明.html "$DMG_CONTENTS/"
-
-          # 创建 Applications 快捷方式（方便用户拖动）
-          ln -s /Applications "$DMG_CONTENTS/Applications"
-
-          # 列出 DMG 内容
-          echo "DMG 内容："
-          ls -la "$DMG_CONTENTS/"
-
-          # 生成压缩 DMG（UDBZ格式，更好的压缩率）
-          echo "创建 DMG..."
-          hdiutil create -volname "VNT App" -srcfolder "$DMG_CONTENTS" -ov -format UDBZ "$DMG_PATH"
-
-          # 清理临时目录
-          rm -rf "$DMG_CONTENTS"
-
-          # 验证 DMG
-          echo "验证 DMG..."
-          hdiutil verify "$DMG_PATH"
+          # 使用专用脚本创建带背景的 DMG
+          echo "创建 DMG 安装包..."
+          chmod +x macos/create_dmg.sh
+          bash macos/create_dmg.sh "$APP_PATH" "$DMG_PATH"
 
           echo "DMG 创建完成：$DMG_PATH"
           ls -lh "$DMG_PATH"

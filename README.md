@@ -2,6 +2,8 @@
 
 VNT GUI
 
+> **对于本项目你可以问问 <a href="https://deepwiki.com/lmq8267/vntAPP"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a> 来了解功能或 `Frok` 后简单的修改一些功能，修改后github可以自动打包好**
+
 ## Build
 
 ### Install
@@ -17,5 +19,6 @@ flutter run
 ## Special
 
 Thanks to ChatGPT for helping with a lot of the work on this project.
+
 
 

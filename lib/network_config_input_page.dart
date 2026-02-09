@@ -993,6 +993,7 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
     return DropdownButtonFormField(
       value: value,
       decoration: InputDecoration(labelText: labelText),
+      isExpanded: true, // 让下拉框内容自适应宽度，防止超出窗口
       items: items.map((String item) {
         return DropdownMenuItem(
           value: item,

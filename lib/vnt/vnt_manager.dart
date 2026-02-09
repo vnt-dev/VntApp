@@ -40,12 +40,9 @@ class MacOSPrivilegeManager {
       final appBundlePath = _getAppBundlePath(executablePath);
 
       if (appBundlePath == null) {
-        debugPrint('无法获取 app bundle 路径');
         return false;
       }
 
-      debugPrint('准备以管理员权限重新启动 app: $appBundlePath');
-      debugPrint('可执行文件路径: $executablePath');
 
       // 构建 AppleScript 脚本
       // 如果需要显示提示，添加友好的提示信息
@@ -53,7 +50,7 @@ class MacOSPrivilegeManager {
       if (showPrompt) {
         script = '''
 tell application "System Events"
-    display dialog "VNT 需要管理员权限来创建虚拟网络设备。\\n\\n这是一次性操作，授权后将自动重启应用。" buttons {"取消", "授权"} default button "授权" with icon caution
+    display dialog "VNT 需要管理员权限来创建虚拟网络设备。\\n\\n授权后将自动重启应用。" buttons {"取消", "授权"} default button "授权" with icon caution
     if button returned of result is "授权" then
         do shell script "\\"$executablePath\\" > /dev/null 2>&1 &" with administrator privileges
     end if
@@ -67,18 +64,15 @@ end tell
       final result = await Process.run('osascript', ['-e', script]);
 
       if (result.exitCode == 0) {
-        debugPrint('已请求以管理员权限重新启动 app');
         // 延迟退出当前 app，给新 app 启动的时间
         Future.delayed(const Duration(milliseconds: 500), () {
           exit(0);
         });
         return true;
       } else {
-        debugPrint('重新启动失败或用户取消: ${result.stderr}');
         return false;
       }
     } catch (e) {
-      debugPrint('重新启动异常: $e');
       return false;
     }
   }
@@ -104,12 +98,8 @@ end tell
 
     final hasPrivilege = await hasRootPrivilege();
     if (hasPrivilege) {
-      debugPrint('✓ 已有管理员权限，app 可以正常创建虚拟网络设备');
       return false;
     }
-
-    debugPrint('⚠ 需要管理员权限来创建虚拟网络设备');
-    debugPrint('→ 准备以管理员权限重新启动 app（这是一次性操作）');
 
     // 启动时直接请求权限，不显示额外提示（系统会显示标准的密码框）
     return await restartWithPrivilege(showPrompt: false);
@@ -123,12 +113,10 @@ end tell
 
     final hasPrivilege = await hasRootPrivilege();
     if (hasPrivilege) {
-      debugPrint('✓ 已有管理员权限');
+      print('✓ 已有管理员权限');
       return false;
     }
 
-    // 如果启动时的权限检查失败了，这里作为兜底
-    debugPrint('⚠ 检测到缺少管理员权限，准备重新启动 app');
     return await restartWithPrivilege(showPrompt: false);
   }
 }

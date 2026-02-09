@@ -134,6 +134,53 @@
             font-size: 14px;
             margin-top: 10px;
             overflow-x: auto;
+            position: relative;
+        }
+
+        .copy-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #4a5568;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .copy-button:hover {
+            background: #667eea;
+            transform: translateY(-2px);
+        }
+
+        .copy-button:active {
+            transform: translateY(0);
+        }
+
+        .copy-toast {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        .copy-toast.show {
+            opacity: 1;
         }
 
         .success-box {
@@ -200,9 +247,9 @@
             <div class="step">
                 <h3>
                     <span class="step-number">1</span>
-                    拖动应用到 Applications
+                    拖动应用到 Applications 里
                 </h3>
-                <p>将 <code>VNT App.app</code> 拖动到 <code>Applications</code> 文件夹</p>
+                <p>将 <code>vnt_app</code> 拖动到 <code>Applications</code> 文件夹里</p>
                 <p>（就像安装其他 macOS 应用一样）</p>
             </div>
 
@@ -212,7 +259,13 @@
                     执行移除隔离属性命令
                 </h3>
                 <p>打开终端，执行以下命令：</p>
-                <div class="command-box">sudo xattr -cr "/Applications/VNT App.app"</div>
+                <div class="command-box">
+                    sudo xattr -cr "/Applications/vnt_app.app"
+                    <button class="copy-button" onclick="copyCommand()">
+                        <span>📋</span>
+                        <span>复制</span>
+                    </button>
+                </div>
                 <p style="margin-top: 10px;">💡 此操作需要输入管理员密码</p>
             </div>
 
@@ -221,7 +274,7 @@
                     <span class="step-number">3</span>
                     启动应用
                 </h3>
-                <p>打开 <code>Applications</code> 文件夹，双击 <code>VNT App</code></p>
+                <p>打开 <code>Applications</code> 文件夹，双击 <code>vnt_app</code></p>
                 <p>首次启动时会要求输入管理员密码（用于创建 TUN 设备）</p>
                 <p>授权后，应用会以管理员权限重新启动</p>
             </div>
@@ -238,5 +291,54 @@
             <p>或加入QQ群：<a href="http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=6z4Vi-XYR24on0Kc_7e-OyvOC4BuCujE&authKey=jVtVXDjUMaQblNKcGfT5WGTzQLhphPGZIggGilq%2BQ4Fpbg8cheDe9hfUqWl5YAUh&noverify=0&group_code=1060550456" style="color: #667eea;">vnt组网互联交流群3</a></p>
         </div>
     </div>
+
+    <!-- 复制成功提示 -->
+    <div id="copyToast" class="copy-toast">✅ 复制成功！</div>
+
+    <script>
+        function copyCommand() {
+            const command = 'sudo xattr -cr "/Applications/vnt_app.app"';
+
+            // 使用现代的 Clipboard API
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(command).then(() => {
+                    showToast();
+                }).catch(err => {
+                    // 降级到传统方法
+                    fallbackCopy(command);
+                });
+            } else {
+                // 降级到传统方法
+                fallbackCopy(command);
+            }
+        }
+
+        function fallbackCopy(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+
+            try {
+                document.execCommand('copy');
+                showToast();
+            } catch (err) {
+                console.error('复制失败:', err);
+            }
+
+            document.body.removeChild(textarea);
+        }
+
+        function showToast() {
+            const toast = document.getElementById('copyToast');
+            toast.classList.add('show');
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
+        }
+    </script>
 </body>
 </html>
