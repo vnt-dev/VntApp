@@ -35,11 +35,11 @@ jobs:
 
           - NAME: vntApp-windows
             OS: windows-2022
-            flutter-version: 3.24.5
+            flutter-version: 3.24.4
 
           - NAME: vntApp-macOS
             OS: macos-latest
-            flutter-version: 3.24.5
+            flutter-version: 3.24.4
 
     runs-on: ${{ matrix.OS }}
     steps:
@@ -72,7 +72,6 @@ jobs:
         shell: pwsh
         run: |
           flutter doctor -v
-          flutter config --enable-windows-desktop
           flutter precache --windows
 
           $engineDir = "C:/hostedtoolcache/windows/flutter/stable-${{ matrix.flutter-version }}-x64/bin/cache/artifacts/engine/windows-x64-release"
