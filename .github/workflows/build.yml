@@ -62,32 +62,86 @@ jobs:
            unzip -q android-ndk-r26d-linux.zip -d /opt/ndk
 
       - name: 设置Flutter环境
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@v2.12.0 #https://github.com/subosito/flutter-action/issues/277
         with:
           channel: stable
           flutter-version: ${{ matrix.flutter-version }}
 
-      - name: 替换 Flutter 引擎为支持 Windows 7 的版本
+      - name: 缓存 Flutter 依赖
+        if: matrix.NAME == 'vntApp-macOS'
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
+      - name: 缓存 Flutter / Pub / Gradle（Windows 7 引擎版）
         if: matrix.NAME == 'vntApp-windows'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ${{ runner.tool_cache }}/flutter
+          key: >
+            windows-flutter-win7-engine-
+            ${{ matrix.flutter-version }}-
+            ${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            windows-flutter-win7-engine-
+
+      - name: 缓存 Flutter / Pub / Gradle（标准版）
+        if: matrix.NAME != 'vntApp-windows'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ${{ runner.tool_cache }}/flutter
+          key: >
+            ${{ runner.os }}-flutter-
+            ${{ matrix.flutter-version }}-
+            ${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-flutter-
+
+      - name: 判断是否已应用 Windows 7 引擎
+        if: matrix.NAME == 'vntApp-windows'
+        id: win7_engine
+        shell: pwsh
+        run: |
+          $flag = "C:/hostedtoolcache/windows/flutter/stable-${{ matrix.flutter-version }}-x64/.win7_engine_applied"
+          if (Test-Path $flag) {
+            echo "applied=true" >> $Env:GITHUB_OUTPUT
+          } else {
+            echo "applied=false" >> $Env:GITHUB_OUTPUT
+          }
+
+      - name: 替换 Flutter 引擎为支持 Windows 7 的版本
+        if: matrix.NAME == 'vntApp-windows' && steps.win7_engine.outputs.applied != 'true'
         shell: pwsh
         run: |
           flutter doctor -v
           flutter precache --windows
           
           Expand-Archive -Path ".github/patches/windows-x64-release.zip" -DestinationPath "windows-x64-release"
-          Get-ChildItem "C:/hostedtoolcache/windows/flutter/stable-${{ matrix.flutter-version }}-x64/bin/cache/artifacts/engine/"
           
           Copy-Item -Path "windows-x64-release/*" -Destination "C:/hostedtoolcache/windows/flutter/stable-${{ matrix.flutter-version }}-x64/bin/cache/artifacts/engine/windows-x64-release/" -Recurse -Force
           
+          New-Item -ItemType File -Path "C:/hostedtoolcache/windows/flutter/stable-${{ matrix.flutter-version }}-x64/.win7_engine_applied" -Force
+            
       - name: 打补丁以启用 Dropdown Menu 过滤支持
-        if: matrix.NAME == 'vntApp-windows'
+        if: matrix.NAME == 'vntApp-windows' && steps.win7_engine.outputs.applied != 'true'
         shell: bash
         run: |
           cp .github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff $(dirname $(dirname $(which flutter)))
           cd $(dirname $(dirname $(which flutter)))
           git apply flutter_3.24.4_dropdown_menu_enableFilter.diff || true
           
-      - name: 安装 Android rust 目标平台
+      - name: Install Android rust target
         if: matrix.NAME == 'vntApp-android'
         run: |
            rustup target add aarch64-linux-android
@@ -282,7 +336,6 @@ jobs:
           path: ./artifacts
       - name: List
         run: find ./artifacts
-
 
 
 
