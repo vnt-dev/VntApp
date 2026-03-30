@@ -72,7 +72,13 @@ jobs:
         shell: pwsh
         run: |
           flutter doctor -v
+          flutter config --enable-windows-desktop
           flutter precache --windows
+
+          $engineDir = "C:/hostedtoolcache/windows/flutter/stable-${{ matrix.flutter-version }}-x64/bin/cache/artifacts/engine/windows-x64-release"
+          if (!(Test-Path $engineDir)) {
+            New-Item -ItemType Directory -Path $engineDir -Force | Out-Null
+          }
           
           Expand-Archive -Path ".github/patches/windows-x64-release.zip" -DestinationPath "windows-x64-release"
           
