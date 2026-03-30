@@ -498,11 +498,11 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                 _buildDynamicTooltipFields(
                   '端口映射',
                   _portMappings,
-                  '示例：tcp:0.0.0.0:80->10.26.0.10:80',
+                  '示例：tcp:0.0.0.0:80-10.26.0.10:80',
                   48,
                   (value) {
                     final regex =
-                        RegExp(r'^(tcp|udp):[^:]+:(\d{1,5})->[^:]+:(\d{1,5})$');
+                        RegExp(r'^(tcp|udp):[^:]+:(\d{1,5})-[^:]+:(\d{1,5})$');
                     final match = regex.firstMatch(value);
 
                     if (match != null) {
