@@ -15,7 +15,10 @@ import 'package:vnt_app/utils/responsive_utils.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:vnt_app/file_saver.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:cross_file/cross_file.dart';
 import 'package:vnt_app/system_tray_manager.dart';
+import 'package:vnt_app/ios_vpn_service.dart';
 
 /// 配置列表页面
 class ConfigListPage extends StatefulWidget {
@@ -729,6 +732,13 @@ class _ConfigListPageState extends State<ConfigListPage> {
 
   // 连接VNT
   Future<void> _connectVnt(NetworkConfig config) async {
+    // iOS使用VPN连接
+    if (Platform.isIOS) {
+      await _connectViaIOSVPN(config);
+      return;
+    }
+    
+    // 其他平台使用Rust直接连接
     // 检查是否已有连接
     if (vntManager.hasConnection()) {
       if (!vntManager.supportMultiple()) {
@@ -931,6 +941,47 @@ class _ConfigListPageState extends State<ConfigListPage> {
     showTopToast(context, errorMsg, isSuccess: false);
   }
 
+  /// iOS VPN连接
+  Future<void> _connectViaIOSVPN(NetworkConfig config) async {
+    try {
+      debugPrint('[iOS VPN] Starting VPN connection for: ${config.configName}');
+      
+      // 保存配置到App Group
+      await IOSVPNService.saveConfig(
+        serverAddress: config.serverAddress,
+        token: config.token,
+      );
+      
+      // 启动VPN
+      final success = await IOSVPNService.startVPN(
+        serverAddress: config.serverAddress,
+        token: config.token,
+        deviceName: config.deviceName,
+      );
+      
+      if (success) {
+        // iOS VPN连接成功
+        if (mounted) {
+          showTopToast(context, '[${config.configName}] VPN连接成功', isSuccess: true);
+          // 调用回调，跳转到房间页面
+          widget.onConfigSelected?.call(config);
+        }
+        
+        debugPrint('[iOS VPN] Connection successful');
+      } else {
+        if (mounted) {
+          showTopToast(context, '[${config.configName}] VPN连接失败，请确认已添加VPN权限', isSuccess: false);
+        }
+        debugPrint('[iOS VPN] Connection failed');
+      }
+    } catch (e) {
+      debugPrint('[iOS VPN] Connection error: $e');
+      if (mounted) {
+        showTopToast(context, '[${config.configName}] VPN连接异常: $e', isSuccess: false);
+      }
+    }
+  }
+
   // 导出单个配置
   Future<void> _exportSingleConfig(NetworkConfig config) async {
     try {
@@ -965,7 +1016,47 @@ class _ConfigListPageState extends State<ConfigListPage> {
             showTopToast(context, '导出已取消', isSuccess: false);
           }
         }
+      } else if (Platform.isIOS) {
+        // iOS使用Share Sheet分享文件
+        final tempDir = await getTemporaryDirectory();
+        final fileName = '${config.configName}_${DateTime.now().millisecondsSinceEpoch}.json';
+        final filePath = '${tempDir.path}/$fileName';
+
+        await _dataPersistence.exportSingleConfig(filePath, config);
+
+        // 验证临时文件是否创建成功
+        final tempFile = File(filePath);
+        if (!await tempFile.exists()) {
+          throw Exception('临时文件创建失败');
+        }
+
+        // 使用Share Sheet分享文件
+        try {
+          final box = context.findRenderObject() as RenderBox?;
+          await Share.shareXFiles(
+            [XFile(filePath)],
+            text: '导出配置: ${config.configName}',
+            sharePositionOrigin: box != null ? box.localToGlobal(Offset.zero) & box.size : null,
+          );
+          
+          if (mounted) {
+            showTopToast(context, '请选择保存位置', isSuccess: true);
+          }
+        } catch (e) {
+          debugPrint('分享文件失败: $e');
+          if (mounted) {
+            showTopToast(context, '分享失败: $e', isSuccess: false);
+          }
+        }
+
+        // 延迟清理临时文件
+        Future.delayed(const Duration(seconds: 5), () async {
+          if (await tempFile.exists()) {
+            await tempFile.delete();
+          }
+        });
       } else {
+        // Windows/macOS/Linux
         String? path = await FilePicker.platform.saveFile(
           dialogTitle: '选择保存位置',
           fileName: '${config.configName}_${DateTime.now().millisecondsSinceEpoch}.json',

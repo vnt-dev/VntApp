@@ -16,6 +16,7 @@ import 'dart:isolate';
 import 'package:vnt_app/src/rust/api/vnt_api.dart';
 import 'package:vnt_app/widgets/custom_title_bar.dart';
 import 'package:vnt_app/system_tray_manager.dart';
+import 'package:vnt_app/ios_vpn_service.dart';
 
 /// 主导航框架 - 响应式布局，支持侧边栏和底部导航
 class MainNavigationShell extends StatefulWidget {
@@ -131,6 +132,13 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       return;
     }
 
+    // iOS使用VPN连接
+    if (Platform.isIOS) {
+      await _connectViaIOSVPN(config);
+      return;
+    }
+
+    // 其他平台使用Rust直接连接
     // 显示连接中对话框
     if (mounted) {
       showDialog(
@@ -264,6 +272,49 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 
     if (mounted) {
       showTopToast(context, errorMessage, isSuccess: false);
+    }
+  }
+
+  /// iOS VPN连接
+  Future<void> _connectViaIOSVPN(NetworkConfig config) async {
+    try {
+      debugPrint('[iOS VPN] Starting VPN connection for: ${config.configName}');
+      
+      // 保存配置到App Group
+      await IOSVPNService.saveConfig(
+        serverAddress: config.serverAddress,
+        token: config.token,
+      );
+      
+      // 启动VPN
+      final success = await IOSVPNService.startVPN(
+        serverAddress: config.serverAddress,
+        token: config.token,
+        deviceName: config.deviceName,
+      );
+      
+      if (success) {
+        // iOS VPN连接成功，更新UI状态
+        setState(() {
+          _selectedConfig = config;
+        });
+        
+        if (mounted) {
+          showTopToast(context, '[${config.configName}] VPN连接成功', isSuccess: true);
+        }
+        
+        debugPrint('[iOS VPN] Connection successful');
+      } else {
+        if (mounted) {
+          showTopToast(context, '[${config.configName}] VPN连接失败，请确认已添加VPN权限', isSuccess: false);
+        }
+        debugPrint('[iOS VPN] Connection failed');
+      }
+    } catch (e) {
+      debugPrint('[iOS VPN] Connection error: $e');
+      if (mounted) {
+        showTopToast(context, '[${config.configName}] VPN连接异常: $e', isSuccess: false);
+      }
     }
   }
 

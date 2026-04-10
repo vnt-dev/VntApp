@@ -12,6 +12,8 @@ import 'package:vnt_app/utils/toast_utils.dart';
 import 'package:vnt_app/file_saver.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:cross_file/cross_file.dart';
 
 class LogPage extends StatefulWidget {
   @override
@@ -296,32 +298,6 @@ class _LogPageState extends State<LogPage> {
               tooltip: '滚动到底部',
               onPressed: _scrollToBottom,
             ),
-          // 当有多个日志文件时显示文件切换菜单（不再限制平台）
-          if (_availableLogFiles.length > 1)
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.folder_open),
-              tooltip: '切换日志文件',
-              onSelected: _switchLogFile,
-              itemBuilder: (context) {
-                return _availableLogFiles.map((logFile) {
-                  final fileName = path.basename(logFile);
-                  final isSelected = logFile == _currentLogFile;
-                  return PopupMenuItem<String>(
-                    value: logFile,
-                    child: Row(
-                      children: [
-                        if (isSelected)
-                          Icon(Icons.check, color: primaryColor, size: 18)
-                        else
-                          const SizedBox(width: 18),
-                        const SizedBox(width: 8),
-                        Expanded(child: Text(fileName)),
-                      ],
-                    ),
-                  );
-                }).toList();
-              },
-            ),
           // 复制按钮
           IconButton(
             icon: const Icon(Icons.copy),
@@ -470,11 +446,34 @@ class _LogPageState extends State<LogPage> {
         color: isDark ? AppTheme.darkCardBackground : AppTheme.lightCardBackground,
         borderRadius: BorderRadius.circular(context.cardRadius),
       ),
-      child: Platform.isWindows || Platform.isMacOS || Platform.isLinux
-          ? SelectionArea(
-              child: _buildLogListView(isDark),
-            )
-          : _buildLogListView(isDark),
+      child: SelectionArea(
+        contextMenuBuilder: (context, selectableRegionState) {
+          return AdaptiveTextSelectionToolbar.buttonItems(
+            anchors: selectableRegionState.contextMenuAnchors,
+            buttonItems: [
+              ContextMenuButtonItem(
+                label: '复制选中',
+                onPressed: () {
+                  selectableRegionState.copySelection(SelectionChangedCause.toolbar);
+                  ContextMenuController.removeAny();
+                  if (mounted) {
+                    showTopToast(context, '已复制选中内容', isSuccess: true);
+                  }
+                },
+              ),
+              if (Platform.isWindows || Platform.isMacOS || Platform.isLinux)
+                ContextMenuButtonItem(
+                  label: '复制全部',
+                  onPressed: () {
+                    ContextMenuController.removeAny();
+                    _copyLogs();
+                  },
+                ),
+            ],
+          );
+        },
+        child: _buildLogListView(isDark),
+      ),
     );
   }
   
@@ -541,38 +540,37 @@ class _LogPageState extends State<LogPage> {
           textColor = isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary;
         }
 
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 2.0),
-          child: GestureDetector(
-            onSecondaryTapDown: Platform.isWindows || Platform.isMacOS || Platform.isLinux
-                ? (details) {
-                    _showContextMenu(context, details.globalPosition, line);
-                  }
-                : null,
-            onLongPress: Platform.isAndroid || Platform.isIOS
-                ? () {
-                    _showMobileContextMenu(context, line);
-                  }
-                : null,
-            child: (Platform.isAndroid || Platform.isIOS)
-                ? SelectableText(
-                    line,
-                    style: TextStyle(
-                      color: textColor,
-                      fontSize: 12,
-                      fontFamily: 'monospace',
-                    ),
-                  )
-                : Text(
-                    line,
-                    style: TextStyle(
-                      color: textColor,
-                      fontSize: 12,
-                      fontFamily: 'monospace',
-                    ),
-                  ),
-          ),
-        );
+        // 移动端：使用SelectableText支持选择
+        // 桌面端：使用Text + 右键菜单
+        if (Platform.isAndroid || Platform.isIOS) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2.0),
+            child: Text(
+              line,
+              style: TextStyle(
+                color: textColor,
+                fontSize: 12,
+                fontFamily: 'monospace',
+              ),
+            ),
+          );
+        } else {
+          // 桌面端：Text即可，SelectionArea在外层处理
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2.0),
+            child: MouseRegion(
+              cursor: SystemMouseCursors.text,
+              child: Text(
+                line,
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 12,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ),
+          );
+        }
       },
     );
   }
@@ -765,6 +763,52 @@ class _LogPageState extends State<LogPage> {
             showTopToast(context, '保存已取消', isSuccess: false);
           }
         }
+      } else if (Platform.isIOS) {
+        // iOS使用Share Sheet分享日志
+        final tempDir = await getTemporaryDirectory();
+        final fileName = 'vnt_log_${DateTime.now().millisecondsSinceEpoch}.txt';
+        final filePath = '${tempDir.path}/$fileName';
+
+        final file = File(filePath);
+
+        // 合并所有日志文件
+        String allLogs = '';
+        for (var logFile in _availableLogFiles) {
+          final logFileEntity = File(logFile);
+          if (await logFileEntity.exists()) {
+            final content = await logFileEntity.readAsString();
+            allLogs += '=== ${path.basename(logFile)} ===\n';
+            allLogs += content;
+            allLogs += '\n\n';
+          }
+        }
+        await file.writeAsString(allLogs);
+
+        // 使用Share Sheet分享
+        try {
+          final box = context.findRenderObject() as RenderBox?;
+          await Share.shareXFiles(
+            [XFile(filePath)],
+            text: '导出日志文件',
+            sharePositionOrigin: box != null ? box.localToGlobal(Offset.zero) & box.size : null,
+          );
+          
+          if (mounted) {
+            showTopToast(context, '请选择保存位置', isSuccess: true);
+          }
+        } catch (e) {
+          debugPrint('分享日志失败: $e');
+          if (mounted) {
+            showTopToast(context, '分享失败: $e', isSuccess: false);
+          }
+        }
+
+        // 延迟清理临时文件
+        Future.delayed(const Duration(seconds: 5), () async {
+          if (await file.exists()) {
+            await file.delete();
+          }
+        });
       } else {
         // Windows/macOS/Linux 平台使用文件选择器
         final timestamp = DateTime.now().millisecondsSinceEpoch;
@@ -814,6 +858,51 @@ class _LogPageState extends State<LogPage> {
   }
 
   // 显示右键菜单（桌面端）
+  void _showDesktopContextMenu(BuildContext context, Offset position, String line) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    
+    showMenu(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTWH(position.dx, position.dy, 0, 0),
+        Rect.fromLTWH(0, 0, overlay.size.width, overlay.size.height),
+      ),
+      items: [
+        PopupMenuItem(
+          child: Row(
+            children: [
+              Icon(Icons.copy, size: 18, color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary),
+              const SizedBox(width: 8),
+              Text('复制选中', style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary)),
+            ],
+          ),
+          onTap: () {
+            Future.delayed(Duration.zero, () {
+              if (mounted) {
+                showTopToast(context, '请使用 Ctrl+C 复制选中内容', isSuccess: true);
+              }
+            });
+          },
+        ),
+        PopupMenuItem(
+          child: Row(
+            children: [
+              Icon(Icons.select_all, size: 18, color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary),
+              const SizedBox(width: 8),
+              Text('复制全部', style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary)),
+            ],
+          ),
+          onTap: () {
+            Future.delayed(Duration.zero, () {
+              _copyLogs();
+            });
+          },
+        ),
+      ],
+    );
+  }
+
   void _showContextMenu(BuildContext context, Offset position, String line) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     

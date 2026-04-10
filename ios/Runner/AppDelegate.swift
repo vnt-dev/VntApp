@@ -11,6 +11,15 @@ import WidgetKit
   ) -> Bool {
     GeneratedPluginRegistrant.register(with: self)
     
+    // 配置状态栏样式
+    if #available(iOS 13.0, *) {
+      // iOS 13+ 自动适配暗黑模式
+      // 状态栏会根据系统主题自动调整
+    } else {
+      // iOS 12 使用默认样式（黑色文字）
+      UIApplication.shared.statusBarStyle = .default
+    }
+    
     // 注册iOS VPN方法通道
     if let controller = window?.rootViewController as? FlutterViewController {
       setupVPNMethodChannel(controller: controller)

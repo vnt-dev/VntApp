@@ -10,6 +10,8 @@ import 'package:vnt_app/utils/responsive_utils.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:vnt_app/file_saver.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:cross_file/cross_file.dart';
 import 'package:vnt_app/connect_log.dart';
 import 'package:vnt_app/vnt/vnt_manager.dart';
 import 'package:vnt_app/system_tray_manager.dart';
@@ -184,7 +186,48 @@ class _SettingsPageState extends State<SettingsPage> {
             showTopToast(context, '备份已取消', isSuccess: false);
           }
         }
+      } else if (Platform.isIOS) {
+        // iOS使用Share Sheet分享文件
+        final tempDir = await getTemporaryDirectory();
+        final fileName = 'vnt_backup_${DateTime.now().millisecondsSinceEpoch}.json';
+        final filePath = '${tempDir.path}/$fileName';
+
+        debugPrint('iOS: 开始导出配置到临时文件: $filePath');
+        await _dataPersistence.exportAllConfigs(filePath);
+
+        // 验证临时文件是否创建成功
+        final tempFile = File(filePath);
+        if (!await tempFile.exists()) {
+          throw Exception('临时文件创建失败');
+        }
+
+        // 使用Share Sheet分享文件
+        try {
+          final box = context.findRenderObject() as RenderBox?;
+          await Share.shareXFiles(
+            [XFile(filePath)],
+            text: '备份配置文件',
+            sharePositionOrigin: box != null ? box.localToGlobal(Offset.zero) & box.size : null,
+          );
+          
+          if (mounted) {
+            showTopToast(context, '请选择保存位置', isSuccess: true);
+          }
+        } catch (e) {
+          debugPrint('分享文件失败: $e');
+          if (mounted) {
+            showTopToast(context, '分享失败: $e', isSuccess: false);
+          }
+        }
+
+        // 延迟清理临时文件，给系统时间复制
+        Future.delayed(const Duration(seconds: 5), () async {
+          if (await tempFile.exists()) {
+            await tempFile.delete();
+          }
+        });
       } else {
+        // Windows/macOS/Linux
         String? path = await FilePicker.platform.saveFile(
           dialogTitle: '选择保存位置',
           fileName: 'vnt_backup_${DateTime.now().millisecondsSinceEpoch}.json',
