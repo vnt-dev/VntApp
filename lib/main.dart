@@ -16,6 +16,7 @@ import 'package:vnt_app/utils/responsive_utils.dart';
 import 'package:vnt_app/utils/log_utils.dart';
 import 'package:vnt_app/network_config.dart';
 import 'package:vnt_app/system_tray_manager.dart';
+import 'package:vnt_app/config_manager.dart';
 
 final SystemTray systemTray = SystemTray();
 final AppWindow appWindow = AppWindow();
@@ -68,6 +69,11 @@ Future<void> main() async {
   }
 
   await RustLib.init();
+  
+  // Windows: 初始化配置管理器
+  if (Platform.isWindows) {
+    await ConfigManager().init();
+  }
 
   // 初始化日志系统，所有平台统一使用log4rs
   try {
@@ -105,16 +111,21 @@ Future<void> main() async {
       );
 
       await windowManager.waitUntilReadyToShow(windowOptions, () async {
-        // 加载保存的窗口大小
+        // 加载保存的窗口大小和位置
         final windowSize = await DataPersistence().loadWindowSize();
         if (windowSize != null) {
           await windowManager.setSize(windowSize);
+        }
+        
+        final windowPosition = await DataPersistence().loadWindowPosition();
+        if (windowPosition != null) {
+          await windowManager.setPosition(windowPosition);
         }
 
         // 设置窗口标题
         await windowManager.setTitle('VNT App');
 
-        // macOS: 由于以root权限运行，隐藏最小化和最大化按钮，只保留关闭按钮
+        // macOS: 由于以root权限运行，隐藏最小化和最大化按钮,只保留关闭按钮
         // 这是因为macOS安全限制导致这些按钮无法正常工作
         await windowManager.setMinimizable(false);
         await windowManager.setMaximizable(false);
@@ -125,6 +136,7 @@ Future<void> main() async {
     } else {
       // Windows 和 Linux 保持原有逻辑
       final windowSize = await DataPersistence().loadWindowSize();
+      final windowPosition = await DataPersistence().loadWindowPosition();
       windowManager.setTitle('VNT App');
 
       // 只在 Windows 10+ 上使用自定义标题栏，Windows 7 使用系统标题栏
@@ -134,6 +146,10 @@ Future<void> main() async {
 
       if (windowSize != null) {
         await windowManager.setSize(windowSize);
+      }
+      
+      if (windowPosition != null) {
+        await windowManager.setPosition(windowPosition);
       }
 
       windowManager.waitUntilReadyToShow().then((_) async {
@@ -243,18 +259,8 @@ class _MainAppState extends State<MainApp> with WindowListener {
 
     if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
       initSystemTray();
-      // macOS 和其他平台都需要设置 preventClose 来显示确认对话框
-      // Windows 和 Linux 根据用户设置决定是否阻止关闭
-      // macOS 始终阻止关闭以显示自定义确认对话框
-      if (Platform.isMacOS) {
-        windowManager.setPreventClose(true);
-      } else {
-        DataPersistence().loadCloseApp().then((isClose) {
-          if (!(isClose ?? false)) {
-            windowManager.setPreventClose(true);
-          }
-        });
-      }
+      // 设置窗口关闭拦截
+      windowManager.setPreventClose(true);
       windowManager.addListener(this);
     }
 
@@ -366,7 +372,15 @@ class _MainAppState extends State<MainApp> with WindowListener {
   }
 
   @override
+  void onWindowMove() async {
+    final position = await windowManager.getPosition();
+    DataPersistence().saveWindowPosition(position);
+  }
+
+  @override
   void onWindowClose() async {
+    debugPrint('onWindowClose 被调用');
+    
     // macOS 显示特殊的确认对话框（说明由于安全限制无法最小化）
     if (Platform.isMacOS) {
       final shouldClose = await _showMacOSCloseConfirmationDialog();
@@ -376,26 +390,37 @@ class _MainAppState extends State<MainApp> with WindowListener {
         windowManager.setPreventClose(false);
         appWindow.close();
       }
-      // 如果用户点��取消，什么都不做（窗口保持打开）
+      // 如果用户点击取消，什么都不做（窗口保持打开）
       return;
     }
 
     // Windows 和 Linux 保持原有的确认逻辑
     var isClose = await DataPersistence().loadCloseApp();
+    debugPrint('loadCloseApp 返回: $isClose');
+    
     if (isClose == null) {
+      debugPrint('显示关闭确认对话框');
       final shouldClose = await _showCloseConfirmationDialog();
+      debugPrint('用户选择: $shouldClose');
       isClose = shouldClose;
+    } else {
+      debugPrint('使用保存的选择: $isClose');
     }
+    
     if (isClose != null) {
       if (isClose) {
         // 退出应用：先断开连接再关闭
+        debugPrint('退出应用');
         await vntManager.removeAll();
         windowManager.setPreventClose(false);
         appWindow.close();
       } else {
         // 隐藏窗口：不断开连接
+        debugPrint('隐藏到托盘');
         appWindow.hide();
       }
+    } else {
+      debugPrint('用户取消操作');
     }
   }
 

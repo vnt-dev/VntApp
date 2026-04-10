@@ -33,9 +33,14 @@ public class MyVpnService extends VpnService {
             try {
                 int fd = startVpn(pendingConfig);
                 FlutterMethodChannel.callSuccess(fd);
+            } catch (SecurityException e) {
+                Log.e(TAG, "VPN conflict - another VPN is active", e);
+                FlutterMethodChannel.callError("检测到其他 VPN 正在运行，请先断开其他 VPN 后重试", e);
+                stopSelf();
             } catch (Exception e) {
-                Log.e(TAG, "pendingConfig =" + pendingConfig.toString(), e);
-                FlutterMethodChannel.callError("Failed to start VPN", e);
+                Log.e(TAG, "Failed to start VPN: " + pendingConfig.toString(), e);
+                FlutterMethodChannel.callError("启动 VPN 失败: " + e.getMessage(), e);
+                stopSelf();
             }
         }).start();
         return START_STICKY;
@@ -73,12 +78,23 @@ public class MyVpnService extends VpnService {
     }
 
     private int startVpn(DeviceConfig config) throws PackageManager.NameNotFoundException {
+        // 先关闭可能存在的旧 VPN 接口
+        if (vpnInterface != null) {
+            try {
+                vpnInterface.close();
+                vpnInterface = null;
+            } catch (IOException e) {
+                Log.e(TAG, "Error closing old VPN interface", e);
+            }
+        }
+        
         Builder builder = new Builder();
         String ip = IpUtils.intToIpAddress(config.virtualIp);
         int prefixLength = IpUtils.subnetMaskToPrefixLength(config.virtualNetmask);
         String ipRoute = IpUtils.intToIpAddress(config.virtualGateway & config.virtualNetmask);
         builder
                 .allowFamily(OsConstants.AF_INET)
+                .allowFamily(OsConstants.AF_INET6)
                 .setBlocking(false)
                 .setMtu(config.mtu)
                 .addAddress(ip, prefixLength)
@@ -95,8 +111,17 @@ public class MyVpnService extends VpnService {
         try {
             vpnInterface = builder.setSession("VNT")
                     .establish();
+            if (vpnInterface == null) {
+                // establish() 返回 null 说明有其他 VPN 正在运行
+                Log.e(TAG, "VPN establish failed - another VPN may be active");
+                throw new SecurityException("无法建立 VPN 连接。请先断开其他 VPN 应用，然后重试。");
+            }
+        } catch (SecurityException e) {
+            Log.e(TAG, "Security exception - another VPN is active", e);
+            throw e;
         } catch (Exception e) {
             Log.e(TAG, "Error establishing VPN interface", e);
+            throw e;
         }
         return vpnInterface.getFd();
     }

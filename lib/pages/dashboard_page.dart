@@ -3946,7 +3946,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       _buildDeviceInfoItem(isDark, '设备名称', config.deviceName),
                       _buildDeviceInfoItem(isDark, '虚拟 IP', config.virtualIPv4.isEmpty ? '自动分配' : config.virtualIPv4),
                       _buildDeviceInfoItem(isDark, '设备 ID', config.deviceID.isEmpty ? '自动生成' : config.deviceID),
-                      _buildDeviceInfoItem(isDark, '本地 IPv4', config.localIpv4.isEmpty ? '自动识别' : config.localIpv4),
+                      _buildDeviceInfoItem(isDark, '本地网卡', config.localDev.isEmpty ? '自动选择' : config.localDev),
 
                       const SizedBox(height: 16),
 

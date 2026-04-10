@@ -612,6 +612,25 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           _buildDivider(isDark),
           _buildDefaultConfigSelector(isDark),
+          // 桌面端: 重置关闭行为
+          if (Platform.isWindows || Platform.isLinux) ...[
+            _buildDivider(isDark),
+            _buildSettingItem(
+              isDark,
+              icon: Icons.close,
+              title: '重置关闭行为',
+              subtitle: '清除"记住此操作"，下次关闭时重新询问',
+              trailing: TextButton(
+                onPressed: () async {
+                  await _dataPersistence.saveCloseApp(null);
+                  if (mounted) {
+                    showTopToast(context, '已重置，下次关闭时将重新询问', isSuccess: true);
+                  }
+                },
+                child: Text('重置'),
+              ),
+            ),
+          ],
         ],
       ),
     );

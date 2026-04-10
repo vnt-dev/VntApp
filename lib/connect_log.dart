@@ -466,13 +466,15 @@ class _LogPageState extends State<LogPage> {
         color: isDark ? AppTheme.darkCardBackground : AppTheme.lightCardBackground,
         borderRadius: BorderRadius.circular(context.cardRadius),
       ),
-      child: ListView.builder(
-        controller: _scrollController,
-        padding: EdgeInsets.all(context.spacingSmall),
-        itemCount: _logLines.length + (_isLoading ? 1 : 0),
-        itemBuilder: (context, index) {
-          if (index >= _logLines.length) {
-            return const Padding(
+      child: Platform.isWindows || Platform.isMacOS || Platform.isLinux
+          ? SelectionArea(
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: EdgeInsets.all(context.spacingSmall),
+                itemCount: _logLines.length + (_isLoading ? 1 : 0),
+                itemBuilder: (context, index) {
+                  if (index >= _logLines.length) {
+                    return const Padding(
               padding: EdgeInsets.all(16.0),
               child: Center(child: CircularProgressIndicator()),
             );
@@ -498,17 +500,75 @@ class _LogPageState extends State<LogPage> {
 
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 2.0),
-            child: SelectableText(
-              line,
-              style: TextStyle(
-                color: textColor,
-                fontSize: 12,
-                fontFamily: 'monospace',
+            child: GestureDetector(
+              onSecondaryTapDown: Platform.isWindows || Platform.isMacOS || Platform.isLinux
+                  ? (details) {
+                      _showContextMenu(context, details.globalPosition, line);
+                    }
+                  : null,
+              onLongPress: Platform.isAndroid || Platform.isIOS
+                  ? () {
+                      _showContextMenu(context, Offset.zero, line);
+                    }
+                  : null,
+              child: Text(
+                line,
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 12,
+                  fontFamily: 'monospace',
+                ),
               ),
             ),
           );
         },
-      ),
+        ),
+      )
+          : ListView.builder(
+              controller: _scrollController,
+              padding: EdgeInsets.all(context.spacingSmall),
+              itemCount: _logLines.length + (_isLoading ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (index >= _logLines.length) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+
+                final line = _logLines[index];
+                Color textColor;
+
+                if (line.contains('ERROR') || line.contains(' E/') || line.contains(' E ')) {
+                  textColor = Colors.red;
+                } else if (line.contains('WARN') || line.contains(' W/') || line.contains(' W ')) {
+                  textColor = Colors.orange;
+                } else if (line.contains('INFO') || line.contains(' I/') || line.contains(' I ')) {
+                  textColor = isDark ? Colors.lightBlue : Colors.blue;
+                } else if (line.contains('DEBUG') || line.contains(' D/') || line.contains(' D ')) {
+                  textColor = isDark ? Colors.grey : Colors.grey.shade600;
+                } else {
+                  textColor = isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary;
+                }
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2.0),
+                  child: GestureDetector(
+                    onLongPress: () {
+                      _showMobileContextMenu(context, line);
+                    },
+                    child: SelectableText(
+                      line,
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: 12,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
     );
   }
 
@@ -746,6 +806,100 @@ class _LogPageState extends State<LogPage> {
         showTopToast(context, '下载失败: $e', isSuccess: false);
       }
     }
+  }
+
+  // 显示右键菜单（桌面端）
+  void _showContextMenu(BuildContext context, Offset position, String line) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    // 如果 position 是 Offset.zero，说明是从长按触发的，使用屏幕中心
+    if (position == Offset.zero) {
+      _showMobileContextMenu(context, line);
+      return;
+    }
+    
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    
+    showMenu(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTWH(position.dx, position.dy, 0, 0),
+        Rect.fromLTWH(0, 0, overlay.size.width, overlay.size.height),
+      ),
+      items: [
+        PopupMenuItem(
+          child: Row(
+            children: [
+              Icon(Icons.copy, size: 18, color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary),
+              const SizedBox(width: 8),
+              Text('复制此行', style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary)),
+            ],
+          ),
+          onTap: () {
+            Clipboard.setData(ClipboardData(text: line));
+            Future.delayed(Duration.zero, () {
+              if (mounted) {
+                showTopToast(context, '已复制 1 行', isSuccess: true);
+              }
+            });
+          },
+        ),
+        PopupMenuItem(
+          child: Row(
+            children: [
+              Icon(Icons.select_all, size: 18, color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary),
+              const SizedBox(width: 8),
+              Text('复制所有日志', style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary)),
+            ],
+          ),
+          onTap: () {
+            Future.delayed(Duration.zero, () {
+              _copyLogs();
+            });
+          },
+        ),
+      ],
+    );
+  }
+
+  // 显示移动端菜单
+  void _showMobileContextMenu(BuildContext context, String line) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? AppTheme.darkCardBackground : AppTheme.lightCardBackground,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(Icons.copy, color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary),
+              title: Text('复制此行', style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary)),
+              onTap: () {
+                Navigator.pop(context);
+                Clipboard.setData(ClipboardData(text: line));
+                if (mounted) {
+                  showTopToast(context, '已复制 1 行', isSuccess: true);
+                }
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.select_all, color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary),
+              title: Text('复制所有日志', style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary)),
+              onTap: () {
+                Navigator.pop(context);
+                _copyLogs();
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
   }
 
   // 清空日志

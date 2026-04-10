@@ -150,17 +150,15 @@ jobs:
            rustup target add i686-linux-android
            sed -i 's|main|Android|' rust/Cargo.toml
            
-           #rust/flutter_rust_bridge_codegen --version
+           # rust/flutter_rust_bridge_codegen --version
 
-           #echo "生成桥接代码"
-           #cargo install cargo-expand
-           #rust/flutter_rust_bridge_codegen generate
+           # echo "生成桥接代码"
+           # cargo install cargo-expand
+           # rust/flutter_rust_bridge_codegen generate
 
-           #echo "列出生成的文件"
-           #find lib/src/rust -type f
-           #find rust/src -name "frb_generated.rs"
-           sed -i '0,/local_ipv4,/{s/local_ipv4,/local_ipv4.map(|ip| ip.to_string()),/}' rust/src/api/vnt_api.rs
-           sed -i '/ErrorType::Unknown => RustErrorType::Unknown,/a\    _ => RustErrorType::Unknown,' rust/src/api/vnt_api.rs
+           # echo "列出生成的文件"
+           # find lib/src/rust -type f
+           # find rust/src -name "frb_generated.rs"
 
       - name: 是否重新打包安卓so库？
         if: matrix.NAME == 'vntApp-android' && github.event.inputs.rebuild_android_so == 'true'
@@ -252,10 +250,6 @@ jobs:
         if: matrix.NAME == 'vntApp-windows'
         shell: pwsh
         run: |
-          #sed -i '0,/local_ipv4,/{s/local_ipv4,/local_ipv4.map(|ip| ip.to_string()),/}' rust/src/api/vnt_api.rs
-          # 新的库增加了禁止中继参数 这里默认不启用吧
-          sed -i '0,/local_ipv4,/{s/local_ipv4,/local_ipv4.map(|ip| ip.to_string()),\n            false,/}' rust/src/api/vnt_api.rs
-          sed -i '/ErrorType::Unknown => RustErrorType::Unknown,/a\    _ => RustErrorType::Unknown,' rust/src/api/vnt_api.rs
           flutter pub get
           flutter build windows --release -v
 
@@ -272,11 +266,6 @@ jobs:
         run: |
           rustup target add aarch64-apple-darwin
           rustup target add x86_64-apple-darwin
-          # 新的库增加了禁止中继参数，这里默认不启用
-          FILE="rust/src/api/vnt_api.rs"
-
-          perl -0777 -pe 's/local_ipv4,/local_ipv4.map(|ip| ip.to_string()),\n            false,/' "$FILE" > "$FILE.tmp" && mv "$FILE.tmp" "$FILE"
-          perl -0777 -pe 's/(ErrorType::Unknown => RustErrorType::Unknown,)/$1\n    _ => RustErrorType::Unknown,/' "$FILE" > "$FILE.tmp" && mv "$FILE.tmp" "$FILE"
 
       - name: 构建 macOS 应用
         if: matrix.NAME == 'vntApp-macOS'

@@ -164,7 +164,8 @@ class VntBox {
         portMappingList: config.portMappings,
         compressor: config.compressor.isEmpty ? 'none' : config.compressor,
         allowWireGuard: config.allowWg,
-        localIpv4: config.localIpv4.isEmpty ? null : config.localIpv4);
+        localDev: config.localDev.isEmpty ? null : config.localDev,
+        disableRelay: config.disableRelay);
     var vntCall = VntApiCallback(successFn: () {
       uiCall.send('success');
     }, createTunFn: (info) {

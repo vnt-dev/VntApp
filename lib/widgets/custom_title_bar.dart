@@ -168,7 +168,7 @@ class _CustomTitleBarState extends State<CustomTitleBar> {
             icon: Icons.close,
             tooltip: '关闭',
             onPressed: () {
-              windowManager.hide();
+              windowManager.close();
             },
             isDark: isDark,
             isCloseButton: true,

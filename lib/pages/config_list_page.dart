@@ -669,21 +669,25 @@ class _ConfigListPageState extends State<ConfigListPage> {
 
     // 使用对话框形式显示配置页面
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final maxWidth = context.w(600);
+    final maxHeight = context.w(800);
+    final insetPadding = context.spacingMedium;
+    final dialogRadius = context.dialogRadius;
     final result = await showDialog<NetworkConfig>(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         return Dialog(
           backgroundColor: Colors.transparent,
-          insetPadding: EdgeInsets.all(context.spacingMedium),
+          insetPadding: EdgeInsets.all(insetPadding),
           child: Container(
             constraints: BoxConstraints(
-              maxWidth: context.w(600),
-              maxHeight: context.w(800),
+              maxWidth: maxWidth,
+              maxHeight: maxHeight,
             ),
             decoration: BoxDecoration(
               color: isDark ? AppTheme.darkCardBackground : AppTheme.lightCardBackground,
-              borderRadius: BorderRadius.circular(context.dialogRadius),
+              borderRadius: BorderRadius.circular(dialogRadius),
             ),
             clipBehavior: Clip.antiAlias,
             child: NetworkConfigInputPage(config: config),

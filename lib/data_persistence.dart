@@ -4,6 +4,7 @@ import 'network_config.dart';
 import 'dart:convert';
 import 'package:uuid/uuid.dart';
 import 'dart:io';
+import 'config_manager.dart';
 
 class DataPersistence {
   static const String dataKey = 'data-key';
@@ -11,18 +12,34 @@ class DataPersistence {
   static const String vntUniqueIdKey = 'vnt-unique-id-key';
 
   Future<void> saveData(List<NetworkConfig> configs) async {
-    final prefs = await SharedPreferences.getInstance();
     List<String> jsonDataList =
         configs.map((config) => jsonEncode(config.toJson())).toList();
-    await prefs.setStringList(dataKey, jsonDataList);
-
-    // 额外存储一个 JSON 数组字符串，供 Android 原生代码（如磁贴）读取
-    await prefs.setString(dataKeyForNative, jsonEncode(jsonDataList));
+    
+    if (Platform.isWindows) {
+      // Windows: 使用本地 config.json
+      final configManager = ConfigManager();
+      await configManager.setStringList(dataKey, jsonDataList);
+      await configManager.setString(dataKeyForNative, jsonEncode(jsonDataList));
+    } else {
+      // 其他平台: 使用 shared_preferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(dataKey, jsonDataList);
+      await prefs.setString(dataKeyForNative, jsonEncode(jsonDataList));
+    }
   }
 
   Future<List<NetworkConfig>> loadData() async {
-    final prefs = await SharedPreferences.getInstance();
-    List<String>? jsonDataList = prefs.getStringList(dataKey);
+    List<String>? jsonDataList;
+    
+    if (Platform.isWindows) {
+      // Windows: 从本地 config.json 读取
+      final configManager = ConfigManager();
+      jsonDataList = configManager.getStringList(dataKey);
+    } else {
+      // 其他平台: 从 shared_preferences 读取
+      final prefs = await SharedPreferences.getInstance();
+      jsonDataList = prefs.getStringList(dataKey);
+    }
 
     if (jsonDataList != null) {
       return jsonDataList
@@ -34,21 +51,42 @@ class DataPersistence {
   }
 
   Future<String> loadUniqueId() async {
-    final prefs = await SharedPreferences.getInstance();
-    String? uniqueId = prefs.getString(vntUniqueIdKey);
-    if (uniqueId == null || uniqueId.isEmpty) {
-      uniqueId = const Uuid().v4().toString();
-      prefs.setString(vntUniqueIdKey, uniqueId);
+    String? uniqueId;
+    
+    if (Platform.isWindows) {
+      final configManager = ConfigManager();
+      uniqueId = configManager.getString(vntUniqueIdKey);
+      if (uniqueId == null || uniqueId.isEmpty) {
+        uniqueId = const Uuid().v4().toString();
+        await configManager.setString(vntUniqueIdKey, uniqueId);
+      }
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      uniqueId = prefs.getString(vntUniqueIdKey);
+      if (uniqueId == null || uniqueId.isEmpty) {
+        uniqueId = const Uuid().v4().toString();
+        await prefs.setString(vntUniqueIdKey, uniqueId);
+      }
     }
+    
     return uniqueId;
   }
 
   Future<Size?> loadWindowSize() async {
-    final prefs = await SharedPreferences.getInstance();
-    final width = prefs.getDouble('window-width');
-    final height = prefs.getDouble('window-height');
-    if (width != null && height != null) {
-      return Size(width, height);
+    if (Platform.isWindows) {
+      final configManager = ConfigManager();
+      final width = configManager.getDouble('window-width');
+      final height = configManager.getDouble('window-height');
+      if (width != null && height != null) {
+        return Size(width, height);
+      }
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      final width = prefs.getDouble('window-width');
+      final height = prefs.getDouble('window-height');
+      if (width != null && height != null) {
+        return Size(width, height);
+      }
     }
     return const Size(600, 700);
   }
@@ -57,94 +95,224 @@ class DataPersistence {
     if (size.width == 600 && size.height == 700) {
       return;
     }
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('window-width', size.width);
-    await prefs.setDouble('window-height', size.height);
+    if (Platform.isWindows) {
+      final configManager = ConfigManager();
+      await configManager.setDouble('window-width', size.width);
+      await configManager.setDouble('window-height', size.height);
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble('window-width', size.width);
+      await prefs.setDouble('window-height', size.height);
+    }
+  }
+
+  Future<Offset?> loadWindowPosition() async {
+    if (Platform.isWindows) {
+      final configManager = ConfigManager();
+      final x = configManager.getDouble('window-x');
+      final y = configManager.getDouble('window-y');
+      if (x != null && y != null) {
+        return Offset(x, y);
+      }
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      final x = prefs.getDouble('window-x');
+      final y = prefs.getDouble('window-y');
+      if (x != null && y != null) {
+        return Offset(x, y);
+      }
+    }
+    return null;
+  }
+
+  Future<void> saveWindowPosition(Offset position) async {
+    if (Platform.isWindows) {
+      final configManager = ConfigManager();
+      await configManager.setDouble('window-x', position.dx);
+      await configManager.setDouble('window-y', position.dy);
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble('window-x', position.dx);
+      await prefs.setDouble('window-y', position.dy);
+    }
   }
 
   Future<bool?> loadCloseApp() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('is-close-app');
+    if (Platform.isWindows) {
+      final configManager = ConfigManager();
+      final result = configManager.getBool('is-close-app');
+      debugPrint('Windows loadCloseApp: $result');
+      return result;
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      final result = prefs.getBool('is-close-app');
+      debugPrint('Other platform loadCloseApp: $result');
+      return result;
+    }
   }
 
-  Future<void> saveCloseApp(bool isClose) async {
-    final prefs = await SharedPreferences.getInstance();
-    prefs.setBool('is-close-app', isClose);
+  Future<void> saveCloseApp(bool? isClose) async {
+    if (Platform.isWindows) {
+      final configManager = ConfigManager();
+      if (isClose == null) {
+        await configManager.remove('is-close-app');
+      } else {
+        await configManager.setBool('is-close-app', isClose);
+      }
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      if (isClose == null) {
+        await prefs.remove('is-close-app');
+      } else {
+        await prefs.setBool('is-close-app', isClose);
+      }
+    }
   }
 
   Future<bool> loadAlwaysOnTop() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('is-always-on-top') ?? false;
+    if (Platform.isWindows) {
+      final configManager = ConfigManager();
+      return configManager.getBool('is-always-on-top') ?? false;
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool('is-always-on-top') ?? false;
+    }
   }
 
   Future<void> saveAlwaysOnTop(bool alwaysOnTop) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('is-always-on-top', alwaysOnTop);
+    if (Platform.isWindows) {
+      final configManager = ConfigManager();
+      await configManager.setBool('is-always-on-top', alwaysOnTop);
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('is-always-on-top', alwaysOnTop);
+    }
   }
 
   Future<bool?> loadAutoStart() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('is-auto-start');
+    if (Platform.isWindows) {
+      final configManager = ConfigManager();
+      return configManager.getBool('is-auto-start');
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool('is-auto-start');
+    }
   }
 
   Future<void> saveAutoStart(bool autoStart) async {
-    final prefs = await SharedPreferences.getInstance();
-    prefs.setBool('is-auto-start', autoStart);
+    if (Platform.isWindows) {
+      final configManager = ConfigManager();
+      await configManager.setBool('is-auto-start', autoStart);
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('is-auto-start', autoStart);
+    }
   }
 
   Future<bool?> loadAutoConnect() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('is-auto-connect');
+    if (Platform.isWindows) {
+      final configManager = ConfigManager();
+      return configManager.getBool('is-auto-connect');
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool('is-auto-connect');
+    }
   }
 
   Future<void> saveAutoConnect(bool autoConnect) async {
-    final prefs = await SharedPreferences.getInstance();
-    prefs.setBool('is-auto-connect', autoConnect);
+    if (Platform.isWindows) {
+      final configManager = ConfigManager();
+      await configManager.setBool('is-auto-connect', autoConnect);
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('is-auto-connect', autoConnect);
+    }
   }
 
   Future<String?> loadDefaultKey() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('default-key');
+    if (Platform.isWindows) {
+      final configManager = ConfigManager();
+      return configManager.getString('default-key');
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString('default-key');
+    }
   }
 
   Future<void> saveDefaultKey(String defaultKey) async {
-    final prefs = await SharedPreferences.getInstance();
-    prefs.setString('default-key', defaultKey);
+    if (Platform.isWindows) {
+      final configManager = ConfigManager();
+      await configManager.setString('default-key', defaultKey);
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('default-key', defaultKey);
+    }
   }
 
   Future<void> clear() async {
-    final prefs = await SharedPreferences.getInstance();
-    prefs.clear();
+    if (Platform.isWindows) {
+      final configManager = ConfigManager();
+      await configManager.clear();
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+    }
   }
 
   // 主题模式持久化
   Future<ThemeMode?> loadThemeMode() async {
-    final prefs = await SharedPreferences.getInstance();
-    final index = prefs.getInt('theme-mode');
-    if (index != null && index >= 0 && index < ThemeMode.values.length) {
-      return ThemeMode.values[index];
+    if (Platform.isWindows) {
+      final configManager = ConfigManager();
+      final index = configManager.getInt('theme-mode');
+      if (index != null && index >= 0 && index < ThemeMode.values.length) {
+        return ThemeMode.values[index];
+      }
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      final index = prefs.getInt('theme-mode');
+      if (index != null && index >= 0 && index < ThemeMode.values.length) {
+        return ThemeMode.values[index];
+      }
     }
     return null;
   }
 
   Future<void> saveThemeMode(ThemeMode mode) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('theme-mode', mode.index);
+    if (Platform.isWindows) {
+      final configManager = ConfigManager();
+      await configManager.setInt('theme-mode', mode.index);
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('theme-mode', mode.index);
+    }
   }
 
   // 自定义主题颜色持久化
   /// 保存自定义主题颜色（保存为 ARGB 整数值）
   Future<void> saveCustomThemeColor(Color color) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('custom-theme-color', color.value);
+    if (Platform.isWindows) {
+      final configManager = ConfigManager();
+      await configManager.setInt('custom-theme-color', color.value);
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('custom-theme-color', color.value);
+    }
   }
 
   /// 加载自定义主题颜色（返回 null 表示使用默认颜色）
   Future<Color?> loadCustomThemeColor() async {
-    final prefs = await SharedPreferences.getInstance();
-    final colorValue = prefs.getInt('custom-theme-color');
-    if (colorValue != null) {
-      return Color(colorValue);
+    if (Platform.isWindows) {
+      final configManager = ConfigManager();
+      final colorValue = configManager.getInt('custom-theme-color');
+      if (colorValue != null) {
+        return Color(colorValue);
+      }
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      final colorValue = prefs.getInt('custom-theme-color');
+      if (colorValue != null) {
+        return Color(colorValue);
+      }
     }
     return null;
   }

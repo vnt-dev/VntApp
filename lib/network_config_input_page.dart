@@ -21,11 +21,27 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
   final _nameController = TextEditingController();
   final _groupNumberController = TextEditingController();
   final _deviceNameController = TextEditingController(
-      text: Platform.operatingSystemVersion.length > 16
-          ? Platform.operatingSystemVersion.substring(0, 16)
-          : Platform.operatingSystemVersion);
+      text: () {
+        String version = Platform.operatingSystemVersion;
+        // 移除可能存在的引号
+        version = version.replaceAll('"', '').trim();
+        
+        // 尝试获取主机名
+        String hostname = '';
+        try {
+          hostname = Platform.localHostname;
+          if (hostname.isNotEmpty) {
+            version = '$hostname-$version';
+          }
+        } catch (e) {
+          // 获取失败，保持原样
+        }
+        
+        // 截取前128个字符（vnt-Redir 限制）
+        return version.length > 128 ? version.substring(0, 128) : version;
+      }());
   final _virtualIPv4Controller = TextEditingController();
-  final _localIPv4Controller = TextEditingController();
+  final _localDevController = TextEditingController();
   final _serverAddressController = TextEditingController();
   final _stunServers = <TextEditingController>[];
   final _inIps = <TextEditingController>[];
@@ -54,6 +70,7 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
   bool _relaySelected = true;
   bool _p2pSelected = true;
   String _allowWg = 'FALSE';
+  bool _disableRelay = false;
 
   String _compressionMethod = 'none'; // 默认不压缩
   int _compressionLevel = 3; // 默认压缩级别
@@ -153,7 +170,8 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
       }
     }
     _allowWg = config.allowWg ? 'FALSE' : 'TRUE';
-    _localIPv4Controller.text = config.localIpv4;
+    _localDevController.text = config.localDev;
+    _disableRelay = config.disableRelay;
     setState(() {
       _routingMode = config.firstLatency ? 'LOW_LATENCY' : 'P2P';
       _builtInIpProxy = config.noInIpProxy ? 'CLOSE' : 'OPEN';
@@ -234,7 +252,8 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
         compressor:
             '$_compressionMethod${_compressionMethod == 'zstd' ? ',$_compressionLevel' : ''}',
         allowWg: _allowWg == 'FALSE' ? false : true,
-        localIpv4: _localIPv4Controller.text,
+        localDev: _localDevController.text,
+        disableRelay: _disableRelay,
       );
       Navigator.pop(context, config);
     } else {
@@ -400,9 +419,6 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                         }
                       }
                     }
-                    setState(() {
-                      _communicationMethod;
-                    });
                     if (last != null) {
                       value = last;
                     }
@@ -425,7 +441,7 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                   },
                 ),
                 _buildRadioGroup(
-                  '协议',
+                  '连接服务器协议',
                   [
                     ('UDP', 'UDP'),
                     ('TCP', 'TCP'),
@@ -471,7 +487,7 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                     },
                   ),
                 _buildRadioGroup(
-                  '允许WireGuard流量',
+                  '允许WireGuard客户端访问',
                   [('允许', 'TRUE'), ('不允许', 'FALSE')],
                   _allowWg,
                   (value) {
@@ -480,18 +496,19 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                     });
                   },
                 ),
+                const SizedBox(height: 16),
                 _buildSectionTitle('子网代理&端口映射'),
                 _buildDynamicTooltipFields(
-                  'in-ip',
+                  'in-ip 对端路由',
                   _inIps,
                   '例如想要通过10.26.0.10去访问对端192.168.0.*网段内其他设备则填：192.168.0.1/24,10.26.0.10',
                   34,
                   IpUtils.parseInIpString,
                 ),
                 _buildDynamicTooltipFields(
-                  'out-ip',
+                  'out-ip 本机网段',
                   _outIps,
-                  '本地网段，示例：0.0.0.0/0',
+                  '本地网段，示例：0.0.0.0/0 或 192.168.2.0/24',
                   18,
                   IpUtils.parseOutIpString,
                 ),
@@ -588,7 +605,7 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                     children: [
                       _buildTextFormField(
                         _deviceIDController,
-                        '设备编号',
+                        '设备ID',
                         null,
                         null,
                         null,
@@ -596,22 +613,36 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                       ),
                       const SizedBox(height: 16),
                       CustomTooltipTextField(
-                        controller: _localIPv4Controller,
-                        labelText: '本地IPv4',
-                        tooltipMessage: '(不输入则自动获取)',
-                        maxLength: 15,
-                        validator: (value) {
-                          final regex = RegExp(
-                            r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$',
-                          );
-                          if (value != null &&
-                              value.isNotEmpty &&
-                              !regex.hasMatch(value)) {
-                            return '请输入有效的 IPv4 地址';
-                          }
-                          return null;
-                        },
+                        controller: _localDevController,
+                        labelText: '本地网卡名称',
+                        tooltipMessage: '(指定网络接口名称，例如：\nLinux: eth0、wlan0 等\nWindows: 本地连接、WLAN 等\nmacOS: en0、en1 等\nAndroid: wlan0 (Wi-Fi) 或 rmnet_data0 (移动数据) 等\n不填则由程序自动获取选择)',
+                        maxLength: 50,
+                        validator: null,
                       ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Checkbox(
+                            value: _disableRelay,
+                            onChanged: (value) {
+                              setState(() {
+                                _disableRelay = value ?? false;
+                              });
+                            },
+                          ),
+                          const Text('禁用客户端中继'),
+                          const SizedBox(width: 8),
+                          Tooltip(
+                            message: '禁用后此客户端将不再为其他客户端提供中继转发功能',
+                            child: Icon(
+                              Icons.info_outline,
+                              size: 16,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
                       _buildTextFormField(
                         _virtualNetworkCardNameController,
                         '虚拟网卡名称',
@@ -633,6 +664,7 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                         },
                         TextInputType.number,
                       ),
+                      const SizedBox(height: 16),
                       _buildFormFieldWithValidation(
                         '打洞模式',
                         "使用Ipv4",
@@ -667,8 +699,9 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                           });
                         },
                       ),
+                      const SizedBox(height: 16),
                       _buildDynamicFields(
-                        '端口',
+                        '打洞端口',
                         _portGroupControllers,
                         _addController,
                         _removeController,
@@ -704,8 +737,9 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                           });
                         },
                       ),
+                      const SizedBox(height: 16),
                       _buildDynamicFields(
-                        'dns',
+                        '自定义dns服务器',
                         _dnsControllers,
                         _addController,
                         _removeController,

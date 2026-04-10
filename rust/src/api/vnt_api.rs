@@ -132,7 +132,8 @@ pub struct VntConfig {
     pub port_mapping_list: Vec<String>,
     pub compressor: String,
     pub allow_wire_guard:bool,
-    pub local_ipv4:Option<String>,
+    pub local_dev:Option<String>,
+    pub disable_relay:bool,
 }
 
 pub struct VntApi {
@@ -168,11 +169,6 @@ impl VntApi {
             Ok(compressor) => compressor,
             Err(e) => Err(anyhow!("{:?}", e))?,
         };
-        let local_ipv4:Option<Ipv4Addr> = if let Some(local_ipv4) = vnt_config.local_ipv4{
-            Some(local_ipv4.parse().context("localIP")?)
-        }else{
-            None
-        };
         let conf = Config::new(
             #[cfg(target_os = "windows")]
             vnt_config.tap,
@@ -203,7 +199,8 @@ impl VntApi {
             compressor,
             true,
             vnt_config.allow_wire_guard,
-            local_ipv4,
+            vnt_config.local_dev,
+            vnt_config.disable_relay,
         )?;
         Ok(Self {
             vnt: Vnt::new(conf, call)?,
@@ -701,6 +698,7 @@ impl From<ErrorType> for RustErrorType {
             ErrorType::InvalidIp => RustErrorType::InvalidIp,
             ErrorType::LocalIpExists => RustErrorType::LocalIpExists,
             ErrorType::Unknown => RustErrorType::Unknown,
+            _ => RustErrorType::Unknown,
         }
     }
 }

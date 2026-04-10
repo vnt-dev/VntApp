@@ -27,7 +27,8 @@ class NetworkConfig {
   String useChannelType;
   String compressor;
   bool allowWg;
-  String localIpv4;
+  String localDev;
+  bool disableRelay;
 
   NetworkConfig({
     required this.itemKey,
@@ -58,7 +59,8 @@ class NetworkConfig {
     required this.useChannelType,
     required this.compressor,
     required this.allowWg,
-    required this.localIpv4,
+    required this.localDev,
+    required this.disableRelay,
   });
   Map<String, dynamic> toJson() {
     return {
@@ -90,7 +92,8 @@ class NetworkConfig {
       'use_channel': useChannelType,
       'compressor': compressor,
       'allow_wire_guard': allowWg,
-      'local_ipv4': localIpv4,
+      'local_dev': localDev,
+      'disable_relay': disableRelay,
     };
   }
 
@@ -124,7 +127,8 @@ class NetworkConfig {
       if (useChannelType.isNotEmpty) 'use_channel': useChannelType,
       if (compressor.isNotEmpty) 'compressor': compressor,
       if (allowWg) 'allow_wire_guard': allowWg,
-      if (localIpv4.isNotEmpty) 'local_ipv4': localIpv4,
+      if (localDev.isNotEmpty) 'local_dev': localDev,
+      if (disableRelay) 'disable_relay': disableRelay,
     };
   }
 
@@ -158,7 +162,8 @@ class NetworkConfig {
       useChannelType: json['use_channel'],
       compressor: json['compressor'] ?? 'none',
       allowWg: json['allow_wire_guard'] ?? false,
-      localIpv4: json['local_ipv4'] ?? '',
+      localDev: json['local_dev'] ?? '',
+      disableRelay: json['disable_relay'] ?? false,
     );
   }
 }

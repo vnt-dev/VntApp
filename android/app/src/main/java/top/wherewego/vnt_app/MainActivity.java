@@ -173,11 +173,15 @@ public class MainActivity extends FlutterActivity {
 
     private void startVpnService(DeviceConfig config) {
         MyVpnService.pendingConfig = config;
+        // 每次启动都重新检查权限，这样如果有其他 VPN 运行，系统会弹窗让用户选择
         Intent intent = VpnService.prepare(this);
         if (intent != null) {
+            // 需要用户授权，系统会提示断开其他 VPN
             startActivityForResult(intent, VPN_REQUEST_CODE);
         } else {
-            onActivityResult(VPN_REQUEST_CODE, RESULT_OK, null);
+            // 已有权限，直接启动
+            Intent serviceIntent = new Intent(this, MyVpnService.class);
+            startService(serviceIntent);
         }
     }
 
