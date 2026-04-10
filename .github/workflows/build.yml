@@ -41,11 +41,21 @@ jobs:
             OS: macos-latest
             flutter-version: 3.24.5
 
+          - NAME: vntApp-IOS
+            OS: macos-14
+            flutter-version: 3.24.5
+
     runs-on: ${{ matrix.OS }}
     steps:
       - uses: actions/checkout@v5
         with:
          ref: flutter
+
+      - name: 设置 Xcode 版本
+        if: matrix.NAME == 'vntApp-IOS'
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16.2'
         
       - name: 设置JDK环境
         if: matrix.NAME == 'vntApp-android'
@@ -309,11 +319,58 @@ jobs:
           echo "DMG 创建完成：$DMG_PATH"
           ls -lh "$DMG_PATH"
 
+      - name: 构建 IPA
+        if: matrix.NAME == 'vntApp-IOS'
+        run: |
+          set -e  # 任何一步出错就停止
+          
+          echo "0. 清理 Xcode 缓存"
+          rm -rf ~/Library/Developer/Xcode/DerivedData
+          rm -rf ios/Pods
+          rm -rf ios/Podfile.lock
+          rm -rf ios/.symlinks
+          rm -rf ios/Flutter/Flutter.framework
+          rm -rf ios/Flutter/App.framework
+          rm -rf build/ios
+          flutter clean
+
+          echo "1. 获取 Flutter 依赖"
+          rustup target add aarch64-apple-ios
+          # cd rust
+          # echo "1.2 测试ios库是否正常"
+          # cargo check --target aarch64-apple-ios
+          # cd ../
+
+          flutter pub get
+
+          echo "2. 安装 iOS Pods 依赖"
+          cd ios
+          pod install --repo-update
+          cd ..
+
+          echo "3. 开始构建"
+          flutter build ios --release --no-codesign -v
+          
+          echo "4. 创建 Payload 目录（IPA 必须结构）"
+          cd build/ios/iphoneos
+          rm -rf Payload
+          mkdir Payload
+          mv Runner.app Payload/
+          
+          echo "5. 打包成 IPA"
+          zip -r vntAPP.ipa Payload
+          
+          echo "完成：IPA 已生成"
+
       - name: Archive artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.NAME }}
-          path: ${{ runner.os == 'Windows' && 'vntApp-windows.zip' || runner.os == 'macOS' && 'vnt_APP.dmg' || 'vntApp-android.apk' }}
+          path: |
+            ${{ matrix.NAME == 'vntApp-android' && 'vntApp-android.apk' || '' }}
+            ${{ matrix.NAME == 'vntApp-windows' && 'vntApp-windows.zip' || '' }}
+            ${{ matrix.NAME == 'vntApp-macOS' && 'vnt_APP.dmg' || '' }}
+            ${{ matrix.NAME == 'vntApp-IOS' && 'build/ios/iphoneos/vntAPP.ipa' || '' }}
 
   deploy:
     needs: build
@@ -325,6 +382,7 @@ jobs:
           path: ./artifacts
       - name: List
         run: find ./artifacts
+
 
 
 

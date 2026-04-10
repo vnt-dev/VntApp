@@ -26,6 +26,10 @@ class _LogPageState extends State<LogPage> {
   String? _errorMessage;
   List<String> _availableLogFiles = [];
   String? _currentLogFile;
+  
+  // 性能优化：限制显示的日志行数
+  static const int _maxDisplayLines = 1000; // 最多显示1000行
+  static const int _maxLoadLines = 2000;    // 最多加载2000行（从文件末尾开始）
 
   @override
   void initState() {
@@ -160,9 +164,9 @@ class _LogPageState extends State<LogPage> {
           if (newLines.isNotEmpty && mounted) {
             setState(() {
               _logLines.addAll(newLines);
-              // 限制日志行数
-              while (_logLines.length > 5000) {
-                _logLines.removeAt(0);
+              // 限制加载的日志行数（保留最新的）
+              if (_logLines.length > _maxLoadLines) {
+                _logLines.removeRange(0, _logLines.length - _maxLoadLines);
               }
             });
 
@@ -468,107 +472,108 @@ class _LogPageState extends State<LogPage> {
       ),
       child: Platform.isWindows || Platform.isMacOS || Platform.isLinux
           ? SelectionArea(
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: EdgeInsets.all(context.spacingSmall),
-                itemCount: _logLines.length + (_isLoading ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index >= _logLines.length) {
-                    return const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Center(child: CircularProgressIndicator()),
-            );
-          }
-
-          final line = _logLines[index];
-          Color textColor;
-
-          // 判断日志级别并设置颜色
-          // Android logcat 格式: "MM-DD HH:MM:SS.mmm I/TAG(PID): message" 或 "MM-DD HH:MM:SS.mmm  PID  TID I TAG: message"
-          // Windows 文件日志格式: 通常包含完整的 ERROR、WARN、INFO 等关键字
-          if (line.contains('ERROR') || line.contains(' E/') || line.contains(' E ')) {
-            textColor = Colors.red;
-          } else if (line.contains('WARN') || line.contains(' W/') || line.contains(' W ')) {
-            textColor = Colors.orange;
-          } else if (line.contains('INFO') || line.contains(' I/') || line.contains(' I ')) {
-            textColor = isDark ? Colors.lightBlue : Colors.blue;
-          } else if (line.contains('DEBUG') || line.contains(' D/') || line.contains(' D ')) {
-            textColor = isDark ? Colors.grey : Colors.grey.shade600;
-          } else {
-            textColor = isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary;
-          }
-
+              child: _buildLogListView(isDark),
+            )
+          : _buildLogListView(isDark),
+    );
+  }
+  
+  // 构建日志列表视图（性能优化版本）
+  Widget _buildLogListView(bool isDark) {
+    // 计算要显示的日志范围
+    final displayLines = _logLines.length > _maxDisplayLines
+        ? _logLines.sublist(_logLines.length - _maxDisplayLines)
+        : _logLines;
+    
+    final skippedLines = _logLines.length - displayLines.length;
+    
+    return ListView.builder(
+      controller: _scrollController,
+      padding: EdgeInsets.all(context.spacingSmall),
+      itemCount: displayLines.length + (_isLoading ? 1 : 0) + (skippedLines > 0 ? 1 : 0),
+      itemBuilder: (context, index) {
+        // 显示跳过的行数提示
+        if (skippedLines > 0 && index == 0) {
           return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2.0),
-            child: GestureDetector(
-              onSecondaryTapDown: Platform.isWindows || Platform.isMacOS || Platform.isLinux
-                  ? (details) {
-                      _showContextMenu(context, details.globalPosition, line);
-                    }
-                  : null,
-              onLongPress: Platform.isAndroid || Platform.isIOS
-                  ? () {
-                      _showContextMenu(context, Offset.zero, line);
-                    }
-                  : null,
-              child: Text(
-                line,
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 12,
-                  fontFamily: 'monospace',
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: (isDark ? Colors.orange.shade900 : Colors.orange.shade100).withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '已隐藏前 $skippedLines 行日志（性能优化）',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isDark ? Colors.orange.shade200 : Colors.orange.shade800,
+                  ),
                 ),
               ),
             ),
           );
-        },
-        ),
-      )
-          : ListView.builder(
-              controller: _scrollController,
-              padding: EdgeInsets.all(context.spacingSmall),
-              itemCount: _logLines.length + (_isLoading ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index >= _logLines.length) {
-                  return const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                }
+        }
+        
+        // 调整索引
+        final adjustedIndex = skippedLines > 0 ? index - 1 : index;
+        
+        if (adjustedIndex >= displayLines.length) {
+          return const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
 
-                final line = _logLines[index];
-                Color textColor;
+        final line = displayLines[adjustedIndex];
+        Color textColor;
 
-                if (line.contains('ERROR') || line.contains(' E/') || line.contains(' E ')) {
-                  textColor = Colors.red;
-                } else if (line.contains('WARN') || line.contains(' W/') || line.contains(' W ')) {
-                  textColor = Colors.orange;
-                } else if (line.contains('INFO') || line.contains(' I/') || line.contains(' I ')) {
-                  textColor = isDark ? Colors.lightBlue : Colors.blue;
-                } else if (line.contains('DEBUG') || line.contains(' D/') || line.contains(' D ')) {
-                  textColor = isDark ? Colors.grey : Colors.grey.shade600;
-                } else {
-                  textColor = isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary;
-                }
+        // 判断日志级别并设置颜色
+        if (line.contains('ERROR') || line.contains(' E/') || line.contains(' E ')) {
+          textColor = Colors.red;
+        } else if (line.contains('WARN') || line.contains(' W/') || line.contains(' W ')) {
+          textColor = Colors.orange;
+        } else if (line.contains('INFO') || line.contains(' I/') || line.contains(' I ')) {
+          textColor = isDark ? Colors.lightBlue : Colors.blue;
+        } else if (line.contains('DEBUG') || line.contains(' D/') || line.contains(' D ')) {
+          textColor = isDark ? Colors.grey : Colors.grey.shade600;
+        } else {
+          textColor = isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary;
+        }
 
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2.0),
-                  child: GestureDetector(
-                    onLongPress: () {
-                      _showMobileContextMenu(context, line);
-                    },
-                    child: SelectableText(
-                      line,
-                      style: TextStyle(
-                        color: textColor,
-                        fontSize: 12,
-                        fontFamily: 'monospace',
-                      ),
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2.0),
+          child: GestureDetector(
+            onSecondaryTapDown: Platform.isWindows || Platform.isMacOS || Platform.isLinux
+                ? (details) {
+                    _showContextMenu(context, details.globalPosition, line);
+                  }
+                : null,
+            onLongPress: Platform.isAndroid || Platform.isIOS
+                ? () {
+                    _showMobileContextMenu(context, line);
+                  }
+                : null,
+            child: (Platform.isAndroid || Platform.isIOS)
+                ? SelectableText(
+                    line,
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                    ),
+                  )
+                : Text(
+                    line,
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 12,
+                      fontFamily: 'monospace',
                     ),
                   ),
-                );
-              },
-            ),
+          ),
+        );
+      },
     );
   }
 
@@ -997,6 +1002,7 @@ class LogReader {
   final File logFile;
   final int batchSize;
   bool _hasReadAll = false;
+  static const int _maxLinesToRead = 2000; // 只读取最后2000行
 
   LogReader(this.logFile, {this.batchSize = 100});
 
@@ -1015,19 +1021,30 @@ class LogReader {
     }
 
     try {
-      // 直接读取整个文件，避免偏移量计算错误导致的重复问题
+      // 读取整个文件
       final content = await logFile.readAsString();
       final allLines = content.split('\n');
 
-      // 返回所有非空行
-      for (var line in allLines) {
-        if (line.trim().isNotEmpty) {
-          lines.add(line);
+      // 只保留最后N行（性能优化）
+      final startIndex = allLines.length > _maxLinesToRead 
+          ? allLines.length - _maxLinesToRead 
+          : 0;
+
+      // 返回最后的非空行
+      for (var i = startIndex; i < allLines.length; i++) {
+        final line = allLines[i].trim();
+        if (line.isNotEmpty) {
+          lines.add(allLines[i]);
         }
       }
 
       _hasReadAll = true;
-      debugPrint('读取日志文件完成: ${logFile.path}, 共 ${lines.length} 行');
+      
+      if (startIndex > 0) {
+        debugPrint('读取日志文件: ${logFile.path}, 跳过前 $startIndex 行，加载最后 ${lines.length} 行');
+      } else {
+        debugPrint('读取日志文件: ${logFile.path}, 共 ${lines.length} 行');
+      }
     } catch (e) {
       debugPrint('读取日志文件失败: ${logFile.path} $e');
     }
