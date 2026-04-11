@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:vnt_app/theme/app_theme.dart';
 import 'package:vnt_app/theme/theme_provider.dart';
 import 'package:vnt_app/network_config.dart';
@@ -324,6 +325,17 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isWideScreen = screenWidth > 800;
     final isMediumScreen = screenWidth > 600 && screenWidth <= 800;
+
+    // 设置状态栏颜色以适配当前主题（仅移动端）
+    if (Platform.isAndroid || Platform.isIOS) {
+      SystemChrome.setSystemUIOverlayStyle(
+        SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: isDark ? AppTheme.darkBackground : AppTheme.lightBackground,

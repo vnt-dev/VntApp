@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:vnt_app/theme/app_theme.dart';
 import 'package:vnt_app/utils/responsive_utils.dart';
 import 'package:vnt_app/utils/log_utils.dart';
@@ -263,6 +264,15 @@ class _LogPageState extends State<LogPage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = Theme.of(context).primaryColor;
 
+    // 设置状态栏颜色以适配当前主题
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+      ),
+    );
+
     return Scaffold(
       backgroundColor: isDark ? AppTheme.darkBackground : AppTheme.lightBackground,
       appBar: AppBar(
@@ -275,6 +285,11 @@ class _LogPageState extends State<LogPage> {
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+        ),
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -447,6 +462,11 @@ class _LogPageState extends State<LogPage> {
         borderRadius: BorderRadius.circular(context.cardRadius),
       ),
       child: SelectionArea(
+        selectionControls: Platform.isWindows || Platform.isLinux
+            ? DesktopTextSelectionControls()
+            : (Platform.isMacOS
+                ? CupertinoDesktopTextSelectionControls()
+                : materialTextSelectionControls),
         contextMenuBuilder: (context, selectableRegionState) {
           return AdaptiveTextSelectionToolbar.buttonItems(
             anchors: selectableRegionState.contextMenuAnchors,
@@ -787,14 +807,17 @@ class _LogPageState extends State<LogPage> {
         // 使用Share Sheet分享
         try {
           final box = context.findRenderObject() as RenderBox?;
-          await Share.shareXFiles(
+          final result = await Share.shareXFiles(
             [XFile(filePath)],
-            text: '导出日志文件',
             sharePositionOrigin: box != null ? box.localToGlobal(Offset.zero) & box.size : null,
           );
           
           if (mounted) {
-            showTopToast(context, '请选择保存位置', isSuccess: true);
+            if (result.status == ShareResultStatus.success) {
+              showTopToast(context, '日志已导出', isSuccess: true);
+            } else if (result.status == ShareResultStatus.dismissed) {
+              showTopToast(context, '操作已取消', isSuccess: false);
+            }
           }
         } catch (e) {
           debugPrint('分享日志失败: $e');

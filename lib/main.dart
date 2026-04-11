@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:isolate';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:system_tray/system_tray.dart';
 import 'package:window_manager/window_manager.dart';
@@ -225,6 +226,18 @@ class _VntAppState extends State<VntApp> {
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'VNT App',
+        // 添加本地化支持
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('zh', 'CN'), // 简体中文
+          Locale('zh', 'Hans'), // 简体中文
+          Locale('en', ''), // 英文
+        ],
+        locale: const Locale('zh', 'CN'), // 默认使用中文
         theme: AppTheme.createLightTheme(_customThemeColor),
         darkTheme: AppTheme.createDarkTheme(_customThemeColor),
         themeMode: _themeMode,

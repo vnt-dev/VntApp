@@ -370,7 +370,7 @@ class _AboutPageState extends State<AboutPage> {
             iconColor: primaryColor,
             iconBgColor: primaryColor.withOpacity(0.15),
             title: '跨平台',
-            subtitle: '支持 Windows、macOS、Linux',
+            subtitle: '支持 Windows、macOS、Linux、ios',
           ),
           SizedBox(height: context.spacingMedium),
           _buildFeatureItem(

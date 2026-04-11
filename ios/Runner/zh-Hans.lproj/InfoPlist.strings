@@ -1,0 +1,9 @@
+/* 
+  InfoPlist.strings
+  Runner
+
+  Created for Chinese localization.
+*/
+
+"CFBundleDisplayName" = "VNT应用";
+"CFBundleName" = "VNT应用";

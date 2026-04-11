@@ -204,14 +204,17 @@ class _SettingsPageState extends State<SettingsPage> {
         // 使用Share Sheet分享文件
         try {
           final box = context.findRenderObject() as RenderBox?;
-          await Share.shareXFiles(
+          final result = await Share.shareXFiles(
             [XFile(filePath)],
-            text: '备份配置文件',
             sharePositionOrigin: box != null ? box.localToGlobal(Offset.zero) & box.size : null,
           );
           
           if (mounted) {
-            showTopToast(context, '请选择保存位置', isSuccess: true);
+            if (result.status == ShareResultStatus.success) {
+              showTopToast(context, '配置已备份', isSuccess: true);
+            } else if (result.status == ShareResultStatus.dismissed) {
+              showTopToast(context, '操作已取消', isSuccess: false);
+            }
           }
         } catch (e) {
           debugPrint('分享文件失败: $e');
