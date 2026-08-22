@@ -1,0 +1,222 @@
+name: Android Release
+
+on:
+  push:
+    tags:
+      - '*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Android release tag to create
+        required: true
+        type: string
+      vnt_tag:
+        description: Preferred vnt-dev/vnt tag; falls back to the latest release
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-release-${{ github.ref_name || inputs.release_tag }}
+  cancel-in-progress: false
+
+env:
+  VNT_REPOSITORY: vnt-dev/vnt
+
+jobs:
+  metadata:
+    name: Resolve release metadata
+    runs-on: ubuntu-latest
+    outputs:
+      app_tag: ${{ steps.metadata.outputs.app_tag }}
+      vnt_tag: ${{ steps.metadata.outputs.vnt_tag }}
+      version_name: ${{ steps.metadata.outputs.version_name }}
+      version_code: ${{ steps.metadata.outputs.version_code }}
+    steps:
+      - id: metadata
+        name: Validate tags and versions
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
+          INPUT_VNT_TAG: ${{ inputs.vnt_tag }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            app_tag="$GITHUB_REF_NAME"
+          else
+            app_tag="$INPUT_RELEASE_TAG"
+          fi
+          requested_vnt_tag="${INPUT_VNT_TAG:-$app_tag}"
+          for value in "$app_tag" "$requested_vnt_tag"; do
+            [[ "$value" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || {
+              echo "Invalid release tag: $value" >&2
+              exit 2
+            }
+          done
+          if gh release view "$requested_vnt_tag" --repo "$VNT_REPOSITORY" >/dev/null 2>&1; then
+            vnt_tag="$requested_vnt_tag"
+          else
+            echo "VNT release $requested_vnt_tag was not found; using the latest release"
+            vnt_tag="$(gh release view --repo "$VNT_REPOSITORY" --json tagName --jq .tagName)"
+            [[ -n "$vnt_tag" ]] || {
+              echo "No VNT release is available" >&2
+              exit 3
+            }
+          fi
+          version_name="${app_tag#v}"
+          {
+            echo "app_tag=$app_tag"
+            echo "vnt_tag=$vnt_tag"
+            echo "version_name=$version_name"
+            echo "version_code=$GITHUB_RUN_NUMBER"
+          } >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build APK (${{ matrix.abi }})
+    needs: metadata
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - abi: arm64-v8a
+          - abi: armeabi-v7a
+          - abi: x86_64
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android platform and build tools
+        run: sdkmanager "platforms;android-37.0" "build-tools;36.0.0"
+
+      - name: Download and verify vnt-jni
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ABI: ${{ matrix.abi }}
+          VNT_TAG: ${{ needs.metadata.outputs.vnt_tag }}
+        run: |
+          set -euo pipefail
+          asset="vnt-jni-${ABI}-${VNT_TAG}.so"
+          rm -rf app/src/main/jniLibs
+          mkdir -p native "app/src/main/jniLibs/$ABI"
+          for attempt in {1..12}; do
+            rm -f "native/$asset" "native/$asset.sha256"
+            if gh release download "$VNT_TAG" \
+              --repo "$VNT_REPOSITORY" \
+              --pattern "$asset" \
+              --pattern "$asset.sha256" \
+              --dir native; then
+              break
+            fi
+            if [[ "$attempt" == 12 ]]; then
+              echo "VNT release assets were not available after 12 attempts" >&2
+              exit 2
+            fi
+            echo "VNT release assets are not ready; retrying in 30 seconds"
+            sleep 30
+          done
+          (cd native && sha256sum -c "$asset.sha256")
+          install -m 755 "native/$asset" "app/src/main/jniLibs/$ABI/libvnt_jni.so"
+
+      - name: Build unsigned single-ABI release APK
+        env:
+          ABI: ${{ matrix.abi }}
+          VERSION_NAME: ${{ needs.metadata.outputs.version_name }}
+          VERSION_CODE: ${{ needs.metadata.outputs.version_code }}
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon clean lintDebug testDebugUnitTest assembleRelease \
+            -PvntAbi="$ABI" \
+            -PvntVersionName="$VERSION_NAME" \
+            -PvntVersionCode="$VERSION_CODE"
+
+      - name: Sign and verify APK
+        env:
+          ABI: ${{ matrix.abi }}
+          APP_TAG: ${{ needs.metadata.outputs.app_tag }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for required in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            [[ -n "${!required:-}" ]] || {
+              echo "Required GitHub secret is missing: $required" >&2
+              exit 3
+            }
+          done
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > release.keystore
+          build_tools="$ANDROID_SDK_ROOT/build-tools/36.0.0"
+          unsigned="app/build/outputs/apk/release/app-release-unsigned.apk"
+          mkdir -p release-assets
+          aligned="release-assets/VNT-Android-${APP_TAG}-${ABI}-aligned.apk"
+          output="release-assets/VNT-Android-${APP_TAG}-${ABI}.apk"
+          "$build_tools/zipalign" -f -P 16 4 "$unsigned" "$aligned"
+          "$build_tools/apksigner" sign \
+            --ks release.keystore \
+            --ks-key-alias "$ANDROID_KEY_ALIAS" \
+            --ks-pass env:ANDROID_KEYSTORE_PASSWORD \
+            --key-pass env:ANDROID_KEY_PASSWORD \
+            --out "$output" \
+            "$aligned"
+          rm "$aligned" release.keystore
+          "$build_tools/zipalign" -c -P 16 4 "$output"
+          "$build_tools/apksigner" verify --verbose --print-certs "$output"
+          "$build_tools/aapt" list "$output" | grep -Fx "lib/$ABI/libvnt_jni.so"
+          if "$build_tools/aapt" list "$output" | grep -E '^lib/' | grep -Fvx "lib/$ABI/libvnt_jni.so"; then
+            echo "APK contains an unexpected ABI" >&2
+            exit 4
+          fi
+          (cd release-assets && sha256sum "$(basename "$output")" > "$(basename "$output").sha256")
+
+      - name: Upload signed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: VNT-Android-${{ matrix.abi }}
+          path: release-assets/VNT-Android-${{ needs.metadata.outputs.app_tag }}-${{ matrix.abi }}.apk*
+          if-no-files-found: error
+
+  publish:
+    name: Publish Android release
+    needs: [metadata, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download signed APKs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: VNT-Android-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create release and upload APKs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APP_TAG: ${{ needs.metadata.outputs.app_tag }}
+          VNT_TAG: ${{ needs.metadata.outputs.vnt_tag }}
+        run: |
+          set -euo pipefail
+          find release-assets -maxdepth 1 -type f -print
+          if ! gh release view "$APP_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$APP_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "VNT Android $APP_TAG" \
+              --notes "Built with VNT Rust core [$VNT_TAG](https://github.com/$VNT_REPOSITORY/releases/tag/$VNT_TAG). Includes arm64-v8a, armeabi-v7a, and x86_64 APKs."
+          fi
+          gh release upload "$APP_TAG" release-assets/*.apk release-assets/*.sha256 \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
