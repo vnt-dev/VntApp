@@ -74,16 +74,21 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
   build:
-    name: Build APK (${{ matrix.abi }})
+    name: Build APK (${{ matrix.variant }})
     needs: metadata
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - abi: arm64-v8a
-          - abi: armeabi-v7a
-          - abi: x86_64
+          - variant: arm64-v8a
+            abis: arm64-v8a
+          - variant: armeabi-v7a
+            abis: armeabi-v7a
+          - variant: x86_64
+            abis: x86_64
+          - variant: universal
+            abis: arm64-v8a armeabi-v7a x86_64
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
@@ -106,47 +111,60 @@ jobs:
       - name: Download and verify vnt-jni
         env:
           GH_TOKEN: ${{ github.token }}
-          ABI: ${{ matrix.abi }}
+          ABIS: ${{ matrix.abis }}
           VNT_TAG: ${{ needs.metadata.outputs.vnt_tag }}
         run: |
           set -euo pipefail
-          asset="vnt-jni-${ABI}-${VNT_TAG}.so"
           rm -rf app/src/main/jniLibs
-          mkdir -p native "app/src/main/jniLibs/$ABI"
-          for attempt in {1..12}; do
-            rm -f "native/$asset" "native/$asset.sha256"
-            if gh release download "$VNT_TAG" \
-              --repo "$VNT_REPOSITORY" \
-              --pattern "$asset" \
-              --pattern "$asset.sha256" \
-              --dir native; then
-              break
-            fi
-            if [[ "$attempt" == 12 ]]; then
-              echo "VNT release assets were not available after 12 attempts" >&2
-              exit 2
-            fi
-            echo "VNT release assets are not ready; retrying in 30 seconds"
-            sleep 30
+          mkdir -p native
+          for abi in $ABIS; do
+            asset="vnt-jni-${abi}-${VNT_TAG}.so"
+            mkdir -p "app/src/main/jniLibs/$abi"
+            for attempt in {1..12}; do
+              rm -f "native/$asset" "native/$asset.sha256"
+              if gh release download "$VNT_TAG" \
+                --repo "$VNT_REPOSITORY" \
+                --pattern "$asset" \
+                --pattern "$asset.sha256" \
+                --dir native; then
+                break
+              fi
+              if [[ "$attempt" == 12 ]]; then
+                echo "VNT release asset $asset was not available after 12 attempts" >&2
+                exit 2
+              fi
+              echo "VNT release asset $asset is not ready; retrying in 30 seconds"
+              sleep 30
+            done
+            (cd native && sha256sum -c "$asset.sha256")
+            install -m 755 "native/$asset" "app/src/main/jniLibs/$abi/libvnt_jni.so"
           done
-          (cd native && sha256sum -c "$asset.sha256")
-          install -m 755 "native/$asset" "app/src/main/jniLibs/$ABI/libvnt_jni.so"
 
-      - name: Build unsigned single-ABI release APK
+      - name: Build unsigned release APK
         env:
-          ABI: ${{ matrix.abi }}
+          VARIANT: ${{ matrix.variant }}
           VERSION_NAME: ${{ needs.metadata.outputs.version_name }}
           VERSION_CODE: ${{ needs.metadata.outputs.version_code }}
         run: |
           set -euo pipefail
-          ./gradlew --no-daemon clean lintDebug testDebugUnitTest assembleRelease \
-            -PvntAbi="$ABI" \
-            -PvntVersionName="$VERSION_NAME" \
+          gradle_args=(
+            --no-daemon
+            clean
+            lintDebug
+            testDebugUnitTest
+            assembleRelease
+            -PvntVersionName="$VERSION_NAME"
             -PvntVersionCode="$VERSION_CODE"
+          )
+          if [[ "$VARIANT" != "universal" ]]; then
+            gradle_args+=(-PvntAbi="$VARIANT")
+          fi
+          ./gradlew "${gradle_args[@]}"
 
       - name: Sign and verify APK
         env:
-          ABI: ${{ matrix.abi }}
+          VARIANT: ${{ matrix.variant }}
+          ABIS: ${{ matrix.abis }}
           APP_TAG: ${{ needs.metadata.outputs.app_tag }}
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -164,8 +182,8 @@ jobs:
           build_tools="$ANDROID_SDK_ROOT/build-tools/36.0.0"
           unsigned="app/build/outputs/apk/release/app-release-unsigned.apk"
           mkdir -p release-assets
-          aligned="release-assets/VNT-Android-${APP_TAG}-${ABI}-aligned.apk"
-          output="release-assets/VNT-Android-${APP_TAG}-${ABI}.apk"
+          aligned="release-assets/VNT-Android-${APP_TAG}-${VARIANT}-aligned.apk"
+          output="release-assets/VNT-Android-${APP_TAG}-${VARIANT}.apk"
           "$build_tools/zipalign" -f -P 16 4 "$unsigned" "$aligned"
           "$build_tools/apksigner" sign \
             --ks release.keystore \
@@ -177,18 +195,23 @@ jobs:
           rm "$aligned" release.keystore
           "$build_tools/zipalign" -c -P 16 4 "$output"
           "$build_tools/apksigner" verify --verbose --print-certs "$output"
-          "$build_tools/aapt" list "$output" | grep -Fx "lib/$ABI/libvnt_jni.so"
-          if "$build_tools/aapt" list "$output" | grep -E '^lib/' | grep -Fvx "lib/$ABI/libvnt_jni.so"; then
+          expected_libs="$(mktemp)"
+          for abi in $ABIS; do
+            echo "lib/$abi/libvnt_jni.so" >> "$expected_libs"
+            "$build_tools/aapt" list "$output" | grep -Fx "lib/$abi/libvnt_jni.so"
+          done
+          if "$build_tools/aapt" list "$output" | grep -E '^lib/' | grep -Fvx -f "$expected_libs"; then
             echo "APK contains an unexpected ABI" >&2
             exit 4
           fi
+          rm "$expected_libs"
           (cd release-assets && sha256sum "$(basename "$output")" > "$(basename "$output").sha256")
 
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: VNT-Android-${{ matrix.abi }}
-          path: release-assets/VNT-Android-${{ needs.metadata.outputs.app_tag }}-${{ matrix.abi }}.apk*
+          name: VNT-Android-${{ matrix.variant }}
+          path: release-assets/VNT-Android-${{ needs.metadata.outputs.app_tag }}-${{ matrix.variant }}.apk*
           if-no-files-found: error
 
   publish:
@@ -196,6 +219,9 @@ jobs:
     needs: [metadata, build]
     runs-on: ubuntu-latest
     steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
       - name: Download signed APKs
         uses: actions/download-artifact@v4
         with:
@@ -215,8 +241,14 @@ jobs:
             gh release create "$APP_TAG" \
               --repo "$GITHUB_REPOSITORY" \
               --title "VNT Android $APP_TAG" \
-              --notes "Built with VNT Rust core [$VNT_TAG](https://github.com/$VNT_REPOSITORY/releases/tag/$VNT_TAG). Includes arm64-v8a, armeabi-v7a, and x86_64 APKs."
+              --notes "Built with VNT Rust core [$VNT_TAG](https://github.com/$VNT_REPOSITORY/releases/tag/$VNT_TAG). Includes a universal APK plus arm64-v8a, armeabi-v7a, and x86_64 APKs."
           fi
           gh release upload "$APP_TAG" release-assets/*.apk release-assets/*.sha256 \
             --repo "$GITHUB_REPOSITORY" \
             --clobber
+
+      - name: Add APK download links to release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APP_TAG: ${{ needs.metadata.outputs.app_tag }}
+        run: node .github/scripts/update-release-downloads.mjs
