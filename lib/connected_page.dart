@@ -122,7 +122,7 @@ class _ConnectDetailPageState extends State<ConnectDetailPage> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => LogPage(),
+                      builder: (context) => const LogPage(),
                     ),
                   );
                 },

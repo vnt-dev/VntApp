@@ -55,7 +55,7 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
   String _compressionMethod = 'none'; // 默认不压缩
   int _compressionLevel = 3; // 默认压缩级别
 
-  _NetworkConfigInputPageState() {}
+  _NetworkConfigInputPageState();
 
   @override
   void initState() {
@@ -706,7 +706,7 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
                           }
                           return null;
                         },
-                        TextInputType.numberWithOptions(decimal: true),
+                        const TextInputType.numberWithOptions(decimal: true),
                       ),
                       _buildTextFormField(
                         _simulatedLatencyController,
@@ -839,7 +839,7 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
               ),
             ],
           );
-        }).toList(),
+        }),
         Row(
           children: [
             Expanded(child: Container()),
@@ -892,7 +892,7 @@ class _NetworkConfigInputPageState extends State<NetworkConfigInputPage> {
               ),
             ],
           );
-        }).toList(),
+        }),
         Row(
           children: [
             Expanded(child: Container()),

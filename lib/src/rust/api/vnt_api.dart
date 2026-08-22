@@ -230,6 +230,8 @@ enum RustErrorType {
   invalidIp,
   localIpExists,
   unknown,
+  failedToCrateDevice,
+  warn,
   ;
 }
 
