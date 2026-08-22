@@ -14,6 +14,7 @@ android {
         targetSdk = 37
         versionCode = providers.gradleProperty("vntVersionCode").orNull?.toInt() ?: 1
         versionName = providers.gradleProperty("vntVersionName").orNull ?: "1.0"
+        resValue("string", "vnt_core_tag", providers.gradleProperty("vntCoreTag").orNull ?: "unknown")
 
         providers.gradleProperty("vntAbi").orNull?.let { requestedAbi ->
             ndk.abiFilters += requestedAbi
@@ -32,6 +33,10 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    buildFeatures {
+        resValues = true
     }
 
     packaging {

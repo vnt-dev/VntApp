@@ -145,6 +145,7 @@ jobs:
           VARIANT: ${{ matrix.variant }}
           VERSION_NAME: ${{ needs.metadata.outputs.version_name }}
           VERSION_CODE: ${{ needs.metadata.outputs.version_code }}
+          VNT_TAG: ${{ needs.metadata.outputs.vnt_tag }}
         run: |
           set -euo pipefail
           gradle_args=(
@@ -155,6 +156,7 @@ jobs:
             assembleRelease
             -PvntVersionName="$VERSION_NAME"
             -PvntVersionCode="$VERSION_CODE"
+            -PvntCoreTag="$VNT_TAG"
           )
           if [[ "$VARIANT" != "universal" ]]; then
             gradle_args+=(-PvntAbi="$VARIANT")

@@ -3,6 +3,8 @@ package com.rustvnt.vntapp;
 import android.Manifest;
 import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -10,6 +12,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.net.Uri;
 import android.net.VpnService;
 import android.os.Build;
 import android.os.Bundle;
@@ -41,16 +44,25 @@ import androidx.drawerlayout.widget.DrawerLayout;
 import com.vnt.VntApi;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public final class MainActivity extends AppCompatActivity {
     private static final int INDIGO = Color.rgb(79, 70, 229);
     private static final int GREEN = Color.rgb(22, 163, 74);
     private static final int RED = Color.rgb(220, 38, 38);
     private static final int AMBER = Color.rgb(217, 119, 6);
+    private static final String LATEST_RELEASE_API =
+            "https://api.github.com/repos/vnt-dev/VntApp/releases/latest";
 
     private DrawerLayout drawer;
     private LinearLayout pageHost;
@@ -64,6 +76,7 @@ public final class MainActivity extends AppCompatActivity {
     private VntConfigStore.Profile pendingProfile;
     private Page page = Page.DASHBOARD;
     private boolean dark;
+    private final ExecutorService updateExecutor = Executors.newSingleThreadExecutor();
 
     private final ActivityResultLauncher<Intent> vpnPermission = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(), result -> {
@@ -99,6 +112,7 @@ public final class MainActivity extends AppCompatActivity {
 
     @Override protected void onDestroy() {
         try { unregisterReceiver(stateReceiver); } catch (Exception ignored) { }
+        updateExecutor.shutdownNow();
         super.onDestroy();
     }
 
@@ -219,7 +233,7 @@ public final class MainActivity extends AppCompatActivity {
         coreDotParams.rightMargin = dp(8);
         footer.addView(coreDot, coreDotParams);
         footer.addView(text("Rust 核心已就绪", 11, false, textMuted()), weighted());
-        footer.addView(text("v2.0.0", 10, false, textMuted()));
+        footer.addView(text(coreVersion(), 10, false, textMuted()));
         navigation.addView(footer);
     }
 
@@ -548,6 +562,7 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void about() {
+        String currentVersion = currentVersion();
         LinearLayout hero = card();
         ImageView logo = new ImageView(this);
         logo.setImageResource(com.rustvnt.vntapp.R.drawable.vnt_icon);
@@ -555,13 +570,148 @@ public final class MainActivity extends AppCompatActivity {
         hero.addView(logo, size(64, 64));
         hero.addView(text("VNT", 20, true, textStrong()), top(12));
         hero.addView(text("简单、高效的异地组网与内网穿透工具", 13, false, textMuted()), top(5));
-        hero.addView(text("Android 客户端 v1.0 · Rust 核心 v2.0.0", 11, false, textMuted()), top(10));
+        hero.addView(text("Android 客户端 v" + currentVersion + " · Rust 核心 " + coreVersion(),
+                11, false, textMuted()), top(10));
         pageHost.addView(hero);
+
+        LinearLayout update = card();
+        update.addView(text("版本更新", 15, true, textStrong()));
+        update.addView(text("当前版本 v" + currentVersion, 13, false, textMuted()), top(9));
+        Button checkUpdate = primary("检查更新");
+        checkUpdate.setOnClickListener(v -> checkForUpdates(checkUpdate, currentVersion));
+        update.addView(checkUpdate, top(12));
+        pageHost.addView(update, top(14));
+
         LinearLayout source = card();
         source.addView(text("开源项目", 15, true, textStrong()));
         source.addView(text("项目代码、使用说明和问题反馈均托管在 GitHub", 13, false, textMuted()), top(9));
-        source.addView(text("github.com/vnt-dev/vnt", 13, true, INDIGO), top(12));
+        TextView repositoryUrl = text("github.com/vnt-dev/vnt", 13, true, INDIGO);
+        repositoryUrl.setTextIsSelectable(true);
+        repositoryUrl.setOnClickListener(v -> copyToClipboard(
+                "VNT GitHub 地址", "https://github.com/vnt-dev/vnt"));
+        source.addView(repositoryUrl, top(12));
         pageHost.addView(source, top(14));
+    }
+
+    private void copyToClipboard(String label, String value) {
+        ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        clipboard.setPrimaryClip(ClipData.newPlainText(label, value));
+        toast("GitHub 地址已复制");
+    }
+
+    private void checkForUpdates(Button button, String currentVersion) {
+        button.setEnabled(false);
+        button.setText("检查中…");
+        updateExecutor.execute(() -> {
+            HttpURLConnection connection = null;
+            try {
+                connection = (HttpURLConnection) new URL(LATEST_RELEASE_API).openConnection();
+                connection.setConnectTimeout(10_000);
+                connection.setReadTimeout(10_000);
+                connection.setRequestProperty("Accept", "application/vnd.github+json");
+                connection.setRequestProperty("User-Agent", "VNT-Android");
+                int statusCode = connection.getResponseCode();
+                if (statusCode != HttpURLConnection.HTTP_OK) {
+                    throw new IllegalStateException("GitHub 返回 HTTP " + statusCode);
+                }
+
+                StringBuilder response = new StringBuilder();
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                        connection.getInputStream(), StandardCharsets.UTF_8))) {
+                    char[] buffer = new char[4096];
+                    int count;
+                    while ((count = reader.read(buffer)) != -1) response.append(buffer, 0, count);
+                }
+
+                JSONObject release = new JSONObject(response.toString());
+                String latestVersion = normalizeVersion(release.optString("tag_name"));
+                String releaseUrl = release.optString("html_url");
+                if (latestVersion.isEmpty() || releaseUrl.isEmpty()) {
+                    throw new IllegalStateException("最新版本信息不完整");
+                }
+                boolean hasUpdate = compareVersions(latestVersion, currentVersion) > 0;
+                runOnUiThread(() -> showUpdateResult(button, currentVersion, latestVersion,
+                        releaseUrl, hasUpdate));
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    resetUpdateButton(button);
+                    toast("检查更新失败：" + error.getMessage());
+                });
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
+        });
+    }
+
+    private void showUpdateResult(Button button, String currentVersion, String latestVersion,
+                                  String releaseUrl, boolean hasUpdate) {
+        if (isFinishing() || isDestroyed()) return;
+        resetUpdateButton(button);
+        AlertDialog.Builder dialog = new AlertDialog.Builder(this);
+        if (hasUpdate) {
+            dialog.setTitle("发现新版本 v" + latestVersion)
+                    .setMessage("当前版本：v" + currentVersion + "\n最新版本：v" + latestVersion)
+                    .setNegativeButton("稍后", null)
+                    .setPositiveButton("前往下载", (ignored, which) -> openUrl(releaseUrl));
+        } else {
+            dialog.setTitle("已是最新版本")
+                    .setMessage("当前版本：v" + currentVersion)
+                    .setPositiveButton("确定", null);
+        }
+        dialog.show();
+    }
+
+    private void resetUpdateButton(Button button) {
+        button.setEnabled(true);
+        button.setText("检查更新");
+    }
+
+    private void openUrl(String url) {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+        } catch (Exception error) {
+            toast("无法打开下载页面");
+        }
+    }
+
+    private String currentVersion() {
+        try {
+            String version = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+            return version == null || version.trim().isEmpty() ? "未知" : normalizeVersion(version);
+        } catch (PackageManager.NameNotFoundException ignored) {
+            return "未知";
+        }
+    }
+
+    private String coreVersion() {
+        String tag = getString(R.string.vnt_core_tag).trim();
+        if (tag.isEmpty() || tag.equalsIgnoreCase("unknown")) return "未知";
+        return tag.startsWith("v") || tag.startsWith("V") ? tag : "v" + tag;
+    }
+
+    private static String normalizeVersion(String version) {
+        String normalized = version == null ? "" : version.trim();
+        if (normalized.startsWith("v") || normalized.startsWith("V")) {
+            return normalized.substring(1);
+        }
+        return normalized;
+    }
+
+    private static int compareVersions(String candidate, String current) {
+        String[] candidateParts = normalizeVersion(candidate).split("[-+]", 2)[0].split("\\.");
+        String[] currentParts = normalizeVersion(current).split("[-+]", 2)[0].split("\\.");
+        int length = Math.max(candidateParts.length, currentParts.length);
+        try {
+            for (int i = 0; i < length; i++) {
+                int candidatePart = i < candidateParts.length ? Integer.parseInt(candidateParts[i]) : 0;
+                int currentPart = i < currentParts.length ? Integer.parseInt(currentParts[i]) : 0;
+                if (candidatePart != currentPart) return Integer.compare(candidatePart, currentPart);
+            }
+            return 0;
+        } catch (NumberFormatException ignored) {
+            return normalizeVersion(candidate).equalsIgnoreCase(normalizeVersion(current)) ? 0 : 1;
+        }
     }
 
     private void editProfile(VntConfigStore.Profile existing) {
