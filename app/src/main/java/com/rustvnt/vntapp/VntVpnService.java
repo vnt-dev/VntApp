@@ -10,6 +10,7 @@ import android.content.SharedPreferences;
 import android.net.VpnService;
 import android.os.Build;
 import android.os.ParcelFileDescriptor;
+import android.os.SystemClock;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 import com.vnt.RegisterResult;
@@ -21,8 +22,10 @@ import org.json.JSONObject;
 import java.lang.ref.WeakReference;
 import java.net.InetAddress;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
@@ -46,6 +49,8 @@ public final class VntVpnService extends VpnService {
     private VntNetwork network;
     private VntApi api;
     private ParcelFileDescriptor vpnInterface;
+    private final Map<String, VntApi.Traffic> trafficSamples = new HashMap<>();
+    private long trafficSampleTime;
     private volatile boolean cancellationRequested;
 
     static VntState state() { return state; }
@@ -203,19 +208,60 @@ public final class VntVpnService extends VpnService {
     }
 
     private void stopRefreshing() {
-        if (refreshTask == null) return;
-        refreshTask.cancel(false);
-        refreshTask = null;
+        if (refreshTask != null) {
+            refreshTask.cancel(false);
+            refreshTask = null;
+        }
+        resetTrafficSamples();
     }
 
     private VntState readState(String id, String name, String ip) throws Exception {
-        List<VntApi.ClientInfo> clients = api.getClientList();
+        List<VntApi.ClientInfo> clients = withTrafficSpeeds(api.getClientList());
         List<VntApi.ServerInfo> servers = api.getServerList();
         List<VntApi.RouteInfo> routes = api.getRouteTable();
         VntApi.NatInfo nat = api.getNatInfo();
         VntApi.NetworkInfo network = api.getNetwork();
         return new VntState(VntState.Status.RUNNING, id, name, ip,
                 "", clients, servers, routes, nat, network);
+    }
+
+    private synchronized List<VntApi.ClientInfo> withTrafficSpeeds(List<VntApi.ClientInfo> clients) {
+        long now = SystemClock.elapsedRealtime();
+        long elapsed = trafficSampleTime == 0 ? 0 : now - trafficSampleTime;
+        Map<String, VntApi.Traffic> nextSamples = new HashMap<>();
+        List<VntApi.ClientInfo> result = new ArrayList<>(clients.size());
+        for (VntApi.ClientInfo client : clients) {
+            VntApi.Traffic traffic = client.traffic();
+            VntApi.Traffic measured = null;
+            if (traffic != null) {
+                VntApi.Traffic previous = trafficSamples.get(client.ip());
+                long txSpeed = previous == null || elapsed <= 0 ? 0 : bytesPerSecond(
+                        traffic.txBytes(), previous.txBytes(), elapsed);
+                long rxSpeed = previous == null || elapsed <= 0 ? 0 : bytesPerSecond(
+                        traffic.rxBytes(), previous.rxBytes(), elapsed);
+                measured = new VntApi.Traffic(
+                        traffic.txBytes(), traffic.rxBytes(), txSpeed, rxSpeed);
+                nextSamples.put(client.ip(), measured);
+            }
+            result.add(new VntApi.ClientInfo(
+                    client.ip(), client.name(), client.version(), client.online(), client.direct(),
+                    client.routeProtocol(), client.routeMetric(), client.rtt(), client.keyEqual(),
+                    client.loss(), measured));
+        }
+        trafficSamples.clear();
+        trafficSamples.putAll(nextSamples);
+        trafficSampleTime = now;
+        return result;
+    }
+
+    private static long bytesPerSecond(long current, long previous, long elapsedMillis) {
+        long difference = Math.max(0, current - previous);
+        return Math.round(difference * 1000d / elapsedMillis);
+    }
+
+    private synchronized void resetTrafficSamples() {
+        trafficSamples.clear();
+        trafficSampleTime = 0;
     }
 
     private void shutdown() {

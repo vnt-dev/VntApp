@@ -517,14 +517,38 @@ public final class MainActivity extends AppCompatActivity {
             LinearLayout card = card();
             LinearLayout head = row();
             head.setGravity(Gravity.CENTER_VERTICAL);
-            head.addView(text(client.ip(), 15, true, INDIGO), weighted());
+            LinearLayout identity = column();
+            identity.addView(text(client.name().isEmpty() ? "未命名设备" : client.name(),
+                    15, true, textStrong()));
+            TextView address = text(client.ip(), 12, true, INDIGO);
+            address.setTypeface(Typeface.MONOSPACE);
+            address.setTextIsSelectable(true);
+            identity.addView(address, top(4));
+            head.addView(identity, weighted());
             head.addView(chip(client.online() ? "在线" : "离线", client.online() ? GREEN : textMuted(),
                     client.online() ? colorWithAlpha(GREEN, 25) : bgChip()));
             card.addView(head);
-            String mode = client.online() ? (client.direct() ? "P2P 直连" : "服务器中继") : "-";
-            card.addView(labelValue("连接模式", mode, client.direct() ? GREEN : AMBER), top(10));
-            if (client.loss() != null) card.addView(labelValue("丢包率", String.format(Locale.US, "%.1f%%", client.loss().rate()), textBody()), top(8));
-            if (client.traffic() != null) card.addView(labelValue("流量", "↑ " + bytes(client.traffic().txBytes()) + "   ↓ " + bytes(client.traffic().rxBytes()), textBody()), top(8));
+            String mode = connectionMode(client);
+            card.addView(labelValue("版本", client.version().isEmpty() ? "-" : client.version(), textBody()), top(10));
+            int encryptionColor = client.keyEqual() == 1 ? GREEN
+                    : client.keyEqual() == 2 ? AMBER
+                    : client.keyEqual() == 0 ? textMuted() : RED;
+            card.addView(labelValue("加密状态", encryptionLabel(client.keyEqual()), encryptionColor), top(8));
+            int modeColor = !client.online() ? textMuted()
+                    : client.direct() ? GREEN : client.routeMetric() != null ? INDIGO : AMBER;
+            card.addView(labelValue("连接模式", mode, modeColor), top(8));
+            card.addView(labelValue("延迟", client.rtt() == null ? "-" : client.rtt() + " ms", textBody()), top(8));
+            int lossColor = client.loss() == null ? textMuted()
+                    : client.loss().rate() > 10 ? RED : client.loss().rate() > 5 ? AMBER : GREEN;
+            card.addView(labelValue("丢包率", client.loss() == null ? "-"
+                    : String.format(Locale.US, "%.1f%%", client.loss().rate()), lossColor), top(8));
+            VntApi.Traffic traffic = client.traffic();
+            card.addView(labelValue("上传", traffic == null ? "-"
+                    : bytes(traffic.txBytes()) + "  ·  " + bytes(traffic.txBytesPerSecond()) + "/s",
+                    GREEN), top(8));
+            card.addView(labelValue("下载", traffic == null ? "-"
+                    : bytes(traffic.rxBytes()) + "  ·  " + bytes(traffic.rxBytesPerSecond()) + "/s",
+                    INDIGO), top(8));
             pageHost.addView(card, top(12));
         }
     }
@@ -1153,6 +1177,25 @@ public final class MainActivity extends AppCompatActivity {
     private static boolean isSessionActive(VntState.Status status) {
         return status == VntState.Status.STARTING || status == VntState.Status.RUNNING
                 || status == VntState.Status.STOPPING;
+    }
+
+    private static String encryptionLabel(int state) {
+        return switch (state) {
+            case 1 -> "双方加密";
+            case 2 -> "双方未加密";
+            case 3 -> "本机加密，对端未加密";
+            case 4 -> "本机未加密，对端加密";
+            case 5 -> "密钥不一致";
+            default -> "-";
+        };
+    }
+
+    private static String connectionMode(VntApi.ClientInfo client) {
+        if (!client.online()) return "-";
+        if (client.routeMetric() == null) return "服务器中继";
+        if (client.routeMetric() != 1) return "客户端中继";
+        return client.routeProtocol() != null && client.routeProtocol().contains("Tcp")
+                ? "打洞TCP直连" : "打洞UDP直连";
     }
 
     private static String bytes(long value) {

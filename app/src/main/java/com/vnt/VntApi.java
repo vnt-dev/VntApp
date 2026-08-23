@@ -15,9 +15,22 @@ public final class VntApi {
             List<ClientInfo> result = new ArrayList<>();
             for (int i = 0; i < array.length(); i++) {
                 JSONObject item = array.getJSONObject(i);
-                String ip = item.getString("ip");
-                result.add(new ClientInfo(ip, item.getBoolean("online"), isDirect(ip),
-                        packetLoss(ip), traffic(ip)));
+                JSONObject loss = item.isNull("packet_loss") ? null : item.getJSONObject("packet_loss");
+                JSONObject traffic = item.isNull("traffic") ? null : item.getJSONObject("traffic");
+                result.add(new ClientInfo(
+                        item.getString("ip"),
+                        item.getString("name"),
+                        item.getString("version"),
+                        item.getBoolean("online"),
+                        item.getBoolean("direct"),
+                        item.isNull("route_protocol") ? null : item.getString("route_protocol"),
+                        item.isNull("route_metric") ? null : item.getInt("route_metric"),
+                        item.isNull("rtt") ? null : item.getInt("rtt"),
+                        item.getInt("key_equal"),
+                        loss == null ? null : new PacketLoss(
+                                loss.getLong("sent"), loss.getLong("received"), loss.getDouble("loss_rate")),
+                        traffic == null ? null : new Traffic(
+                                traffic.getLong("tx_bytes"), traffic.getLong("rx_bytes"), 0, 0)));
             }
             return result;
         } catch (Exception error) { throw wrap("读取设备列表", error); }
@@ -81,24 +94,6 @@ public final class VntApi {
 
     public boolean isDirect(String ip) { return nativeIsDirect(handle, ip); }
 
-    private PacketLoss packetLoss(String ip) {
-        try {
-            String raw = nativeGetPacketLoss(handle, ip);
-            if ("null".equals(raw)) return null;
-            JSONObject item = new JSONObject(raw);
-            return new PacketLoss(item.getLong("sent"), item.getLong("received"), item.getDouble("loss_rate"));
-        } catch (Exception ignored) { return null; }
-    }
-
-    private Traffic traffic(String ip) {
-        try {
-            String raw = nativeGetTrafficInfo(handle, ip);
-            if ("null".equals(raw)) return null;
-            JSONObject item = new JSONObject(raw);
-            return new Traffic(item.getLong("tx_bytes"), item.getLong("rx_bytes"));
-        } catch (Exception ignored) { return null; }
-    }
-
     private static VntException wrap(String action, Exception error) {
         return error instanceof VntException ? (VntException) error : new VntException(action + "失败", error);
     }
@@ -116,8 +111,10 @@ public final class VntApi {
     public record NatInfo(String type, List<String> publicIps, String ipv6) {}
     public record ServerInfo(String address, boolean connected, Integer rtt, String version) {}
     public record PacketLoss(long sent, long received, double rate) {}
-    public record Traffic(long txBytes, long rxBytes) {}
-    public record ClientInfo(String ip, boolean online, boolean direct, PacketLoss loss, Traffic traffic) {}
+    public record Traffic(long txBytes, long rxBytes, long txBytesPerSecond, long rxBytesPerSecond) {}
+    public record ClientInfo(String ip, String name, String version, boolean online, boolean direct,
+                             String routeProtocol, Integer routeMetric, Integer rtt, int keyEqual,
+                             PacketLoss loss, Traffic traffic) {}
     public record RouteDetail(String key, String protocol, int metric, int rtt) {}
     public record RouteInfo(String ip, List<RouteDetail> routes) {}
 }
