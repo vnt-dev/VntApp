@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Keep the complete square logo inside Android's circular adaptive-icon mask. -->
+    <item
+        android:bottom="16dp"
+        android:drawable="@drawable/vnt_icon"
+        android:left="16dp"
+        android:right="16dp"
+        android:top="16dp" />
+</layer-list>
