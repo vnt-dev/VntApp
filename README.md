@@ -75,3 +75,7 @@ Android 同一时间通常只能启用一个 VPN 服务。启动 VNT 前，请�
 ## 相关项目
 
 - VNT 核心项目：<https://github.com/vnt-dev/vnt>
+
+## 许可证
+
+本项目基于 [Apache License 2.0](LICENSE) 开源。
