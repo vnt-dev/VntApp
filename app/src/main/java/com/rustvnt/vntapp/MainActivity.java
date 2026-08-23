@@ -9,6 +9,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -26,6 +27,7 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -41,6 +43,10 @@ import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.content.ContextCompat;
 import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
+import com.google.zxing.BarcodeFormat;
+import com.journeyapps.barcodescanner.BarcodeEncoder;
+import com.journeyapps.barcodescanner.ScanContract;
+import com.journeyapps.barcodescanner.ScanOptions;
 import com.vnt.VntApi;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -92,6 +98,11 @@ public final class MainActivity extends AppCompatActivity {
 
     private final ActivityResultLauncher<String> notificationPermission = registerForActivityResult(
             new ActivityResultContracts.RequestPermission(), granted -> { });
+
+    private final ActivityResultLauncher<ScanOptions> qrScanner = registerForActivityResult(
+            new ScanContract(), result -> {
+                if (result.getContents() != null) handleNetworkQr(result.getContents());
+            });
 
     private final BroadcastReceiver stateReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
@@ -573,6 +584,9 @@ public final class MainActivity extends AppCompatActivity {
         LinearLayout action = row();
         action.setGravity(Gravity.CENTER_VERTICAL);
         action.addView(text("配置文件", 16, true, textStrong()), weighted());
+        ImageButton scan = imageButton(com.rustvnt.vntapp.R.drawable.ic_qr_code_scanner, "扫码加入网络");
+        scan.setOnClickListener(v -> scanNetworkQr());
+        action.addView(scan, end(8));
         Button add = primary("＋ 新建配置");
         add.setOnClickListener(v -> editProfile(null));
         action.addView(add);
@@ -590,8 +604,12 @@ public final class MainActivity extends AppCompatActivity {
             if (activeProfile) {
                 int stateColor = current.status == VntState.Status.RUNNING ? GREEN : AMBER;
                 head.addView(chip(statusLabel(current.status), stateColor,
-                        colorWithAlpha(stateColor, 25)));
+                        colorWithAlpha(stateColor, 25)), end(8));
             }
+            ImageButton qr = plainImageButton(com.rustvnt.vntapp.R.drawable.ic_qr_code,
+                    "显示加入网络二维码");
+            qr.setOnClickListener(v -> showProfileQr(profile));
+            head.addView(qr);
             card.addView(head);
             card.addView(labelValue("网络编号", config.optString("network_code", "-"), INDIGO), top(10));
             JSONArray servers = config.optJSONArray("server");
@@ -896,6 +914,113 @@ public final class MainActivity extends AppCompatActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
     }
 
+    private void scanNetworkQr() {
+        ScanOptions options = new ScanOptions();
+        options.setDesiredBarcodeFormats(ScanOptions.QR_CODE);
+        options.setPrompt("扫描 VNT 加入网络二维码");
+        options.setBeepEnabled(false);
+        options.setCaptureActivity(PortraitCaptureActivity.class);
+        options.setOrientationLocked(true);
+        qrScanner.launch(options);
+    }
+
+    private void showProfileQr(VntConfigStore.Profile profile) {
+        try {
+            JSONObject config = profile.config();
+            String networkCode = config.getString("network_code");
+            JSONArray servers = config.getJSONArray("server");
+            int mtu = config.optInt("mtu", 1380);
+            String password = config.optString("password");
+            JSONObject payload = new JSONObject()
+                    .put("type", "vnt-network")
+                    .put("version", 1)
+                    .put("network_code", networkCode)
+                    .put("server", servers)
+                    .put("mtu", mtu)
+                    .put("password", password);
+            Bitmap bitmap = new BarcodeEncoder().encodeBitmap(
+                    payload.toString(), BarcodeFormat.QR_CODE, dp(320), dp(320));
+
+            LinearLayout content = column();
+            content.setPadding(dp(24), dp(8), dp(24), dp(16));
+            ImageView image = new ImageView(this);
+            image.setImageBitmap(bitmap);
+            image.setContentDescription("VNT 加入网络二维码");
+            image.setAdjustViewBounds(true);
+            content.addView(image, new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            content.addView(text("组网编号：" + networkCode, 13, false, textBody()), top(12));
+            content.addView(text("服务器：" + joinJsonStrings(servers), 13, false, textBody()), top(6));
+            content.addView(text("MTU：" + mtu, 13, false, textBody()), top(6));
+            content.addView(text("加密密码：" + (password.isEmpty() ? "未设置" : "已包含"),
+                    13, false, textBody()), top(6));
+            content.addView(text("二维码包含组网凭据，请仅分享给可信设备。",
+                    12, false, AMBER), top(12));
+
+            new AlertDialog.Builder(this)
+                    .setTitle("扫码加入网络")
+                    .setView(content)
+                    .setPositiveButton("关闭", null)
+                    .show();
+        } catch (Exception error) {
+            toast(error.getMessage() == null ? "二维码生成失败" : error.getMessage());
+        }
+    }
+
+    private static String joinJsonStrings(JSONArray values) throws Exception {
+        List<String> result = new ArrayList<>();
+        for (int i = 0; i < values.length(); i++) result.add(values.getString(i));
+        return String.join(", ", result);
+    }
+
+    private void handleNetworkQr(String raw) {
+        try {
+            JSONObject payload = new JSONObject(raw);
+            if (!"vnt-network".equals(payload.getString("type")) || payload.getInt("version") != 1) {
+                throw new IllegalArgumentException("不是受支持的 VNT 加入网络二维码");
+            }
+            String networkCode = payload.getString("network_code").trim();
+            JSONArray serverArray = payload.getJSONArray("server");
+            List<String> servers = new ArrayList<>();
+            for (int i = 0; i < serverArray.length(); i++) {
+                String server = serverArray.getString(i).trim();
+                if (!server.isEmpty()) servers.add(server);
+            }
+            int mtu = payload.getInt("mtu");
+            String password = payload.getString("password");
+            if (networkCode.isEmpty()) throw new IllegalArgumentException("二维码中的组网编号为空");
+            if (servers.isEmpty()) throw new IllegalArgumentException("二维码中的服务器地址为空");
+            if (mtu < 576 || mtu > 9000) throw new IllegalArgumentException("二维码中的 MTU 超出 576-9000 范围");
+
+            JoinNetwork network = new JoinNetwork(networkCode, servers, mtu, password);
+            String message = "组网编号：" + network.code() + "\n"
+                    + "服务器：" + String.join(", ", network.servers()) + "\n"
+                    + "MTU：" + network.mtu() + "\n"
+                    + "加密密码：" + (network.password().isEmpty() ? "未设置" : "已包含");
+            new AlertDialog.Builder(this)
+                    .setTitle("加入网络")
+                    .setMessage(message)
+                    .setNegativeButton("取消", null)
+                    .setPositiveButton("添加配置", (dialog, which) -> addScannedProfile(network))
+                    .show();
+        } catch (Exception error) {
+            toast(error.getMessage() == null ? "无法识别该二维码" : error.getMessage());
+        }
+    }
+
+    private void addScannedProfile(JoinNetwork network) {
+        try {
+            VntConfigStore.Profile profile = VntConfigStore.Profile.createFromQr(
+                    network.code(), network.servers(), network.mtu(), network.password(), store.deviceId());
+            store.save(profile);
+            page = Page.CONFIG;
+            render();
+            toast("已添加组网配置");
+        } catch (Exception error) {
+            toast(error.getMessage() == null ? "添加配置失败" : error.getMessage());
+        }
+    }
+
     private void requestVpn(VntConfigStore.Profile profile) {
         if ("no".equals(profile.config().optString("device_mode", "tun"))) {
             VntVpnService.start(this, profile);
@@ -1118,6 +1243,23 @@ public final class MainActivity extends AppCompatActivity {
         return button;
     }
 
+    private ImageButton imageButton(int drawable, String description) {
+        ImageButton button = new ImageButton(this);
+        button.setImageResource(drawable);
+        button.setContentDescription(description);
+        button.setPadding(dp(8), dp(8), dp(8), dp(8));
+        button.setMinimumWidth(dp(40));
+        button.setMinimumHeight(dp(40));
+        button.setBackground(round(bgInput(), 9, border(), 1));
+        return button;
+    }
+
+    private ImageButton plainImageButton(int drawable, String description) {
+        ImageButton button = imageButton(drawable, description);
+        button.setBackgroundColor(Color.TRANSPARENT);
+        return button;
+    }
+
     private TextView chip(String value, int foreground, int background) {
         TextView chip = text(value, 11, true, foreground);
         chip.setGravity(Gravity.CENTER);
@@ -1206,6 +1348,8 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void toast(String message) { Toast.makeText(this, message, Toast.LENGTH_LONG).show(); }
+
+    private record JoinNetwork(String code, List<String> servers, int mtu, String password) {}
 
     private enum Page {
         DASHBOARD("网络总览"), PEERS("在线设备"),

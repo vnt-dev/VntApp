@@ -128,6 +128,13 @@ final class VntConfigStore {
             return new Profile(UUID.randomUUID().toString(), title, config.toString());
         }
 
+        static Profile createFromQr(String code, List<String> servers, int mtu, String password,
+                                    String deviceId) throws Exception {
+            return create(code, String.join("\n", servers), code, password, deviceId, Build.MODEL,
+                    "", mtu, false, false, false, false, false, "", "", "skip", "",
+                    "", false, "", "");
+        }
+
         Profile withId(String existingId) { return new Profile(existingId, name, json); }
 
         JSONObject config() {
