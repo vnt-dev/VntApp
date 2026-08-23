@@ -18,13 +18,16 @@ import com.vnt.VntManager;
 import com.vnt.VntNetwork;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import java.lang.ref.WeakReference;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 public final class VntVpnService extends VpnService {
@@ -36,13 +39,32 @@ public final class VntVpnService extends VpnService {
     private static final String ACTIVE_PREFS = "vnt_active_connection";
 
     private static volatile VntState state = VntState.stopped();
+    private static volatile boolean uiVisible;
+    private static volatile WeakReference<VntVpnService> instance = new WeakReference<>(null);
     private ScheduledExecutorService worker;
+    private ScheduledFuture<?> refreshTask;
     private VntNetwork network;
     private VntApi api;
     private ParcelFileDescriptor vpnInterface;
     private volatile boolean cancellationRequested;
 
     static VntState state() { return state; }
+
+    static void setUiVisible(boolean visible) {
+        uiVisible = visible;
+        VntVpnService service = instance.get();
+        if (service == null || service.worker == null || service.worker.isShutdown()) return;
+        try {
+            service.worker.execute(() -> {
+                if (visible) {
+                    service.refresh();
+                    service.startRefreshing();
+                } else {
+                    service.stopRefreshing();
+                }
+            });
+        } catch (RejectedExecutionException ignored) { }
+    }
 
     static void start(Context context, VntConfigStore.Profile profile) {
         Intent intent = new Intent(context, VntVpnService.class)
@@ -59,6 +81,7 @@ public final class VntVpnService extends VpnService {
 
     @Override public void onCreate() {
         super.onCreate();
+        instance = new WeakReference<>(this);
         createNotificationChannel();
         worker = Executors.newSingleThreadScheduledExecutor();
     }
@@ -152,7 +175,7 @@ public final class VntVpnService extends VpnService {
             VntState running = readState(id, name, registration.getIp());
             publish(running);
             startForeground(NOTIFICATION_ID, notification("已连接 · " + registration.getIp(), true));
-            worker.scheduleWithFixedDelay(this::refresh, 3, 3, TimeUnit.SECONDS);
+            startRefreshing();
         } catch (Throwable error) {
             if (cancellationRequested) { shutdown(); return; }
             cleanupNative();
@@ -167,9 +190,22 @@ public final class VntVpnService extends VpnService {
 
     private void refresh() {
         VntState current = state;
-        if (current.status != VntState.Status.RUNNING || api == null) return;
+        if (!uiVisible || current.status != VntState.Status.RUNNING || api == null) return;
         try { publish(readState(current.profileId, current.profileName, current.ip)); }
         catch (Throwable ignored) { }
+    }
+
+    private void startRefreshing() {
+        if (!uiVisible || api == null || state.status != VntState.Status.RUNNING) return;
+        if (refreshTask == null || refreshTask.isCancelled() || refreshTask.isDone()) {
+            refreshTask = worker.scheduleWithFixedDelay(this::refresh, 3, 3, TimeUnit.SECONDS);
+        }
+    }
+
+    private void stopRefreshing() {
+        if (refreshTask == null) return;
+        refreshTask.cancel(false);
+        refreshTask = null;
     }
 
     private VntState readState(String id, String name, String ip) throws Exception {
@@ -191,6 +227,7 @@ public final class VntVpnService extends VpnService {
     }
 
     private void cleanupNative() {
+        stopRefreshing();
         api = null;
         if (network != null) {
             try { network.stop(); } catch (Throwable ignored) { }
@@ -266,6 +303,7 @@ public final class VntVpnService extends VpnService {
 
     @Override public void onDestroy() {
         cleanupNative();
+        if (instance.get() == this) instance.clear();
         if (worker != null) worker.shutdownNow();
         super.onDestroy();
     }

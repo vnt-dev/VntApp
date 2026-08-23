@@ -76,6 +76,7 @@ public final class MainActivity extends AppCompatActivity {
     private VntConfigStore.Profile pendingProfile;
     private Page page = Page.DASHBOARD;
     private boolean dark;
+    private boolean stateReceiverRegistered;
     private final ExecutorService updateExecutor = Executors.newSingleThreadExecutor();
 
     private final ActivityResultLauncher<Intent> vpnPermission = registerForActivityResult(
@@ -93,7 +94,9 @@ public final class MainActivity extends AppCompatActivity {
             new ActivityResultContracts.RequestPermission(), granted -> { });
 
     private final BroadcastReceiver stateReceiver = new BroadcastReceiver() {
-        @Override public void onReceive(Context context, Intent intent) { render(); }
+        @Override public void onReceive(Context context, Intent intent) {
+            render(page != Page.ABOUT);
+        }
     };
 
     @Override protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -102,16 +105,32 @@ public final class MainActivity extends AppCompatActivity {
         dark = getPreferences(MODE_PRIVATE).getBoolean("dark", false);
         AppCompatDelegate.setDefaultNightMode(dark ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO);
         buildShell();
-        ContextCompat.registerReceiver(this, stateReceiver, new IntentFilter(VntVpnService.ACTION_STATE),
-                ContextCompat.RECEIVER_NOT_EXPORTED);
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS);
         }
+    }
+
+    @Override protected void onStart() {
+        super.onStart();
+        if (!stateReceiverRegistered) {
+            ContextCompat.registerReceiver(this, stateReceiver, new IntentFilter(VntVpnService.ACTION_STATE),
+                    ContextCompat.RECEIVER_NOT_EXPORTED);
+            stateReceiverRegistered = true;
+        }
+        VntVpnService.setUiVisible(true);
         render();
     }
 
+    @Override protected void onStop() {
+        VntVpnService.setUiVisible(false);
+        if (stateReceiverRegistered) {
+            unregisterReceiver(stateReceiver);
+            stateReceiverRegistered = false;
+        }
+        super.onStop();
+    }
+
     @Override protected void onDestroy() {
-        try { unregisterReceiver(stateReceiver); } catch (Exception ignored) { }
         updateExecutor.shutdownNow();
         super.onDestroy();
     }
@@ -284,11 +303,13 @@ public final class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void render() {
+    private void render() { render(true); }
+
+    private void render(boolean rebuildPage) {
         VntState current = VntVpnService.state();
         title.setText(page.title);
         String statusText = switch (current.status) {
-            case RUNNING -> "● 1 个实例运行中";
+            case RUNNING -> "● " + (current.ip == null || current.ip.isEmpty() ? "获取中" : current.ip);
             case STARTING -> "● 正在启动";
             case STOPPING -> "● 正在停止";
             case ERROR -> "● 连接失败";
@@ -299,6 +320,7 @@ public final class MainActivity extends AppCompatActivity {
                 current.status == VntState.Status.ERROR ? RED :
                         current.status == VntState.Status.STARTING || current.status == VntState.Status.STOPPING ? AMBER : textMuted());
         updateSidebar(current);
+        if (!rebuildPage) return;
         pageHost.removeAllViews();
         switch (page) {
             case DASHBOARD -> dashboard(current);
@@ -533,25 +555,48 @@ public final class MainActivity extends AppCompatActivity {
         pageHost.addView(action);
         List<VntConfigStore.Profile> profiles = store.all();
         if (profiles.isEmpty()) { empty("暂无配置，请新建一个组网配置"); return; }
+        boolean sessionActive = isSessionActive(current.status);
         for (VntConfigStore.Profile profile : profiles) {
             JSONObject config = profile.config();
             LinearLayout card = card();
             LinearLayout head = row();
             head.setGravity(Gravity.CENTER_VERTICAL);
             head.addView(text(profile.name, 16, true, textStrong()), weighted());
-            if (profile.id.equals(current.profileId)) head.addView(chip("运行中", GREEN, colorWithAlpha(GREEN, 25)));
+            boolean activeProfile = sessionActive && profile.id.equals(current.profileId);
+            if (activeProfile) {
+                int stateColor = current.status == VntState.Status.RUNNING ? GREEN : AMBER;
+                head.addView(chip(statusLabel(current.status), stateColor,
+                        colorWithAlpha(stateColor, 25)));
+            }
             card.addView(head);
             card.addView(labelValue("网络编号", config.optString("network_code", "-"), INDIGO), top(10));
             JSONArray servers = config.optJSONArray("server");
             card.addView(labelValue("服务器", servers == null ? "-" : servers.optString(0), textBody()), top(7));
             LinearLayout buttons = row();
+            Button connection;
+            if (activeProfile) {
+                connection = current.status == VntState.Status.STOPPING
+                        ? ghost("停止中")
+                        : danger(current.status == VntState.Status.STARTING ? "取消启动" : "停止");
+                connection.setEnabled(current.status != VntState.Status.STOPPING);
+                if (connection.isEnabled()) connection.setOnClickListener(v -> confirmStop());
+            } else {
+                connection = primary("启动");
+                connection.setEnabled(!sessionActive);
+                if (sessionActive) {
+                    connection.setTextColor(textMuted());
+                    connection.setBackground(round(bgInput(), 9, border(), 1));
+                } else {
+                    connection.setOnClickListener(v -> requestVpn(profile));
+                }
+            }
+            buttons.addView(connection, end(8));
             Button edit = ghost("编辑");
             edit.setOnClickListener(v -> editProfile(profile));
             buttons.addView(edit, end(8));
             Button delete = ghost("删除");
-            boolean runningProfile = profile.id.equals(current.profileId);
-            delete.setEnabled(!runningProfile);
-            delete.setTextColor(runningProfile ? textMuted() : RED);
+            delete.setEnabled(!activeProfile);
+            delete.setTextColor(activeProfile ? textMuted() : RED);
             delete.setOnClickListener(v -> new AlertDialog.Builder(this).setTitle("删除配置")
                     .setMessage("确定要删除 “" + profile.name + "” 吗？")
                     .setNegativeButton("取消", null).setPositiveButton("删除", (d, w) -> { store.delete(profile.id); render(); }).show());
@@ -1103,6 +1148,11 @@ public final class MainActivity extends AppCompatActivity {
             case ERROR -> "连接失败";
             default -> "已停止";
         };
+    }
+
+    private static boolean isSessionActive(VntState.Status status) {
+        return status == VntState.Status.STARTING || status == VntState.Status.RUNNING
+                || status == VntState.Status.STOPPING;
     }
 
     private static String bytes(long value) {
