@@ -80,7 +80,8 @@ final class VntConfigStore {
 
         static Profile create(String name, String server, String code, String password,
                               String deviceId, String deviceName, String ip, int mtu, boolean compress,
-                              boolean rtx, boolean fec, boolean noPunch, boolean noTun,
+                              boolean rtx, boolean fec, boolean noPunch, boolean noBroadcast,
+                              boolean noTun, String peerAddress, String turn,
                               String outputRoutes, String inputRoutes, String certMode,
                               String tunnelPort, String portMapping, boolean allowMapping,
                               String udpStun, String tcpStun) throws Exception {
@@ -100,6 +101,7 @@ final class VntConfigStore {
             config.put("rtx", rtx);
             config.put("fec", fec);
             config.put("no_punch", noPunch);
+            config.put("no_broadcast", noBroadcast);
             config.put("device_mode", noTun ? "no" : "tun");
             config.put("no_nat", false);
             config.put("allow_mapping", allowMapping);
@@ -115,6 +117,12 @@ final class VntConfigStore {
             JSONArray output = new JSONArray();
             for (String value : outputRoutes.split("[\\n,]")) if (!value.trim().isEmpty()) output.put(value.trim());
             config.put("output", output);
+            JSONArray peerAddresses = new JSONArray();
+            for (String value : peerAddress.split("[\\n,]")) if (!value.trim().isEmpty()) peerAddresses.put(value.trim());
+            config.put("peer_address", peerAddresses);
+            JSONArray turns = new JSONArray();
+            for (String value : turn.split("[\\n]")) if (!value.trim().isEmpty()) turns.put(value.trim());
+            config.put("turn", turns);
             JSONArray mappings = new JSONArray();
             for (String value : portMapping.split("[\\n]")) if (!value.trim().isEmpty()) mappings.put(value.trim());
             config.put("port_mapping", mappings);
@@ -131,7 +139,7 @@ final class VntConfigStore {
         static Profile createFromQr(String code, List<String> servers, int mtu, String password,
                                     String deviceId) throws Exception {
             return create(code, String.join("\n", servers), code, password, deviceId, Build.MODEL,
-                    "", mtu, false, false, false, false, false, "", "", "skip", "",
+                    "", mtu, false, false, false, false, false, false, "", "", "", "", "skip", "",
                     "", false, "", "");
         }
 

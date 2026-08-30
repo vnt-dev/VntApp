@@ -825,6 +825,14 @@ public final class MainActivity extends AppCompatActivity {
         CheckBox fec = toggle(form, "FEC 前向纠错", "损失部分带宽提升稳定性", config.optBoolean("fec"));
         CheckBox compress = toggle(form, "LZ4 压缩", "减少传输数据量", config.optBoolean("compress"));
         CheckBox noPunch = toggle(form, "关闭 P2P 打洞", "仅通过服务器中转", config.optBoolean("no_punch"));
+        CheckBox noBroadcast = toggle(form, "关闭 IPv4 广播和组播", "停止转发本机发出的 IPv4 广播和组播",
+                config.optBoolean("no_broadcast"));
+
+        sectionHeader(form, "直连与中转（高级）");
+        ListInput peerAddresses = new ListInput(form, "对端地址（端口填写对端隧道端口）",
+                "例如：1.2.3.4:29872", "＋ 添加对端地址", toList(config.optJSONArray("peer_address")));
+        ListInput turns = new ListInput(form, "优先中转规则（目标 IP/CIDR,中转虚拟 IP）",
+                "例如：10.26.0.0/24,10.26.0.2", "＋ 添加中转规则", toList(config.optJSONArray("turn")));
 
         sectionHeader(form, "安全配置");
         EditText password = field(form, "组网加密密码", config.optString("password"), true, "留空则不加密，同一组网密码需相同");
@@ -899,8 +907,8 @@ public final class MainActivity extends AppCompatActivity {
                 }
                 VntConfigStore.Profile profile = VntConfigStore.Profile.create(name.getText().toString(), servers.joined(),
                         code.getText().toString(), password.getText().toString(), deviceId.getText().toString(), device.getText().toString(), ip.getText().toString(),
-                        mtuValue, compress.isChecked(), rtx.isChecked(), fec.isChecked(), noPunch.isChecked(), noTun.isChecked(), outputRoutes.joined(),
-                        inputRoutes.joined(), certValue, tunnelPort.getText().toString(),
+                        mtuValue, compress.isChecked(), rtx.isChecked(), fec.isChecked(), noPunch.isChecked(), noBroadcast.isChecked(),
+                        noTun.isChecked(), peerAddresses.joined(), turns.joined(), outputRoutes.joined(), inputRoutes.joined(), certValue, tunnelPort.getText().toString(),
                         portMappings.joined(), allowMapping.isChecked(), udpStuns.joined(), tcpStuns.joined());
                 if (existing != null) profile = profile.withId(existing.id);
                 store.save(profile);
