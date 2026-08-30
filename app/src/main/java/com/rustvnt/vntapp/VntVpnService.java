@@ -49,6 +49,9 @@ public final class VntVpnService extends VpnService {
     private VntNetwork network;
     private VntApi api;
     private ParcelFileDescriptor vpnInterface;
+    private final IpUpdateQueue ipUpdates = new IpUpdateQueue();
+    private String activeProfileName;
+    private String activeConfigJson;
     private final Map<String, VntApi.Traffic> trafficSamples = new HashMap<>();
     private long trafficSampleTime;
     private volatile boolean cancellationRequested;
@@ -126,47 +129,20 @@ public final class VntVpnService extends VpnService {
 
     private void connect(String id, String name, String json) {
         cleanupNative();
+        ipUpdates.reset();
+        activeProfileName = name;
+        activeConfigJson = json;
         publish(new VntState(VntState.Status.STARTING, id, name, null,
                 "正在连接服务器并注册网络…", null, null, null, null, null));
         try {
             if (!VntManager.init()) throw new IllegalStateException("Rust 核心初始化失败");
-            network = VntManager.createNetwork(json);
+            network = VntManager.createNetwork(json, this::onIpUpdate);
             if (network == null) throw new IllegalStateException("Rust 核心无法创建网络实例");
             RegisterResult registration = network.register();
             if (cancellationRequested) { shutdown(); return; }
 
             if (!network.isNoTun()) {
-                JSONObject config = new JSONObject(json);
-                int mtu = Math.max(576, Math.min(9000, config.optInt("mtu", 1380)));
-                Builder builder = new Builder()
-                        .setSession("VNT · " + name)
-                        .setMtu(mtu)
-                        .addAddress(registration.getIp(), registration.getPrefixLen());
-                // Native control/P2P sockets run under this UID and must bypass the VPN route.
-                builder.addDisallowedApplication(getPackageName());
-                addRoute(builder, networkAddress(registration.getIp(), registration.getPrefixLen()), registration.getPrefixLen());
-                JSONArray output = config.optJSONArray("output");
-                Set<String> seen = new HashSet<>();
-                seen.add(networkAddress(registration.getIp(), registration.getPrefixLen()) + "/" + registration.getPrefixLen());
-                if (output != null) {
-                    for (int i = 0; i < output.length(); i++) {
-                        String cidr = output.optString(i).trim();
-                        if (cidr.isEmpty() || !seen.add(cidr)) continue;
-                        String[] parts = cidr.split("/");
-                        if (parts.length == 2) addRoute(builder, parts[0], Integer.parseInt(parts[1]));
-                    }
-                }
-                // 入栈网段格式为 "网段,目标IP"，需要把网段本身捕获进 VPN 接口，核心才能转发到目标节点
-                JSONArray input = config.optJSONArray("input");
-                if (input != null) {
-                    for (int i = 0; i < input.length(); i++) {
-                        String cidr = input.optString(i).split(",")[0].trim();
-                        if (cidr.isEmpty() || !seen.add(cidr)) continue;
-                        String[] parts = cidr.split("/");
-                        if (parts.length == 2) addRoute(builder, parts[0], Integer.parseInt(parts[1]));
-                    }
-                }
-                vpnInterface = builder.establish();
+                vpnInterface = establishVpn(name, json, registration.getIp(), registration.getPrefixLen());
                 if (vpnInterface == null) throw new IllegalStateException("Android 未能建立 VPN 接口");
                 // Transfer fd ownership to tun-rs. Keeping a Java owner as well would
                 // allow both runtimes to close the same descriptor during shutdown.
@@ -198,6 +174,101 @@ public final class VntVpnService extends VpnService {
         if (!uiVisible || current.status != VntState.Status.RUNNING || api == null) return;
         try { publish(readState(current.profileId, current.profileName, current.ip)); }
         catch (Throwable ignored) { }
+    }
+
+    private ParcelFileDescriptor establishVpn(String name, String json, String ip, int prefixLen) throws Exception {
+        JSONObject config = new JSONObject(json);
+        int mtu = Math.max(576, Math.min(9000, config.optInt("mtu", 1380)));
+        Builder builder = new Builder()
+                .setSession("VNT · " + name)
+                .setMtu(mtu)
+                .addAddress(ip, prefixLen);
+        builder.addDisallowedApplication(getPackageName());
+        String primaryRoute = networkAddress(ip, prefixLen) + "/" + prefixLen;
+        addRoute(builder, networkAddress(ip, prefixLen), prefixLen);
+        Set<String> seen = new HashSet<>();
+        seen.add(primaryRoute);
+        JSONArray output = config.optJSONArray("output");
+        if (output != null) {
+            for (int i = 0; i < output.length(); i++) {
+                String cidr = output.optString(i).trim();
+                if (cidr.isEmpty() || !seen.add(cidr)) continue;
+                String[] parts = cidr.split("/");
+                if (parts.length == 2) addRoute(builder, parts[0], Integer.parseInt(parts[1]));
+            }
+        }
+        JSONArray input = config.optJSONArray("input");
+        if (input != null) {
+            for (int i = 0; i < input.length(); i++) {
+                String cidr = input.optString(i).split(",")[0].trim();
+                if (cidr.isEmpty() || !seen.add(cidr)) continue;
+                String[] parts = cidr.split("/");
+                if (parts.length == 2) addRoute(builder, parts[0], Integer.parseInt(parts[1]));
+            }
+        }
+        return builder.establish();
+    }
+
+    private void onIpUpdate(long requestId, String ip, int prefixLen) {
+        if (cancellationRequested || worker == null || worker.isShutdown()) return;
+        if (!ipUpdates.offer(new IpUpdateQueue.Request(requestId, ip, prefixLen))) return;
+        try {
+            worker.execute(this::drainIpUpdates);
+        } catch (RejectedExecutionException ignored) { }
+    }
+
+    private void drainIpUpdates() {
+        IpUpdateQueue.Request request;
+        while (!cancellationRequested && (request = ipUpdates.take()) != null) {
+            try {
+                applyIpUpdate(request);
+            } catch (Throwable error) {
+                failIpUpdate(error);
+                return;
+            }
+        }
+    }
+
+    private void applyIpUpdate(IpUpdateQueue.Request request) throws Exception {
+        VntNetwork activeNetwork = network;
+        if (activeNetwork == null || state.status != VntState.Status.RUNNING) return;
+
+        IpUpdateSequence.run(activeNetwork.isNoTun(), new IpUpdateSequence.Operations() {
+            @Override public void prepare() throws Exception {
+                // 返回前 Rust 已停止读写任务并关闭旧 fd；之后才能建立新 VPN。
+                activeNetwork.prepareIpUpdate(request.requestId(), request.ip());
+            }
+
+            @Override public int establish() throws Exception {
+                ParcelFileDescriptor replacement = establishVpn(
+                        activeProfileName, activeConfigJson, request.ip(), request.prefixLen());
+                if (replacement == null) {
+                    throw new IllegalStateException("Android 未能建立新的 VPN 接口");
+                }
+                return replacement.detachFd();
+            }
+
+            @Override public void complete(int tunFd) throws Exception {
+                activeNetwork.completeIpUpdate(request.requestId(), request.ip(), tunFd);
+            }
+        });
+
+        VntState running = readState(state.profileId, state.profileName, request.ip());
+        publish(running);
+        startForeground(NOTIFICATION_ID, notification("已连接 · " + request.ip(), true));
+    }
+
+    private void failIpUpdate(Throwable error) {
+        cancellationRequested = true;
+        ipUpdates.close();
+        String profileId = state.profileId;
+        String profileName = state.profileName;
+        cleanupNative();
+        clearActiveConnection();
+        publish(new VntState(VntState.Status.ERROR, profileId, profileName, null,
+                "更新虚拟 IP 失败：" + rootMessage(error), null, null, null, null, null));
+        stopForeground(STOP_FOREGROUND_REMOVE);
+        stopSelf();
     }
 
     private void startRefreshing() {
@@ -273,6 +344,7 @@ public final class VntVpnService extends VpnService {
     }
 
     private void cleanupNative() {
+        ipUpdates.close();
         stopRefreshing();
         api = null;
         if (network != null) {
@@ -284,6 +356,8 @@ public final class VntVpnService extends VpnService {
             vpnInterface = null;
         }
         try { VntManager.destroy(); } catch (Throwable ignored) { }
+        activeProfileName = null;
+        activeConfigJson = null;
     }
 
     private void publish(VntState next) {

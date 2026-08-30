@@ -10,11 +10,15 @@ public final class VntManager {
 
     /** Passes the persisted JSON configuration to the Rust core without translation. */
     public static VntNetwork createNetwork(String configJson) {
-        long handle = nativeCreateNetwork(configJson);
+        return createNetwork(configJson, null);
+    }
+
+    public static VntNetwork createNetwork(String configJson, VntNetwork.IpUpdateListener listener) {
+        long handle = nativeCreateNetwork(configJson, listener);
         return handle < 0 ? null : new VntNetwork(handle);
     }
 
     private static native boolean nativeInit();
     private static native void nativeDestroy();
-    private static native long nativeCreateNetwork(String configJson);
+    private static native long nativeCreateNetwork(String configJson, VntNetwork.IpUpdateListener listener);
 }
