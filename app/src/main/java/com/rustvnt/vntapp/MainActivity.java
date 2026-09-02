@@ -869,6 +869,8 @@ public final class MainActivity extends AppCompatActivity {
                 "例如：192.168.0.0/24,10.26.0.2", "＋ 添加入栈网段", toList(config.optJSONArray("input")));
         ListInput outputRoutes = new ListInput(form, "出栈网段（允许转发的网段）",
                 "例如：0.0.0.0/0", "＋ 添加出栈网段", toList(config.optJSONArray("output")));
+        CheckBox autoSyncSubnet = toggle(form, "自动同步节点子网", "自动应用其他在线节点的出口网段",
+                config.optBoolean("auto_sync_subnet", false));
         CheckBox noTun = toggle(form, "关闭 TUN 网卡", "仅作流量出口或端口映射",
                 "no".equals(config.optString("device_mode", "tun")));
 
@@ -908,7 +910,8 @@ public final class MainActivity extends AppCompatActivity {
                 VntConfigStore.Profile profile = VntConfigStore.Profile.create(name.getText().toString(), servers.joined(),
                         code.getText().toString(), password.getText().toString(), deviceId.getText().toString(), device.getText().toString(), ip.getText().toString(),
                         mtuValue, compress.isChecked(), rtx.isChecked(), fec.isChecked(), noPunch.isChecked(), noBroadcast.isChecked(),
-                        noTun.isChecked(), peerAddresses.joined(), turns.joined(), outputRoutes.joined(), inputRoutes.joined(), certValue, tunnelPort.getText().toString(),
+                        noTun.isChecked(), peerAddresses.joined(), turns.joined(), outputRoutes.joined(), inputRoutes.joined(),
+                        autoSyncSubnet.isChecked(), certValue, tunnelPort.getText().toString(),
                         portMappings.joined(), allowMapping.isChecked(), udpStuns.joined(), tcpStuns.joined());
                 if (existing != null) profile = profile.withId(existing.id);
                 store.save(profile);

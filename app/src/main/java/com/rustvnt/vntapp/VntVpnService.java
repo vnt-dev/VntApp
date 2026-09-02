@@ -20,10 +20,9 @@ import com.vnt.VntNetwork;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.lang.ref.WeakReference;
-import java.net.InetAddress;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -50,8 +49,13 @@ public final class VntVpnService extends VpnService {
     private VntApi api;
     private ParcelFileDescriptor vpnInterface;
     private final IpUpdateQueue ipUpdates = new IpUpdateQueue();
+    private final SubnetRouteUpdateQueue subnetRouteUpdates = new SubnetRouteUpdateQueue();
     private String activeProfileName;
     private String activeConfigJson;
+    private String activeIp;
+    private int activePrefixLen;
+    private List<String> activeSubnetRoutes = Collections.emptyList();
+    private Set<String> appliedSubnetRouteCidrs = Collections.emptySet();
     private final Map<String, VntApi.Traffic> trafficSamples = new HashMap<>();
     private long trafficSampleTime;
     private volatile boolean cancellationRequested;
@@ -130,16 +134,32 @@ public final class VntVpnService extends VpnService {
     private void connect(String id, String name, String json) {
         cleanupNative();
         ipUpdates.reset();
+        subnetRouteUpdates.reset();
         activeProfileName = name;
         activeConfigJson = json;
+        try {
+            activeSubnetRoutes = arrayStrings(new JSONObject(json).optJSONArray("input"));
+        } catch (Exception ignored) {
+            activeSubnetRoutes = Collections.emptyList();
+        }
         publish(new VntState(VntState.Status.STARTING, id, name, null,
                 "正在连接服务器并注册网络…", null, null, null, null, null));
         try {
             if (!VntManager.init()) throw new IllegalStateException("Rust 核心初始化失败");
-            network = VntManager.createNetwork(json, this::onIpUpdate);
+            network = VntManager.createNetwork(json, new VntNetwork.IpUpdateListener() {
+                @Override public void onIpUpdate(long requestId, String ip, int prefixLen) {
+                    VntVpnService.this.onIpUpdate(requestId, ip, prefixLen);
+                }
+
+                @Override public void onSubnetRoutesChanged(String routesJson) {
+                    VntVpnService.this.onSubnetRoutesChanged(routesJson);
+                }
+            });
             if (network == null) throw new IllegalStateException("Rust 核心无法创建网络实例");
             RegisterResult registration = network.register();
             if (cancellationRequested) { shutdown(); return; }
+            activeIp = registration.getIp();
+            activePrefixLen = registration.getPrefixLen();
 
             if (!network.isNoTun()) {
                 vpnInterface = establishVpn(name, json, registration.getIp(), registration.getPrefixLen());
@@ -149,6 +169,7 @@ public final class VntVpnService extends VpnService {
                 int tunFd = vpnInterface.detachFd();
                 vpnInterface = null;
                 network.startTun(tunFd);
+                appliedSubnetRouteCidrs = VpnRouteSet.cidrs(activeSubnetRoutes);
             }
 
             api = network.getApi();
@@ -184,27 +205,10 @@ public final class VntVpnService extends VpnService {
                 .setMtu(mtu)
                 .addAddress(ip, prefixLen);
         builder.addDisallowedApplication(getPackageName());
-        String primaryRoute = networkAddress(ip, prefixLen) + "/" + prefixLen;
-        addRoute(builder, networkAddress(ip, prefixLen), prefixLen);
-        Set<String> seen = new HashSet<>();
-        seen.add(primaryRoute);
-        JSONArray output = config.optJSONArray("output");
-        if (output != null) {
-            for (int i = 0; i < output.length(); i++) {
-                String cidr = output.optString(i).trim();
-                if (cidr.isEmpty() || !seen.add(cidr)) continue;
-                String[] parts = cidr.split("/");
-                if (parts.length == 2) addRoute(builder, parts[0], Integer.parseInt(parts[1]));
-            }
-        }
-        JSONArray input = config.optJSONArray("input");
-        if (input != null) {
-            for (int i = 0; i < input.length(); i++) {
-                String cidr = input.optString(i).split(",")[0].trim();
-                if (cidr.isEmpty() || !seen.add(cidr)) continue;
-                String[] parts = cidr.split("/");
-                if (parts.length == 2) addRoute(builder, parts[0], Integer.parseInt(parts[1]));
-            }
+        for (VpnRouteSet.Route route : VpnRouteSet.build(ip, prefixLen,
+                arrayStrings(config.optJSONArray("output")),
+                arrayStrings(config.optJSONArray("input")), activeSubnetRoutes)) {
+            addRoute(builder, route.address(), route.prefix());
         }
         return builder.establish();
     }
@@ -214,6 +218,14 @@ public final class VntVpnService extends VpnService {
         if (!ipUpdates.offer(new IpUpdateQueue.Request(requestId, ip, prefixLen))) return;
         try {
             worker.execute(this::drainIpUpdates);
+        } catch (RejectedExecutionException ignored) { }
+    }
+
+    private void onSubnetRoutesChanged(String routesJson) {
+        if (cancellationRequested || worker == null || worker.isShutdown()) return;
+        if (!subnetRouteUpdates.offer(routesJson)) return;
+        try {
+            worker.execute(this::drainSubnetRouteUpdates);
         } catch (RejectedExecutionException ignored) { }
     }
 
@@ -254,8 +266,66 @@ public final class VntVpnService extends VpnService {
         });
 
         VntState running = readState(state.profileId, state.profileName, request.ip());
+        activeIp = request.ip();
+        activePrefixLen = request.prefixLen();
+        appliedSubnetRouteCidrs = VpnRouteSet.cidrs(activeSubnetRoutes);
         publish(running);
         startForeground(NOTIFICATION_ID, notification("已连接 · " + request.ip(), true));
+    }
+
+    private void drainSubnetRouteUpdates() {
+        String routesJson;
+        while (!cancellationRequested && (routesJson = subnetRouteUpdates.take()) != null) {
+            try {
+                applySubnetRouteUpdate(routesJson);
+            } catch (Throwable error) {
+                failSubnetRouteUpdate(error);
+                return;
+            }
+        }
+    }
+
+    private void applySubnetRouteUpdate(String routesJson) throws Exception {
+        VntNetwork activeNetwork = network;
+        if (activeNetwork == null || state.status != VntState.Status.RUNNING) return;
+
+        List<String> routes = arrayStrings(new JSONArray(routesJson));
+        Set<String> desiredCidrs = VpnRouteSet.cidrs(routes);
+        activeSubnetRoutes = Collections.unmodifiableList(new ArrayList<>(routes));
+        if (activeNetwork.isNoTun() || desiredCidrs.equals(appliedSubnetRouteCidrs)) return;
+
+        RouteUpdateSequence.run(new RouteUpdateSequence.Operations() {
+            @Override public void prepare() throws Exception {
+                activeNetwork.prepareRouteUpdate();
+            }
+
+            @Override public int establish() throws Exception {
+                ParcelFileDescriptor replacement = establishVpn(
+                        activeProfileName, activeConfigJson, activeIp, activePrefixLen);
+                if (replacement == null) {
+                    throw new IllegalStateException("Android 未能建立包含同步路由的新 VPN 接口");
+                }
+                return replacement.detachFd();
+            }
+
+            @Override public void complete(int tunFd) throws Exception {
+                activeNetwork.completeRouteUpdate(tunFd);
+            }
+        });
+        appliedSubnetRouteCidrs = desiredCidrs;
+    }
+
+    private void failSubnetRouteUpdate(Throwable error) {
+        cancellationRequested = true;
+        subnetRouteUpdates.close();
+        String profileId = state.profileId;
+        String profileName = state.profileName;
+        cleanupNative();
+        clearActiveConnection();
+        publish(new VntState(VntState.Status.ERROR, profileId, profileName, null,
+                "更新自动同步路由失败：" + rootMessage(error), null, null, null, null, null));
+        stopForeground(STOP_FOREGROUND_REMOVE);
+        stopSelf();
     }
 
     private void failIpUpdate(Throwable error) {
@@ -345,6 +415,7 @@ public final class VntVpnService extends VpnService {
 
     private void cleanupNative() {
         ipUpdates.close();
+        subnetRouteUpdates.close();
         stopRefreshing();
         api = null;
         if (network != null) {
@@ -358,6 +429,10 @@ public final class VntVpnService extends VpnService {
         try { VntManager.destroy(); } catch (Throwable ignored) { }
         activeProfileName = null;
         activeConfigJson = null;
+        activeIp = null;
+        activePrefixLen = 0;
+        activeSubnetRoutes = Collections.emptyList();
+        appliedSubnetRouteCidrs = Collections.emptySet();
     }
 
     private void publish(VntState next) {
@@ -402,14 +477,14 @@ public final class VntVpnService extends VpnService {
         builder.addRoute(address, prefix);
     }
 
-    private static String networkAddress(String ip, int prefix) throws Exception {
-        byte[] bytes = InetAddress.getByName(ip).getAddress();
-        int value = ((bytes[0] & 255) << 24) | ((bytes[1] & 255) << 16) |
-                ((bytes[2] & 255) << 8) | (bytes[3] & 255);
-        int mask = prefix == 0 ? 0 : -1 << (32 - prefix);
-        int network = value & mask;
-        return ((network >>> 24) & 255) + "." + ((network >>> 16) & 255) + "." +
-                ((network >>> 8) & 255) + "." + (network & 255);
+    private static List<String> arrayStrings(JSONArray array) {
+        if (array == null) return Collections.emptyList();
+        List<String> result = new ArrayList<>(array.length());
+        for (int i = 0; i < array.length(); i++) {
+            String value = array.optString(i).trim();
+            if (!value.isEmpty()) result.add(value);
+        }
+        return result;
     }
 
     private static String rootMessage(Throwable error) {

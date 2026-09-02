@@ -3,6 +3,8 @@ package com.vnt;
 public final class VntNetwork {
     public interface IpUpdateListener {
         void onIpUpdate(long requestId, String ip, int prefixLen);
+
+        default void onSubnetRoutesChanged(String routesJson) { }
     }
 
     private final long nativeHandle;
@@ -35,6 +37,21 @@ public final class VntNetwork {
         }
     }
 
+    public synchronized void prepareRouteUpdate() throws VntException {
+        checkOpen();
+        if (!nativePrepareRouteUpdate(nativeHandle)) {
+            throw new VntException("Rust 核心无法暂停旧 TUN");
+        }
+    }
+
+    /** Native always takes ownership of the fd, including failure paths. */
+    public synchronized void completeRouteUpdate(int fd) throws VntException {
+        checkOpen();
+        if (!nativeCompleteRouteUpdate(nativeHandle, fd)) {
+            throw new VntException("Rust 核心无法应用新的 VPN 路由");
+        }
+    }
+
     public synchronized VntApi getApi() throws VntException {
         checkOpen();
         long apiHandle = nativeGetApi(nativeHandle);
@@ -59,6 +76,8 @@ public final class VntNetwork {
     private static native boolean nativeStartTun(long handle, int tunFd);
     private static native boolean nativePrepareIpUpdate(long handle, long requestId, String ip);
     private static native boolean nativeCompleteIpUpdate(long handle, long requestId, String ip, int tunFd);
+    private static native boolean nativePrepareRouteUpdate(long handle);
+    private static native boolean nativeCompleteRouteUpdate(long handle, int tunFd);
     private static native long nativeGetApi(long handle);
     private static native boolean nativeIsNoTun(long handle);
     private static native boolean nativeStop(long handle);
