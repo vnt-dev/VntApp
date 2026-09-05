@@ -52,6 +52,7 @@ public final class VntVpnService extends VpnService {
     private final SubnetRouteUpdateQueue subnetRouteUpdates = new SubnetRouteUpdateQueue();
     private String activeProfileName;
     private String activeConfigJson;
+    private boolean activeAllowIkev2;
     private String activeIp;
     private int activePrefixLen;
     private List<String> activeSubnetRoutes = Collections.emptyList();
@@ -114,7 +115,8 @@ public final class VntVpnService extends VpnService {
         if (ACTION_STOP.equals(action)) {
             cancellationRequested = true;
             publish(new VntState(VntState.Status.STOPPING, state.profileId, state.profileName,
-                    state.ip, "正在停止，请稍候…", null, null, null, null, null));
+                    state.ip, "正在停止，请稍候…", state.allowIkev2,
+                    null, null, null, null, null));
             worker.execute(this::shutdown);
             return START_NOT_STICKY;
         }
@@ -138,12 +140,16 @@ public final class VntVpnService extends VpnService {
         activeProfileName = name;
         activeConfigJson = json;
         try {
-            activeSubnetRoutes = arrayStrings(new JSONObject(json).optJSONArray("input"));
+            JSONObject config = new JSONObject(json);
+            activeSubnetRoutes = arrayStrings(config.optJSONArray("input"));
+            activeAllowIkev2 = config.optBoolean("allow_ikev2", false);
         } catch (Exception ignored) {
             activeSubnetRoutes = Collections.emptyList();
+            activeAllowIkev2 = false;
         }
         publish(new VntState(VntState.Status.STARTING, id, name, null,
-                "正在连接服务器并注册网络…", null, null, null, null, null));
+                "正在连接服务器并注册网络…", activeAllowIkev2,
+                null, null, null, null, null));
         try {
             if (!VntManager.init()) throw new IllegalStateException("Rust 核心初始化失败");
             network = VntManager.createNetwork(json, new VntNetwork.IpUpdateListener() {
@@ -184,7 +190,8 @@ public final class VntVpnService extends VpnService {
             clearActiveConnection();
             String message = rootMessage(error);
             publish(new VntState(VntState.Status.ERROR, id, name, null,
-                    "连接失败：" + message, null, null, null, null, null));
+                    "连接失败：" + message, activeAllowIkev2,
+                    null, null, null, null, null));
             stopForeground(STOP_FOREGROUND_REMOVE);
             stopSelf();
         }
@@ -323,7 +330,8 @@ public final class VntVpnService extends VpnService {
         cleanupNative();
         clearActiveConnection();
         publish(new VntState(VntState.Status.ERROR, profileId, profileName, null,
-                "更新自动同步路由失败：" + rootMessage(error), null, null, null, null, null));
+                "更新自动同步路由失败：" + rootMessage(error), activeAllowIkev2,
+                null, null, null, null, null));
         stopForeground(STOP_FOREGROUND_REMOVE);
         stopSelf();
     }
@@ -336,7 +344,8 @@ public final class VntVpnService extends VpnService {
         cleanupNative();
         clearActiveConnection();
         publish(new VntState(VntState.Status.ERROR, profileId, profileName, null,
-                "更新虚拟 IP 失败：" + rootMessage(error), null, null, null, null, null));
+                "更新虚拟 IP 失败：" + rootMessage(error), activeAllowIkev2,
+                null, null, null, null, null));
         stopForeground(STOP_FOREGROUND_REMOVE);
         stopSelf();
     }
@@ -363,7 +372,7 @@ public final class VntVpnService extends VpnService {
         VntApi.NatInfo nat = api.getNatInfo();
         VntApi.NetworkInfo network = api.getNetwork();
         return new VntState(VntState.Status.RUNNING, id, name, ip,
-                "", clients, servers, routes, nat, network);
+                "", activeAllowIkev2, clients, servers, routes, nat, network);
     }
 
     private synchronized List<VntApi.ClientInfo> withTrafficSpeeds(List<VntApi.ClientInfo> clients) {
@@ -385,7 +394,7 @@ public final class VntVpnService extends VpnService {
                 nextSamples.put(client.ip(), measured);
             }
             result.add(new VntApi.ClientInfo(
-                    client.ip(), client.name(), client.version(), client.online(), client.direct(),
+                    client.ip(), client.name(), client.version(), client.clientType(), client.online(), client.direct(),
                     client.routeProtocol(), client.routeMetric(), client.rtt(), client.keyEqual(),
                     client.loss(), measured));
         }
@@ -429,6 +438,7 @@ public final class VntVpnService extends VpnService {
         try { VntManager.destroy(); } catch (Throwable ignored) { }
         activeProfileName = null;
         activeConfigJson = null;
+        activeAllowIkev2 = false;
         activeIp = null;
         activePrefixLen = 0;
         activeSubnetRoutes = Collections.emptyList();

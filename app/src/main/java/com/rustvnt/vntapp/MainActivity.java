@@ -523,14 +523,35 @@ public final class MainActivity extends AppCompatActivity {
         int online = 0;
         for (VntApi.ClientInfo client : current.clients) if (client.online()) online++;
         pageHost.addView(text("在线 " + online + "    总计 " + current.clients.size(), 12, false, textMuted()));
+        if (PeerWarnings.hasUnreachableIkev2(current.allowIkev2, current.clients)) {
+            LinearLayout warning = row();
+            warning.setGravity(Gravity.TOP);
+            warning.setPadding(dp(14), dp(12), dp(14), dp(12));
+            warning.setBackground(round(colorWithAlpha(AMBER, dark ? 34 : 22), 10, AMBER, 1));
+            warning.addView(text("⚠", 18, true, AMBER));
+            TextView warningText = text("检测到在线的 IKEv2 客户端，但当前实例未开启“允许 IKEv2 客户端（allow_ikev2）”，因此无法访问这些设备。请开启该选项并重启实例。",
+                    12, false, dark ? Color.rgb(253, 230, 138) : Color.rgb(146, 64, 14));
+            LinearLayout.LayoutParams warningTextParams = weighted();
+            warningTextParams.leftMargin = dp(10);
+            warning.addView(warningText, warningTextParams);
+            pageHost.addView(warning, top(12));
+        }
         if (current.clients.isEmpty()) { empty("当前网络中暂无其他设备"); return; }
         for (VntApi.ClientInfo client : current.clients) {
             LinearLayout card = card();
             LinearLayout head = row();
             head.setGravity(Gravity.CENTER_VERTICAL);
             LinearLayout identity = column();
-            identity.addView(text(client.name().isEmpty() ? "未命名设备" : client.name(),
+            LinearLayout nameRow = row();
+            nameRow.setGravity(Gravity.CENTER_VERTICAL);
+            nameRow.addView(text(client.name().isEmpty() ? "未命名设备" : client.name(),
                     15, true, textStrong()));
+            TextView type = chip(client.clientType(), textMuted(), bgChip());
+            LinearLayout.LayoutParams typeParams = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            typeParams.leftMargin = dp(7);
+            nameRow.addView(type, typeParams);
+            identity.addView(nameRow);
             TextView address = text(client.ip(), 12, true, INDIGO);
             address.setTypeface(Typeface.MONOSPACE);
             address.setTextIsSelectable(true);
@@ -804,57 +825,80 @@ public final class MainActivity extends AppCompatActivity {
     private void editProfile(VntConfigStore.Profile existing) {
         JSONObject config = existing == null ? new JSONObject() : existing.config();
         LinearLayout form = column();
-        form.setPadding(dp(20), dp(8), dp(20), dp(12));
+        form.setPadding(dp(14), dp(4), dp(14), dp(18));
 
-        sectionHeader(form, "基础配置");
-        EditText name = field(form, "配置名称", existing == null ? "" : existing.name, false, "例如：我的组网");
-        EditText code = field(form, "网络编号 *", config.optString("network_code"), false, "相同编号的设备组成同一个虚拟网");
-        ListInput servers = new ListInput(form, "服务器地址（支持 quic:// tcp:// wss:// dynamic://）",
-                "例如：quic://1.2.3.4:29872", "＋ 添加服务器", toList(config.optJSONArray("server")));
+        LinearLayout basic = section(form, "基础配置", true);
+        EditText name = field(basic, "配置名称", existing == null ? "" : existing.name, false,
+                "例如：我的组网", "只用于配置列表展示，不参与组网认证。格式：任意文本，可留空。");
+        EditText code = field(basic, "网络编号 *", config.optString("network_code"), false,
+                "例如：team-prod-net", "连接同一服务器且网络编号相同的节点会进入同一虚拟网络；它不是加密密码。所有需要互通的节点必须一致。");
+        ListInput servers = new ListInput(basic, "服务器地址", "例如：quic://1.2.3.4:29872",
+                "＋ 添加服务器", toList(config.optJSONArray("server")),
+                "用于注册、发现对端和中继。支持 quic://、tcp://、wss:// 和 dynamic://；省略协议时默认 TCP，可配置多个地址容错。");
 
-        sectionHeader(form, "网络设置");
-        EditText ip = field(form, "自定义虚拟 IP（可选）", config.optString("ip"), false, "例如：10.26.0.2");
-        EditText mtu = field(form, "MTU", String.valueOf(config.optInt("mtu", 1380)), false, "1380");
-        mtu.setInputType(InputType.TYPE_CLASS_NUMBER);
-        EditText tunnelPort = field(form, "隧道端口（P2P 通信）",
-                config.has("tunnel_port") ? String.valueOf(config.optInt("tunnel_port")) : "", false, "留空或 0 为自动分配");
+        LinearLayout connect = section(form, "连接与打洞", false);
+        ListInput peerAddresses = new ListInput(connect, "可直连节点地址", "例如：192.168.1.10:29873",
+                "＋ 添加对端地址", toList(config.optJSONArray("peer_address")),
+                "预先提供对端可能直连的公网或局域网地址。端口必须是对端隧道端口；不带协议时同时尝试 TCP 和 UDP。");
+        ListInput turns = new ListInput(connect, "优先中转规则", "例如：10.26.0.0/24,10.26.0.2",
+                "＋ 添加中转规则", toList(config.optJSONArray("turn")),
+                "指定目标虚拟 IP 或网段优先经过哪个节点。格式：目标IP或CIDR,中转虚拟IP；填写网关 IP 时强制走服务器中继。");
+        ListInput punchModels = new ListInput(connect, "P2P 打洞方式规则", "例如：10.26.1.0/24,IPv4Tcp,IPv4Udp",
+                "＋ 添加打洞规则", toList(config.optJSONArray("punch_model")),
+                "按目标限制允许的打洞方式，双方使用允许集合的交集。模式可为 IPv4Tcp、IPv4Udp、IPv6Tcp、IPv6Udp。");
+        EditText tunnelPort = field(connect, "隧道端口（P2P 通信）",
+                config.has("tunnel_port") ? String.valueOf(config.optInt("tunnel_port")) : "", false,
+                "留空或 0 为自动分配", "固定监听端口便于路由器映射、防火墙放行和配置可直连地址。有效范围 0–65535。");
         tunnelPort.setInputType(InputType.TYPE_CLASS_NUMBER);
+        CheckBox noPunch = toggle(connect, "关闭 P2P 打洞", "关闭自动打洞；显式节点地址仍可直连",
+                "适用于严格防火墙或希望固定链路的环境；未配置可直连地址时，普通节点间流量主要通过服务器中继。",
+                config.optBoolean("no_punch"));
 
-        sectionHeader(form, "传输优化");
-        CheckBox rtx = toggle(form, "QUIC 传输优化", "优化重传丢包", config.optBoolean("rtx"));
-        CheckBox fec = toggle(form, "FEC 前向纠错", "损失部分带宽提升稳定性", config.optBoolean("fec"));
-        CheckBox compress = toggle(form, "LZ4 压缩", "减少传输数据量", config.optBoolean("compress"));
-        CheckBox noPunch = toggle(form, "关闭 P2P 打洞", "仅通过服务器中转", config.optBoolean("no_punch"));
-        CheckBox noBroadcast = toggle(form, "关闭 IPv4 广播和组播", "停止转发本机发出的 IPv4 广播和组播",
-                config.optBoolean("no_broadcast"));
+        LinearLayout network = section(form, "网络设置", false);
+        EditText ip = field(network, "自定义虚拟 IP（可选）", config.optString("ip"), false,
+                "例如：10.26.0.2", "请求固定的本机虚拟 IPv4 地址。必须属于服务器网段且不能与在线节点冲突；留空自动分配。");
+        EditText mtu = field(network, "MTU", String.valueOf(config.optInt("mtu", 1380)), false,
+                "1380", "虚拟网卡单个 IP 包的最大长度。常用范围 1200–1500；遇到 VPN 叠加或分片问题时可适当调小。");
+        mtu.setInputType(InputType.TYPE_CLASS_NUMBER);
+        CheckBox noTun = toggle(network, "无虚拟网卡", "不创建 Android VPN，仅使用端口映射等能力",
+                "TUN 可直接访问虚拟 IP；无网卡模式无需 VPN 权限，但不能启用 IKEv2 客户端互通。",
+                "no".equals(config.optString("device_mode", "tun")));
 
-        sectionHeader(form, "直连与中转（高级）");
-        ListInput peerAddresses = new ListInput(form, "对端地址（端口填写对端隧道端口）",
-                "例如：1.2.3.4:29872", "＋ 添加对端地址", toList(config.optJSONArray("peer_address")));
-        ListInput turns = new ListInput(form, "优先中转规则（目标 IP/CIDR,中转虚拟 IP）",
-                "例如：10.26.0.0/24,10.26.0.2", "＋ 添加中转规则", toList(config.optJSONArray("turn")));
+        LinearLayout transport = section(form, "传输优化", false);
+        CheckBox rtx = toggle(transport, "QUIC 传输优化", "降低丢包，延迟可能有波动",
+                "使用带重传能力的增强通道，适合文件传输和远程桌面。", config.optBoolean("rtx"));
+        CheckBox fec = toggle(transport, "FEC 前向纠错", "消耗额外带宽换取稳定性",
+                "适合实时音视频或游戏；带宽紧张时不建议开启。", config.optBoolean("fec"));
+        CheckBox compress = toggle(transport, "LZ4 压缩", "减少可压缩流量的数据量",
+                "文本、日志等流量收益较高；视频、压缩包和已加密流量收益较小。", config.optBoolean("compress"));
+        CheckBox noBroadcast = toggle(transport, "关闭 IPv4 广播和组播", "减少广播和发现协议流量",
+                "依赖局域网发现、组播服务或某些游戏联机时不要开启。", config.optBoolean("no_broadcast"));
+        CheckBox allowIkev2 = toggle(transport, "允许 IKEv2 客户端", "信任服务端注入并固定中继 IKEv2 流量",
+                "允许与 IKEv2/IPsec 客户端互通。此路径不使用 VNT 节点间密码的端到端加密，只应连接受信任的服务端。",
+                config.optBoolean("allow_ikev2", false));
+        notice(transport, "安全提示：IKEv2 流量不会使用 VNT 节点间 password 加密。", AMBER);
 
-        sectionHeader(form, "安全配置");
-        EditText password = field(form, "组网加密密码", config.optString("password"), true, "留空则不加密，同一组网密码需相同");
+        LinearLayout security = section(form, "安全配置", false);
+        EditText password = field(security, "组网加密密码", config.optString("password"), true,
+                "留空则不加密", "互通的 VNT 节点必须使用完全相同的密码。建议使用高强度随机密码。");
         String savedCertMode = config.optString("cert_mode", "skip");
         String savedFingerprint = "";
         if (savedCertMode.startsWith("finger:")) {
             savedFingerprint = savedCertMode.substring(7);
             savedCertMode = "finger";
         }
-        form.addView(text("服务端证书校验", 12, true, textBody()), top(12));
+        fieldLabel(security, "服务端证书校验", "生产环境优先使用系统证书或固定 SHA-256 指纹；跳过验证无法确认服务器身份。");
         Spinner certMode = new Spinner(this);
         certMode.setAdapter(spinnerAdapter(new String[]{"跳过验证（默认）", "系统证书验证", "证书指纹验证"}));
         certMode.setSelection(savedCertMode.equals("standard") ? 1 : savedCertMode.equals("finger") ? 2 : 0);
-        form.addView(spinnerBox(certMode), top(6));
-        TextView fingerprintLabel = text("证书指纹（服务端启动日志会输出）", 12, true, textBody());
+        security.addView(spinnerBox(certMode), top(8));
+        LinearLayout fingerprintLabel = fieldLabel(security, "证书指纹",
+                "固定允许连接的服务器证书 SHA-256 指纹。格式：64 位十六进制，不含冒号；服务器更换证书后需要同步更新。");
         EditText fingerprint = input(savedFingerprint, false, "例如：3bdd8675606837cdf95d5e13445606315762315a78555f9da652940a25feaec1");
-        LinearLayout.LayoutParams fingerprintLabelParams = top(12);
-        form.addView(fingerprintLabel, fingerprintLabelParams);
-        form.addView(fingerprint, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        boolean fingerSelected = certMode.getSelectedItemPosition() == 2;
-        fingerprintLabel.setVisibility(fingerSelected ? View.VISIBLE : View.GONE);
-        fingerprint.setVisibility(fingerSelected ? View.VISIBLE : View.GONE);
+        security.addView(fingerprint, top(8));
+        int fingerprintVisibility = certMode.getSelectedItemPosition() == 2 ? View.VISIBLE : View.GONE;
+        fingerprintLabel.setVisibility(fingerprintVisibility);
+        fingerprint.setVisibility(fingerprintVisibility);
         certMode.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 int visibility = position == 2 ? View.VISIBLE : View.GONE;
@@ -864,55 +908,70 @@ public final class MainActivity extends AppCompatActivity {
             @Override public void onNothingSelected(AdapterView<?> parent) { }
         });
 
-        sectionHeader(form, "NAT 与路由（点对网）");
-        ListInput inputRoutes = new ListInput(form, "入栈网段（格式：CIDR,目标IP）",
-                "例如：192.168.0.0/24,10.26.0.2", "＋ 添加入栈网段", toList(config.optJSONArray("input")));
-        ListInput outputRoutes = new ListInput(form, "出栈网段（允许转发的网段）",
-                "例如：0.0.0.0/0", "＋ 添加出栈网段", toList(config.optJSONArray("output")));
-        CheckBox autoSyncSubnet = toggle(form, "自动同步节点子网", "自动应用其他在线节点的出口网段",
-                config.optBoolean("auto_sync_subnet", false));
-        CheckBox noTun = toggle(form, "关闭 TUN 网卡", "仅作流量出口或端口映射",
-                "no".equals(config.optString("device_mode", "tun")));
+        LinearLayout subnet = section(form, "子网路由（点对网）", false);
+        ListInput inputRoutes = new ListInput(subnet, "入栈网段", "例如：192.168.2.0/24,10.26.0.2",
+                "＋ 添加入栈网段", toList(config.optJSONArray("input")),
+                "配置在访问端。格式：目标 CIDR,出口节点虚拟 IP；重叠规则按最长前缀选择。");
+        ListInput outputRoutes = new ListInput(subnet, "出栈允许网段", "例如：192.168.1.0/24",
+                "＋ 添加出栈网段", toList(config.optJSONArray("output")),
+                "配置在出口端，是点对网的授权边界。只开放确实需要访问的真实 IPv4 网段。");
+        ListInput subnetMappings = new ListInput(subnet, "出栈网段映射", "例如：192.168.2.0/24,192.168.1.0/24",
+                "＋ 添加网段映射", toList(config.optJSONArray("subnet_mapping")),
+                "解决两端局域网网段冲突。格式：映射 CIDR,真实 CIDR；掩码必须相同，真实网段必须被 output 覆盖。");
+        CheckBox autoSyncSubnet = toggle(subnet, "自动同步节点子网", "动态应用其他在线节点的出口网段",
+                "随节点上下线自动更新 Android VPN 路由；本机手动 input 规则优先。", config.optBoolean("auto_sync_subnet"));
+        CheckBox noNat = toggle(subnet, "关闭内置 NAT", "改用系统转发，仅适合已正确配置的设备",
+                "关闭后必须自行配置 IP 转发、NAT、路由和防火墙，否则点对网返回流量无法到达。", config.optBoolean("no_nat"));
+        notice(subnet, "高风险设置：普通 Android 设备请勿关闭内置 NAT。", AMBER);
 
-        sectionHeader(form, "端口映射");
-        ListInput portMappings = new ListInput(form, "映射规则（协议://监听地址-虚拟IP-目标地址）",
-                "例如：tcp://0.0.0.0:81-10.0.0.2-10.0.0.2:80", "＋ 添加映射规则", toList(config.optJSONArray("port_mapping")));
-        CheckBox allowMapping = toggle(form, "允许作为映射出口", "允许其他设备使用本机作跳板来进行端口映射", config.optBoolean("allow_mapping"));
+        LinearLayout portMap = section(form, "端口映射", false);
+        ListInput portMappings = new ListInput(portMap, "映射规则",
+                "例如：tcp://0.0.0.0:81-10.0.0.2-192.168.1.10:80", "＋ 添加映射规则",
+                toList(config.optJSONArray("port_mapping")),
+                "格式：协议://本地监听地址-出口虚拟IP-最终目标地址；协议为 tcp 或 udp。");
+        CheckBox allowMapping = toggle(portMap, "允许作为映射出口", "允许其他设备使用本机作跳板",
+                "只应在受信任的虚拟网络中开启。", config.optBoolean("allow_mapping"));
 
-        sectionHeader(form, "设备配置");
-        EditText device = field(form, "设备名称", config.optString("device_name", Build.MODEL), false, "默认为手机型号");
-        EditText deviceId = field(form, "设备 ID", config.optString("device_id", store.deviceId()), false, "不同设备不能相同");
+        LinearLayout deviceSection = section(form, "设备配置", false);
+        EditText device = field(deviceSection, "设备名称", config.optString("device_name", Build.MODEL), false,
+                "默认为手机型号", "其他节点和管理页面看到的名称，只用于识别设备。");
+        EditText deviceId = field(deviceSection, "设备 ID", config.optString("device_id", store.deviceId()), false,
+                "不同设备不能相同", "稳定的唯一标识，通常保持自动生成；不同设备不能共用同一 ID。");
 
-        sectionHeader(form, "STUN 配置（高级，不填使用默认）");
-        ListInput udpStuns = new ListInput(form, "UDP STUN 服务器",
-                "例如：stun.l.google.com:19302", "＋ 添加 UDP STUN", toList(config.optJSONArray("udp_stun")));
-        ListInput tcpStuns = new ListInput(form, "TCP STUN 服务器",
-                "例如：stun.nextcloud.com:443", "＋ 添加 TCP STUN", toList(config.optJSONArray("tcp_stun")));
+        LinearLayout stun = section(form, "STUN 配置（高级）", false);
+        ListInput udpStuns = new ListInput(stun, "UDP STUN 服务器", "例如：stun.l.google.com:19302",
+                "＋ 添加 UDP STUN", toList(config.optJSONArray("udp_stun")),
+                "用于 UDP NAT 探测和打洞。默认服务器不可达或使用自建服务时配置；留空使用内置列表。");
+        ListInput tcpStuns = new ListInput(stun, "TCP STUN 服务器", "例如：stun.nextcloud.com:443",
+                "＋ 添加 TCP STUN", toList(config.optJSONArray("tcp_stun")),
+                "用于评估 TCP 映射并辅助直连；需选择明确支持 TCP 的 STUN 服务。");
 
         ScrollView scroll = new ScrollView(this);
         scroll.addView(form);
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle(existing == null ? "新建组网配置" : "编辑组网配置")
-                .setView(scroll)
-                .setNegativeButton("取消", null)
-                .setPositiveButton("保存", null)
-                .create();
+                .setView(scroll).setNegativeButton("取消", null).setPositiveButton("保存", null).create();
         dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             try {
                 int mtuValue = Integer.parseInt(mtu.getText().toString().trim());
                 int certPosition = certMode.getSelectedItemPosition();
-                String certValue = certPosition == 1 ? "standard" : certPosition == 2
-                        ? "finger:" + fingerprint.getText().toString().trim() : "skip";
-                if (certPosition == 2 && fingerprint.getText().toString().trim().isEmpty()) {
-                    toast("请填写证书指纹");
+                String fingerprintValue = fingerprint.getText().toString().trim();
+                if (certPosition == 2 && !fingerprintValue.matches("(?i)[0-9a-f]{64}")) {
+                    toast("证书指纹必须是 64 位十六进制 SHA-256 指纹");
                     return;
                 }
+                if (allowIkev2.isChecked() && noTun.isChecked()) {
+                    toast("允许 IKEv2 客户端需要启用 TUN 虚拟网卡");
+                    return;
+                }
+                String certValue = certPosition == 1 ? "standard" : certPosition == 2 ? "finger:" + fingerprintValue : "skip";
                 VntConfigStore.Profile profile = VntConfigStore.Profile.create(name.getText().toString(), servers.joined(),
-                        code.getText().toString(), password.getText().toString(), deviceId.getText().toString(), device.getText().toString(), ip.getText().toString(),
-                        mtuValue, compress.isChecked(), rtx.isChecked(), fec.isChecked(), noPunch.isChecked(), noBroadcast.isChecked(),
-                        noTun.isChecked(), peerAddresses.joined(), turns.joined(), outputRoutes.joined(), inputRoutes.joined(),
-                        autoSyncSubnet.isChecked(), certValue, tunnelPort.getText().toString(),
-                        portMappings.joined(), allowMapping.isChecked(), udpStuns.joined(), tcpStuns.joined());
+                        code.getText().toString(), password.getText().toString(), deviceId.getText().toString(),
+                        device.getText().toString(), ip.getText().toString(), mtuValue, compress.isChecked(), rtx.isChecked(),
+                        fec.isChecked(), noPunch.isChecked(), noBroadcast.isChecked(), allowIkev2.isChecked(), noTun.isChecked(),
+                        peerAddresses.joined(), turns.joined(), punchModels.joined(), outputRoutes.joined(), inputRoutes.joined(),
+                        subnetMappings.joined(), autoSyncSubnet.isChecked(), noNat.isChecked(), certValue,
+                        tunnelPort.getText().toString(), portMappings.joined(), allowMapping.isChecked(), udpStuns.joined(), tcpStuns.joined());
                 if (existing != null) profile = profile.withId(existing.id);
                 store.save(profile);
                 dialog.dismiss();
@@ -920,7 +979,6 @@ public final class MainActivity extends AppCompatActivity {
             } catch (Exception error) { toast(error.getMessage() == null ? "配置内容无效" : error.getMessage()); }
         }));
         dialog.show();
-        // 表单较长，全屏展示，与 web 端大弹窗的编辑体验一致
         if (dialog.getWindow() != null) dialog.getWindow().setLayout(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
     }
@@ -949,6 +1007,8 @@ public final class MainActivity extends AppCompatActivity {
                     .put("server", servers)
                     .put("mtu", mtu)
                     .put("password", password);
+            boolean allowIkev2 = config.optBoolean("allow_ikev2", false);
+            if (allowIkev2) payload.put("allow_ikev2", true);
             Bitmap bitmap = new BarcodeEncoder().encodeBitmap(
                     payload.toString(), BarcodeFormat.QR_CODE, dp(320), dp(320));
 
@@ -964,6 +1024,8 @@ public final class MainActivity extends AppCompatActivity {
             content.addView(text("服务器：" + joinJsonStrings(servers), 13, false, textBody()), top(6));
             content.addView(text("MTU：" + mtu, 13, false, textBody()), top(6));
             content.addView(text("加密密码：" + (password.isEmpty() ? "未设置" : "已包含"),
+                    13, false, textBody()), top(6));
+            content.addView(text("IKEv2 客户端：" + (allowIkev2 ? "允许" : "不允许"),
                     13, false, textBody()), top(6));
             content.addView(text("二维码包含组网凭据，请仅分享给可信设备。",
                     12, false, AMBER), top(12));
@@ -999,15 +1061,17 @@ public final class MainActivity extends AppCompatActivity {
             }
             int mtu = payload.getInt("mtu");
             String password = payload.getString("password");
+            boolean allowIkev2 = payload.optBoolean("allow_ikev2", false);
             if (networkCode.isEmpty()) throw new IllegalArgumentException("二维码中的组网编号为空");
             if (servers.isEmpty()) throw new IllegalArgumentException("二维码中的服务器地址为空");
             if (mtu < 576 || mtu > 9000) throw new IllegalArgumentException("二维码中的 MTU 超出 576-9000 范围");
 
-            JoinNetwork network = new JoinNetwork(networkCode, servers, mtu, password);
+            JoinNetwork network = new JoinNetwork(networkCode, servers, mtu, password, allowIkev2);
             String message = "组网编号：" + network.code() + "\n"
                     + "服务器：" + String.join(", ", network.servers()) + "\n"
                     + "MTU：" + network.mtu() + "\n"
-                    + "加密密码：" + (network.password().isEmpty() ? "未设置" : "已包含");
+                    + "加密密码：" + (network.password().isEmpty() ? "未设置" : "已包含") + "\n"
+                    + "IKEv2 客户端：" + (network.allowIkev2() ? "允许" : "不允许");
             new AlertDialog.Builder(this)
                     .setTitle("加入网络")
                     .setMessage(message)
@@ -1022,7 +1086,8 @@ public final class MainActivity extends AppCompatActivity {
     private void addScannedProfile(JoinNetwork network) {
         try {
             VntConfigStore.Profile profile = VntConfigStore.Profile.createFromQr(
-                    network.code(), network.servers(), network.mtu(), network.password(), store.deviceId());
+                    network.code(), network.servers(), network.mtu(), network.password(),
+                    network.allowIkev2(), store.deviceId());
             store.save(profile);
             page = Page.CONFIG;
             render();
@@ -1050,11 +1115,20 @@ public final class MainActivity extends AppCompatActivity {
                 .setNegativeButton("取消", null).setPositiveButton("停止", (d, w) -> VntVpnService.stop(this)).show();
     }
 
-    private EditText field(LinearLayout form, String label, String value, boolean password, String hint) {
-        form.addView(text(label, 12, true, textBody()), top(12));
+    private EditText field(LinearLayout form, String label, String value, boolean password, String hint, String help) {
+        fieldLabel(form, label, help);
         EditText field = input(value, password, hint);
-        form.addView(field, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        form.addView(field, top(8));
         return field;
+    }
+
+    private LinearLayout fieldLabel(LinearLayout form, String label, String help) {
+        LinearLayout labelRow = row();
+        labelRow.setGravity(Gravity.CENTER_VERTICAL);
+        labelRow.addView(text(label, 12, true, textBody()), weighted());
+        labelRow.addView(configHelpButton(label, help), size(32, 32));
+        form.addView(labelRow, top(12));
+        return labelRow;
     }
 
     private EditText input(String value, boolean password, String hint) {
@@ -1071,8 +1145,38 @@ public final class MainActivity extends AppCompatActivity {
         return field;
     }
 
-    private void sectionHeader(LinearLayout form, String value) {
-        form.addView(text(value, 15, true, INDIGO), top(22));
+    private LinearLayout section(LinearLayout form, String title, boolean expanded) {
+        LinearLayout wrapper = column();
+        wrapper.setBackground(round(bgCard(), 12, border(), 1));
+        LinearLayout header = row();
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setPadding(dp(14), dp(13), dp(14), dp(13));
+        header.addView(text(title, 15, true, textStrong()), weighted());
+        ImageView chevron = new ImageView(this);
+        chevron.setImageResource(R.drawable.ic_chevron_down);
+        chevron.setColorFilter(textMuted());
+        chevron.setPadding(dp(6), dp(6), dp(6), dp(6));
+        chevron.setRotation(expanded ? 180f : 0f);
+        header.addView(chevron, size(32, 32));
+        LinearLayout body = column();
+        body.setPadding(dp(14), 0, dp(14), dp(14));
+        body.setVisibility(expanded ? View.VISIBLE : View.GONE);
+        header.setOnClickListener(v -> {
+            boolean show = body.getVisibility() != View.VISIBLE;
+            body.setVisibility(show ? View.VISIBLE : View.GONE);
+            chevron.animate().rotation(show ? 180f : 0f).setDuration(200).start();
+        });
+        wrapper.addView(header);
+        wrapper.addView(body);
+        form.addView(wrapper, top(12));
+        return body;
+    }
+
+    private void notice(LinearLayout form, String value, int color) {
+        TextView notice = text(value, 11, false, dark ? Color.rgb(253, 230, 138) : Color.rgb(146, 64, 14));
+        notice.setPadding(dp(11), dp(9), dp(11), dp(9));
+        notice.setBackground(round(colorWithAlpha(color, dark ? 34 : 20), 8, colorWithAlpha(color, 100), 1));
+        form.addView(notice, top(9));
     }
 
     /** 与输入框同风格的下拉框适配器：文字配色与内边距跟随当前主题。 */
@@ -1118,7 +1222,7 @@ public final class MainActivity extends AppCompatActivity {
         return box;
     }
 
-    private CheckBox toggle(LinearLayout form, String title, String description, boolean checked) {
+    private CheckBox toggle(LinearLayout form, String title, String description, String help, boolean checked) {
         LinearLayout rowLayout = row();
         rowLayout.setGravity(Gravity.CENTER_VERTICAL);
         rowLayout.setPadding(dp(12), dp(10), dp(12), dp(10));
@@ -1127,11 +1231,24 @@ public final class MainActivity extends AppCompatActivity {
         texts.addView(text(title, 14, true, textStrong()));
         texts.addView(text(description, 11, false, textMuted()), top(3));
         rowLayout.addView(texts, weighted());
+        rowLayout.addView(configHelpButton(title, help), size(32, 32));
         CheckBox box = new CheckBox(this);
         box.setChecked(checked);
         rowLayout.addView(box);
         form.addView(rowLayout, top(9));
         return box;
+    }
+
+    private ImageButton configHelpButton(String title, String help) {
+        ImageButton button = new ImageButton(this);
+        button.setImageResource(R.drawable.ic_help_outline);
+        button.setColorFilter(textMuted());
+        button.setContentDescription(title + "帮助");
+        button.setPadding(dp(7), dp(7), dp(7), dp(7));
+        button.setBackgroundColor(Color.TRANSPARENT);
+        button.setOnClickListener(v -> new AlertDialog.Builder(this)
+                .setTitle(title).setMessage(help).setPositiveButton("知道了", null).show());
+        return button;
     }
 
     private static List<String> toList(JSONArray array) {
@@ -1151,9 +1268,9 @@ public final class MainActivity extends AppCompatActivity {
         private final LinearLayout rows;
         private final List<EditText> inputs = new ArrayList<>();
 
-        ListInput(LinearLayout form, String label, String hint, String addLabel, List<String> initial) {
+        ListInput(LinearLayout form, String label, String hint, String addLabel, List<String> initial, String help) {
             this.hint = hint;
-            form.addView(text(label, 12, true, textBody()), top(12));
+            fieldLabel(form, label, help);
             rows = column();
             form.addView(rows);
             for (String value : initial) addRow(value);
@@ -1360,7 +1477,8 @@ public final class MainActivity extends AppCompatActivity {
 
     private void toast(String message) { Toast.makeText(this, message, Toast.LENGTH_LONG).show(); }
 
-    private record JoinNetwork(String code, List<String> servers, int mtu, String password) {}
+    private record JoinNetwork(String code, List<String> servers, int mtu, String password,
+                               boolean allowIkev2) {}
 
     private enum Page {
         DASHBOARD("网络总览"), PEERS("在线设备"),

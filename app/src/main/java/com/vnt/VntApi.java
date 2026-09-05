@@ -21,6 +21,7 @@ public final class VntApi {
                         item.getString("ip"),
                         item.getString("name"),
                         item.getString("version"),
+                        item.optString("client_type", "VNT"),
                         item.getBoolean("online"),
                         item.getBoolean("direct"),
                         item.isNull("route_protocol") ? null : item.getString("route_protocol"),
@@ -112,7 +113,7 @@ public final class VntApi {
     public record ServerInfo(String address, boolean connected, Integer rtt, String version) {}
     public record PacketLoss(long sent, long received, double rate) {}
     public record Traffic(long txBytes, long rxBytes, long txBytesPerSecond, long rxBytesPerSecond) {}
-    public record ClientInfo(String ip, String name, String version, boolean online, boolean direct,
+    public record ClientInfo(String ip, String name, String version, String clientType, boolean online, boolean direct,
                              String routeProtocol, Integer routeMetric, Integer rtt, int keyEqual,
                              PacketLoss loss, Traffic traffic) {}
     public record RouteDetail(String key, String protocol, int metric, int rtt) {}

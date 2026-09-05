@@ -80,9 +80,10 @@ final class VntConfigStore {
 
         static Profile create(String name, String server, String code, String password,
                               String deviceId, String deviceName, String ip, int mtu, boolean compress,
-                              boolean rtx, boolean fec, boolean noPunch, boolean noBroadcast,
-                              boolean noTun, String peerAddress, String turn,
-                              String outputRoutes, String inputRoutes, boolean autoSyncSubnet, String certMode,
+                              boolean rtx, boolean fec, boolean noPunch, boolean noBroadcast, boolean allowIkev2,
+                              boolean noTun, String peerAddress, String turn, String punchModel,
+                              String outputRoutes, String inputRoutes, String subnetMapping,
+                              boolean autoSyncSubnet, boolean noNat, String certMode,
                               String tunnelPort, String portMapping, boolean allowMapping,
                               String udpStun, String tcpStun) throws Exception {
             if (server.trim().isEmpty() || code.trim().isEmpty()) throw new IllegalArgumentException("服务器地址和网络编号不能为空");
@@ -102,8 +103,9 @@ final class VntConfigStore {
             config.put("fec", fec);
             config.put("no_punch", noPunch);
             config.put("no_broadcast", noBroadcast);
+            config.put("allow_ikev2", allowIkev2);
             config.put("device_mode", noTun ? "no" : "tun");
-            config.put("no_nat", false);
+            config.put("no_nat", noNat);
             config.put("auto_sync_subnet", autoSyncSubnet);
             config.put("allow_mapping", allowMapping);
             config.put("cert_mode", certMode.trim().isEmpty() ? "skip" : certMode.trim());
@@ -124,6 +126,12 @@ final class VntConfigStore {
             JSONArray turns = new JSONArray();
             for (String value : turn.split("[\\n]")) if (!value.trim().isEmpty()) turns.put(value.trim());
             config.put("turn", turns);
+            JSONArray punchModels = new JSONArray();
+            for (String value : punchModel.split("[\\n]")) if (!value.trim().isEmpty()) punchModels.put(value.trim());
+            config.put("punch_model", punchModels);
+            JSONArray subnetMappings = new JSONArray();
+            for (String value : subnetMapping.split("[\\n]")) if (!value.trim().isEmpty()) subnetMappings.put(value.trim());
+            config.put("subnet_mapping", subnetMappings);
             JSONArray mappings = new JSONArray();
             for (String value : portMapping.split("[\\n]")) if (!value.trim().isEmpty()) mappings.put(value.trim());
             config.put("port_mapping", mappings);
@@ -138,9 +146,10 @@ final class VntConfigStore {
         }
 
         static Profile createFromQr(String code, List<String> servers, int mtu, String password,
-                                    String deviceId) throws Exception {
+                                    boolean allowIkev2, String deviceId) throws Exception {
             return create(code, String.join("\n", servers), code, password, deviceId, Build.MODEL,
-                    "", mtu, false, false, false, false, false, false, "", "", "", "", false,
+                    "", mtu, false, false, false, false, false, allowIkev2, false,
+                    "", "", "", "", "", "", false, false,
                     "skip", "", "", false, "", "");
         }
 

@@ -12,13 +12,14 @@ final class VntState {
     final String profileName;
     final String ip;
     final String message;
+    final boolean allowIkev2;
     final List<VntApi.ClientInfo> clients;
     final List<VntApi.ServerInfo> servers;
     final List<VntApi.RouteInfo> routes;
     final VntApi.NatInfo nat;
     final VntApi.NetworkInfo network;
 
-    VntState(Status status, String profileId, String profileName, String ip, String message,
+    VntState(Status status, String profileId, String profileName, String ip, String message, boolean allowIkev2,
              List<VntApi.ClientInfo> clients, List<VntApi.ServerInfo> servers,
              List<VntApi.RouteInfo> routes, VntApi.NatInfo nat, VntApi.NetworkInfo network) {
         this.status = status;
@@ -26,6 +27,7 @@ final class VntState {
         this.profileName = profileName;
         this.ip = ip;
         this.message = message;
+        this.allowIkev2 = allowIkev2;
         this.clients = clients == null ? Collections.emptyList() : clients;
         this.servers = servers == null ? Collections.emptyList() : servers;
         this.routes = routes == null ? Collections.emptyList() : routes;
@@ -34,6 +36,7 @@ final class VntState {
     }
 
     static VntState stopped() {
-        return new VntState(Status.STOPPED, null, null, null, "全部实例已停止", null, null, null, null, null);
+        return new VntState(Status.STOPPED, null, null, null, "全部实例已停止", false,
+                null, null, null, null, null);
     }
 }
