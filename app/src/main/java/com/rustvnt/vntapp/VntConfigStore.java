@@ -83,7 +83,7 @@ final class VntConfigStore {
                               boolean rtx, boolean fec, boolean noPunch, boolean noBroadcast, boolean allowIkev2,
                               boolean noTun, String peerAddress, String turn, String punchModel,
                               String outputRoutes, String inputRoutes, String subnetMapping,
-                              boolean autoSyncSubnet, boolean noNat, String certMode,
+                              boolean autoSyncSubnet, String certMode,
                               String tunnelPort, String portMapping, boolean allowMapping,
                               String udpStun, String tcpStun) throws Exception {
             if (server.trim().isEmpty() || code.trim().isEmpty()) throw new IllegalArgumentException("服务器地址和网络编号不能为空");
@@ -105,7 +105,6 @@ final class VntConfigStore {
             config.put("no_broadcast", noBroadcast);
             config.put("allow_ikev2", allowIkev2);
             config.put("device_mode", noTun ? "no" : "tun");
-            config.put("no_nat", noNat);
             config.put("auto_sync_subnet", autoSyncSubnet);
             config.put("allow_mapping", allowMapping);
             config.put("cert_mode", certMode.trim().isEmpty() ? "skip" : certMode.trim());
@@ -149,7 +148,7 @@ final class VntConfigStore {
                                     boolean allowIkev2, String deviceId) throws Exception {
             return create(code, String.join("\n", servers), code, password, deviceId, Build.MODEL,
                     "", mtu, false, false, false, false, false, allowIkev2, false,
-                    "", "", "", "", "", "", false, false,
+                    "", "", "", "", "", "", false,
                     "skip", "", "", false, "", "");
         }
 

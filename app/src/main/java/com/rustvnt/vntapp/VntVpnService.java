@@ -134,6 +134,7 @@ public final class VntVpnService extends VpnService {
     }
 
     private void connect(String id, String name, String json) {
+        json = useBuiltInNat(json);
         cleanupNative();
         ipUpdates.reset();
         subnetRouteUpdates.reset();
@@ -194,6 +195,16 @@ public final class VntVpnService extends VpnService {
                     null, null, null, null, null));
             stopForeground(STOP_FOREGROUND_REMOVE);
             stopSelf();
+        }
+    }
+
+    private static String useBuiltInNat(String json) {
+        try {
+            JSONObject config = new JSONObject(json);
+            config.remove("no_nat");
+            return config.toString();
+        } catch (Exception ignored) {
+            return json;
         }
     }
 

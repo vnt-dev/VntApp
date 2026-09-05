@@ -40,8 +40,12 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
+import androidx.core.graphics.Insets;
 import androidx.core.content.ContextCompat;
 import androidx.core.view.GravityCompat;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import com.google.zxing.BarcodeFormat;
 import com.journeyapps.barcodescanner.BarcodeEncoder;
@@ -112,6 +116,11 @@ public final class MainActivity extends AppCompatActivity {
 
     @Override protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Android 15+ enforces edge-to-edge for apps targeting recent SDKs. Older
+        // versions still fit system windows themselves and must keep that behavior.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        }
         store = new VntConfigStore(this);
         dark = getPreferences(MODE_PRIVATE).getBoolean("dark", false);
         AppCompatDelegate.setDefaultNightMode(dark ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO);
@@ -148,7 +157,16 @@ public final class MainActivity extends AppCompatActivity {
 
     private void buildShell() {
         drawer = new DrawerLayout(this);
+        drawer.setBackgroundColor(bgHeader());
         drawer.setStatusBarBackgroundColor(bgHeader());
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            ViewCompat.setOnApplyWindowInsetsListener(drawer, (view, windowInsets) -> {
+                Insets safeArea = windowInsets.getInsets(
+                        WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+                view.setPadding(safeArea.left, safeArea.top, safeArea.right, safeArea.bottom);
+                return windowInsets;
+            });
+        }
 
         LinearLayout main = column();
         main.setBackgroundColor(bgPage());
@@ -920,9 +938,6 @@ public final class MainActivity extends AppCompatActivity {
                 "解决两端局域网网段冲突。格式：映射 CIDR,真实 CIDR；掩码必须相同，真实网段必须被 output 覆盖。");
         CheckBox autoSyncSubnet = toggle(subnet, "自动同步节点子网", "动态应用其他在线节点的出口网段",
                 "随节点上下线自动更新 Android VPN 路由；本机手动 input 规则优先。", config.optBoolean("auto_sync_subnet"));
-        CheckBox noNat = toggle(subnet, "关闭内置 NAT", "改用系统转发，仅适合已正确配置的设备",
-                "关闭后必须自行配置 IP 转发、NAT、路由和防火墙，否则点对网返回流量无法到达。", config.optBoolean("no_nat"));
-        notice(subnet, "高风险设置：普通 Android 设备请勿关闭内置 NAT。", AMBER);
 
         LinearLayout portMap = section(form, "端口映射", false);
         ListInput portMappings = new ListInput(portMap, "映射规则",
@@ -970,7 +985,7 @@ public final class MainActivity extends AppCompatActivity {
                         device.getText().toString(), ip.getText().toString(), mtuValue, compress.isChecked(), rtx.isChecked(),
                         fec.isChecked(), noPunch.isChecked(), noBroadcast.isChecked(), allowIkev2.isChecked(), noTun.isChecked(),
                         peerAddresses.joined(), turns.joined(), punchModels.joined(), outputRoutes.joined(), inputRoutes.joined(),
-                        subnetMappings.joined(), autoSyncSubnet.isChecked(), noNat.isChecked(), certValue,
+                        subnetMappings.joined(), autoSyncSubnet.isChecked(), certValue,
                         tunnelPort.getText().toString(), portMappings.joined(), allowMapping.isChecked(), udpStuns.joined(), tcpStuns.joined());
                 if (existing != null) profile = profile.withId(existing.id);
                 store.save(profile);
