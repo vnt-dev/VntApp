@@ -1464,7 +1464,7 @@ public final class MainActivity extends AppCompatActivity {
         if (!client.online()) return "-";
         if (client.routeMetric() == null) return "服务器中继";
         if (client.routeMetric() != 1) return "客户端中继";
-        return client.routeProtocol() != null && client.routeProtocol().contains("Tcp")
+        return "tcp".equals(client.routeProtocol())
                 ? "打洞TCP直连" : "打洞UDP直连";
     }
 
