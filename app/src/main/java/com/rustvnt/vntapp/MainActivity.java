@@ -430,6 +430,8 @@ public final class MainActivity extends AppCompatActivity {
         detailRow(card, "MTU", String.valueOf(config.optInt("mtu", 1380)));
         detailRow(card, "NAT 类型", current.nat == null ? "-" : current.nat.type());
         detailRow(card, "Public IPv6", current.nat == null || current.nat.ipv6() == null ? "-" : current.nat.ipv6());
+        detailRow(card, "隧道监听地址", current.tunnelListenAddresses.isEmpty()
+                ? "-" : String.join("\n", current.tunnelListenAddresses));
         detailRow(card, "设备名称", config.optString("device_name", "-"));
         detailRow(card, "设备 ID", config.optString("device_id", "-"));
         LinearLayout features1 = row();

@@ -382,8 +382,9 @@ public final class VntVpnService extends VpnService {
         List<VntApi.RouteInfo> routes = api.getRouteTable();
         VntApi.NatInfo nat = api.getNatInfo();
         VntApi.NetworkInfo network = api.getNetwork();
+        List<String> tunnelListenAddresses = api.getTunnelListenAddresses();
         return new VntState(VntState.Status.RUNNING, id, name, ip,
-                "", activeAllowIkev2, clients, servers, routes, nat, network);
+                "", activeAllowIkev2, clients, servers, routes, nat, network, tunnelListenAddresses);
     }
 
     private synchronized List<VntApi.ClientInfo> withTrafficSpeeds(List<VntApi.ClientInfo> clients) {

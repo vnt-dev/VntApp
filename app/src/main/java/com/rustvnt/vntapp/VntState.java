@@ -18,6 +18,7 @@ final class VntState {
     final List<VntApi.RouteInfo> routes;
     final VntApi.NatInfo nat;
     final VntApi.NetworkInfo network;
+    final List<String> tunnelListenAddresses;
 
     VntState(Status status, String profileId, String profileName, String ip, String message, boolean allowIkev2,
              List<VntApi.ClientInfo> clients, List<VntApi.ServerInfo> servers,
@@ -33,6 +34,25 @@ final class VntState {
         this.routes = routes == null ? Collections.emptyList() : routes;
         this.nat = nat;
         this.network = network;
+        this.tunnelListenAddresses = Collections.emptyList();
+    }
+
+    VntState(Status status, String profileId, String profileName, String ip, String message, boolean allowIkev2,
+             List<VntApi.ClientInfo> clients, List<VntApi.ServerInfo> servers,
+             List<VntApi.RouteInfo> routes, VntApi.NatInfo nat, VntApi.NetworkInfo network,
+             List<String> tunnelListenAddresses) {
+        this.status = status;
+        this.profileId = profileId;
+        this.profileName = profileName;
+        this.ip = ip;
+        this.message = message;
+        this.allowIkev2 = allowIkev2;
+        this.clients = clients == null ? Collections.emptyList() : clients;
+        this.servers = servers == null ? Collections.emptyList() : servers;
+        this.routes = routes == null ? Collections.emptyList() : routes;
+        this.nat = nat;
+        this.network = network;
+        this.tunnelListenAddresses = tunnelListenAddresses == null ? Collections.emptyList() : tunnelListenAddresses;
     }
 
     static VntState stopped() {

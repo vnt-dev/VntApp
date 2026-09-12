@@ -3,7 +3,9 @@ package com.vnt;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 public final class VntApi {
     private final long handle;
@@ -60,6 +62,16 @@ public final class VntApi {
         } catch (Exception error) { throw wrap("读取 NAT 信息", error); }
     }
 
+    /** Returns actual local P2P listener addresses, de-duplicated across TCP and UDP. */
+    public List<String> getTunnelListenAddresses() throws VntException {
+        try {
+            JSONArray array = new JSONArray(nativeGetTunnelListenAddresses(handle));
+            Set<String> addresses = new LinkedHashSet<>();
+            for (int i = 0; i < array.length(); i++) addresses.add(array.getString(i));
+            return new ArrayList<>(addresses);
+        } catch (Exception error) { throw wrap("读取隧道监听地址", error); }
+    }
+
     public List<ServerInfo> getServerList() throws VntException {
         try {
             JSONArray array = new JSONArray(nativeGetServerList(handle));
@@ -102,6 +114,7 @@ public final class VntApi {
     private static native String nativeGetClientList(long handle);
     private static native String nativeGetNetwork(long handle);
     private static native String nativeGetNatInfo(long handle);
+    private static native String nativeGetTunnelListenAddresses(long handle);
     private static native String nativeGetServerList(long handle);
     private static native String nativeGetRouteTable(long handle);
     private static native boolean nativeIsDirect(long handle, String ip);
