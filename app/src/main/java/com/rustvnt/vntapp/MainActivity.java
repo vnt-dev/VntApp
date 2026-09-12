@@ -849,15 +849,17 @@ public final class MainActivity extends AppCompatActivity {
         EditText name = field(basic, "配置名称", existing == null ? "" : existing.name, false,
                 "例如：我的组网", "只用于配置列表展示，不参与组网认证。格式：任意文本，可留空。");
         EditText code = field(basic, "网络编号 *", config.optString("network_code"), false,
-                "例如：team-prod-net", "连接同一服务器且网络编号相同的节点会进入同一虚拟网络；它不是加密密码。所有需要互通的节点必须一致。");
+                "例如：team-prod-net", "标识要加入的虚拟网络。连接同一服务器且网络编号相同的节点会进入同一个虚拟网络；所有需要互通的节点必须填写一致，它不是加密密码。");
         ListInput servers = new ListInput(basic, "服务器地址", "例如：quic://1.2.3.4:29872",
                 "＋ 添加服务器", toList(config.optJSONArray("server")),
-                "用于注册、发现对端和中继。支持 quic://、tcp://、wss:// 和 dynamic://；省略协议时默认 TCP，可配置多个地址容错。");
+                "用于注册、发现对端和中继。固定虚拟 IP 时服务器只提供后台增强能力，可配置多个地址容错，也可完全省略；无服务器时至少配置一个可直连节点作为网络种子。支持主机:端口（默认 tcp://）、quic://、tcp://、wss://，以及 dynamic://域名或 dynamic://http(s)://接口地址。");
+        ListInput peerAddresses = new ListInput(basic, "可直连节点地址", "例如：192.168.1.10:29873",
+                "＋ 添加可直连节点", toList(config.optJSONArray("peer_address")),
+                "预先告诉本机某个 VNT 节点可能直连的公网或局域网地址，可减少发现和打洞等待。支持 ip:端口、域名:端口、tcp://、udp://，以及 dynamic://域名或 dynamic://http(s)://接口地址；不带协议时同时尝试 TCP 和 UDP，端口必须是对端的隧道端口。");
+        EditText ip = field(basic, "自定义虚拟 IP", config.optString("ip"), false,
+                "例如：10.26.0.2/24", "设置固定的本机虚拟 IPv4 地址和组网前缀。无服务器或多服务器时必填；单服务器可留空由服务端分配。填写 IPv4 或 CIDR；纯 IPv4 默认 /24，不能填写网段地址或广播地址。");
 
         LinearLayout connect = section(form, "连接与打洞", false);
-        ListInput peerAddresses = new ListInput(connect, "可直连节点地址", "例如：192.168.1.10:29873",
-                "＋ 添加对端地址", toList(config.optJSONArray("peer_address")),
-                "预先提供对端可能直连的公网或局域网地址。端口必须是对端隧道端口；不带协议时同时尝试 TCP 和 UDP。");
         ListInput turns = new ListInput(connect, "优先中转规则", "例如：10.26.0.0/24,10.26.0.2",
                 "＋ 添加中转规则", toList(config.optJSONArray("turn")),
                 "指定目标虚拟 IP 或网段优先经过哪个节点。格式：目标IP或CIDR,中转虚拟IP；填写网关 IP 时强制走服务器中继。");
@@ -873,8 +875,6 @@ public final class MainActivity extends AppCompatActivity {
                 config.optBoolean("no_punch"));
 
         LinearLayout network = section(form, "网络设置", false);
-        EditText ip = field(network, "自定义虚拟 IP（可选）", config.optString("ip"), false,
-                "例如：10.26.0.2", "请求固定的本机虚拟 IPv4 地址。必须属于服务器网段且不能与在线节点冲突；留空自动分配。");
         EditText mtu = field(network, "MTU", String.valueOf(config.optInt("mtu", 1380)), false,
                 "1380", "虚拟网卡单个 IP 包的最大长度。常用范围 1200–1500；遇到 VPN 叠加或分片问题时可适当调小。");
         mtu.setInputType(InputType.TYPE_CLASS_NUMBER);
@@ -1013,6 +1013,10 @@ public final class MainActivity extends AppCompatActivity {
             JSONObject config = profile.config();
             String networkCode = config.getString("network_code");
             JSONArray servers = config.getJSONArray("server");
+            if (servers.length() == 0) {
+                toast("无服务器配置不能生成加入网络二维码");
+                return;
+            }
             int mtu = config.optInt("mtu", 1380);
             String password = config.optString("password");
             JSONObject payload = new JSONObject()

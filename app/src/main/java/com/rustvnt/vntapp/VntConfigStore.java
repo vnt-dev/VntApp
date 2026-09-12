@@ -83,20 +83,21 @@ final class VntConfigStore {
                               boolean rtx, boolean fec, boolean noPunch, boolean noBroadcast, boolean allowIkev2,
                               boolean noTun, String peerAddress, String turn, String punchModel,
                               String outputRoutes, String inputRoutes, String subnetMapping,
-                              boolean autoSyncSubnet, String certMode,
-                              String tunnelPort, String portMapping, boolean allowMapping,
-                              String udpStun, String tcpStun) throws Exception {
-            if (server.trim().isEmpty() || code.trim().isEmpty()) throw new IllegalArgumentException("服务器地址和网络编号不能为空");
+                               boolean autoSyncSubnet, String certMode,
+                               String tunnelPort, String portMapping, boolean allowMapping,
+                               String udpStun, String tcpStun) throws Exception {
+            validateBasicConfig(server, code, ip);
             JSONObject config = new JSONObject();
             JSONArray servers = new JSONArray();
             for (String value : server.split("[\\n,]")) if (!value.trim().isEmpty()) servers.put(value.trim());
+            String fixedIp = ip.trim();
             config.put("server", servers);
             config.put("network_code", code.trim());
             if (!password.isEmpty()) config.put("password", password);
             if (deviceId.trim().isEmpty()) throw new IllegalArgumentException("设备 ID 不能为空");
             config.put("device_id", deviceId.trim());
             config.put("device_name", deviceName.trim().isEmpty() ? Build.MODEL : deviceName.trim());
-            if (!ip.trim().isEmpty()) config.put("ip", ip.trim());
+            if (!fixedIp.isEmpty()) config.put("ip", fixedIp);
             config.put("mtu", mtu);
             config.put("compress", compress);
             config.put("rtx", rtx);
@@ -142,6 +143,17 @@ final class VntConfigStore {
             config.put("tcp_stun", tcpStuns);
             String title = name.trim().isEmpty() ? code.trim() : name.trim();
             return new Profile(UUID.randomUUID().toString(), title, config.toString());
+        }
+
+        static void validateBasicConfig(String server, String code, String ip) {
+            if (code.trim().isEmpty()) throw new IllegalArgumentException("网络编号不能为空");
+            int serverCount = 0;
+            for (String value : server.split("[\\n,]")) if (!value.trim().isEmpty()) serverCount++;
+            if ((serverCount == 0 || serverCount > 1) && ip.trim().isEmpty()) {
+                throw new IllegalArgumentException(serverCount == 0
+                        ? "未配置服务器时必须填写虚拟 IP/CIDR"
+                        : "配置多个服务器时必须填写虚拟 IP/CIDR");
+            }
         }
 
         static Profile createFromQr(String code, List<String> servers, int mtu, String password,
