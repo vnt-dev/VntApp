@@ -1,4 +1,5 @@
 # VNT Android
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/vnt-dev/VntApp)
 
 VNT Android 是 VNT 的原生安卓客户端，用于把手机、电脑和服务器连接到同一个虚拟网络。无论设备位于家庭网络、公司网络还是移动网络，都可以通过虚拟 IP 互相访问，适合远程访问内网服务、设备互联和开发测试。
 
