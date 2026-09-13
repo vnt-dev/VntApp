@@ -117,7 +117,7 @@ public final class MainActivity extends AppCompatActivity {
     @Override protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         // Android 15+ enforces edge-to-edge for apps targeting recent SDKs. Older
-        // versions still fit system windows themselves and must keep that behavior.
+        // versions should retain the platform's normal content fitting behavior.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
             WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         }
@@ -159,14 +159,6 @@ public final class MainActivity extends AppCompatActivity {
         drawer = new DrawerLayout(this);
         drawer.setBackgroundColor(bgHeader());
         drawer.setStatusBarBackgroundColor(bgHeader());
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
-            ViewCompat.setOnApplyWindowInsetsListener(drawer, (view, windowInsets) -> {
-                Insets safeArea = windowInsets.getInsets(
-                        WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
-                view.setPadding(safeArea.left, safeArea.top, safeArea.right, safeArea.bottom);
-                return windowInsets;
-            });
-        }
 
         LinearLayout main = column();
         main.setBackgroundColor(bgPage());
@@ -215,7 +207,23 @@ public final class MainActivity extends AppCompatActivity {
         drawer.addView(navigation, navParams);
         buildNavigation(navigation);
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            ViewCompat.setOnApplyWindowInsetsListener(drawer, (view, windowInsets) -> {
+                Insets safeArea = windowInsets.getInsets(
+                        WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+                // Pad the two visible surfaces instead of DrawerLayout itself. Root
+                // padding interferes with DrawerLayout's own child/inset placement on
+                // some Android versions and OEM implementations.
+                main.setPadding(safeArea.left, safeArea.top, safeArea.right, safeArea.bottom);
+                navigation.setPadding(safeArea.left, safeArea.top, safeArea.right, safeArea.bottom);
+                return WindowInsetsCompat.CONSUMED;
+            });
+        }
+
         setContentView(drawer);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            ViewCompat.requestApplyInsets(drawer);
+        }
     }
 
     private void buildNavigation(LinearLayout navigation) {
