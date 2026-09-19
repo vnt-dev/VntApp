@@ -25,6 +25,15 @@ public class VpnRouteSetTest {
         assertEquals(first, second);
     }
 
+    @Test public void rebuildAlwaysKeepsVirtualNetworkRoute() {
+        assertEquals(
+                List.of("10.26.0.0/24", "192.168.1.0/24"),
+                VpnRouteSet.rebuild(
+                                "10.26.0.8", 24,
+                                List.of("192.168.1.42/24,10.26.0.2"))
+                        .stream().map(VpnRouteSet.Route::cidr).collect(Collectors.toList()));
+    }
+
     @Test public void keepsOverlappingCidrsForLongestPrefixRouting() {
         assertEquals(
                 Set.of("192.168.0.0/24", "192.168.0.0/25"),

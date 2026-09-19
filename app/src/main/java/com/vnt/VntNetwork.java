@@ -1,14 +1,10 @@
 package com.vnt;
 
+/** A running VNT network instance backed by the native runtime. */
 public final class VntNetwork {
-    public interface IpUpdateListener {
-        void onIpUpdate(long requestId, String ip, int prefixLen);
-
-        default void onSubnetRoutesChanged(String routesJson) { }
-    }
-
     private final long nativeHandle;
-    private boolean closed;
+    private volatile boolean closed;
+    private Thread tunRebuildThread;
 
     VntNetwork(long nativeHandle) { this.nativeHandle = nativeHandle; }
 
@@ -17,39 +13,61 @@ public final class VntNetwork {
         return RegisterResult.fromJson(nativeRegister(nativeHandle));
     }
 
+    /** Ownership of a non-negative fd transfers to Rust, including failure paths. */
     public synchronized void startTun(int fd) throws VntException {
         checkOpen();
         if (!nativeStartTun(nativeHandle, fd)) throw new VntException("Rust 核心无法启动 TUN");
     }
 
-    public synchronized void prepareIpUpdate(long requestId, String ip) throws VntException {
+    /** Blocks until Rust requests a replacement Android VPN, or the instance stops. */
+    public TunRebuildRequest waitTunRebuild() throws VntException {
         checkOpen();
-        if (!nativePrepareIpUpdate(nativeHandle, requestId, ip)) {
-            throw new VntException("Rust 核心无法暂停旧 TUN");
+        String request = nativeWaitTunRebuild(nativeHandle);
+        return request == null ? null : TunRebuildRequest.fromJson(request);
+    }
+
+    /** Ownership of the detached fd transfers to Rust, including failure paths. */
+    public void replaceTun(long requestId, int fd) throws VntException {
+        checkOpen();
+        if (!nativeReplaceTun(nativeHandle, requestId, fd)) {
+            throw new VntException("Rust 核心无法替换 TUN 任务");
         }
     }
 
-    /** Native always takes ownership of a non-negative fd, including failure paths. */
-    public synchronized void completeIpUpdate(long requestId, String ip, int fd) throws VntException {
+    /** Rejects a pending replacement while preserving the Rust-owned old TUN. */
+    public void rejectTunRebuild(long requestId, String reason) throws VntException {
         checkOpen();
-        if (!nativeCompleteIpUpdate(nativeHandle, requestId, ip, fd)) {
-            throw new VntException("Rust 核心无法启动新 TUN");
+        if (!nativeRejectTunRebuild(nativeHandle, requestId, reason)) {
+            throw new VntException("Rust 核心无法取消 TUN 重建");
         }
     }
 
-    public synchronized void prepareRouteUpdate() throws VntException {
+    /** Java owns this blocking listener; Rust never calls Java. */
+    public synchronized void listenTunRebuild(TunRebuildListener listener) {
         checkOpen();
-        if (!nativePrepareRouteUpdate(nativeHandle)) {
-            throw new VntException("Rust 核心无法暂停旧 TUN");
-        }
-    }
-
-    /** Native always takes ownership of the fd, including failure paths. */
-    public synchronized void completeRouteUpdate(int fd) throws VntException {
-        checkOpen();
-        if (!nativeCompleteRouteUpdate(nativeHandle, fd)) {
-            throw new VntException("Rust 核心无法应用新的 VPN 路由");
-        }
+        if (tunRebuildThread != null) throw new IllegalStateException("TUN 重建监听已启动");
+        tunRebuildThread = new Thread(() -> {
+            while (!closed) {
+                try {
+                    TunRebuildRequest request = waitTunRebuild();
+                    if (request == null) break;
+                    try {
+                        listener.onTunRebuildRequired(request);
+                    } catch (Exception error) {
+                        if (!closed) {
+                            try { rejectTunRebuild(request.getRequestId(), error.toString()); }
+                            catch (Exception rejectError) { error.addSuppressed(rejectError); }
+                        }
+                    }
+                } catch (IllegalStateException ignored) {
+                    break;
+                } catch (Exception error) {
+                    if (!closed) error.printStackTrace();
+                }
+            }
+        }, "vnt-tun-rebuild-listener");
+        tunRebuildThread.setDaemon(true);
+        tunRebuildThread.start();
     }
 
     public synchronized VntApi getApi() throws VntException {
@@ -62,10 +80,9 @@ public final class VntNetwork {
     public synchronized boolean isNoTun() { checkOpen(); return nativeIsNoTun(nativeHandle); }
 
     public synchronized void stop() {
-        if (!closed) {
-            nativeStop(nativeHandle);
-            closed = true;
-        }
+        if (closed) return;
+        nativeStop(nativeHandle);
+        closed = true;
     }
 
     private void checkOpen() {
@@ -74,10 +91,9 @@ public final class VntNetwork {
 
     private static native String nativeRegister(long handle);
     private static native boolean nativeStartTun(long handle, int tunFd);
-    private static native boolean nativePrepareIpUpdate(long handle, long requestId, String ip);
-    private static native boolean nativeCompleteIpUpdate(long handle, long requestId, String ip, int tunFd);
-    private static native boolean nativePrepareRouteUpdate(long handle);
-    private static native boolean nativeCompleteRouteUpdate(long handle, int tunFd);
+    private static native String nativeWaitTunRebuild(long handle);
+    private static native boolean nativeReplaceTun(long handle, long requestId, int tunFd);
+    private static native boolean nativeRejectTunRebuild(long handle, long requestId, String reason);
     private static native long nativeGetApi(long handle);
     private static native boolean nativeIsNoTun(long handle);
     private static native boolean nativeStop(long handle);

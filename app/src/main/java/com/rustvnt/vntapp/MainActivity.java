@@ -52,6 +52,7 @@ import com.journeyapps.barcodescanner.BarcodeEncoder;
 import com.journeyapps.barcodescanner.ScanContract;
 import com.journeyapps.barcodescanner.ScanOptions;
 import com.vnt.VntApi;
+import com.vnt.VntManager;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.BufferedReader;
@@ -84,6 +85,7 @@ public final class MainActivity extends AppCompatActivity {
     private final List<Page> navPages = new ArrayList<>();
     private VntConfigStore store;
     private VntConfigStore.Profile pendingProfile;
+    private String pendingSubscriptionConfig;
     private Page page = Page.DASHBOARD;
     private boolean dark;
     private boolean stateReceiverRegistered;
@@ -92,10 +94,10 @@ public final class MainActivity extends AppCompatActivity {
     private final ActivityResultLauncher<Intent> vpnPermission = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(), result -> {
                 if (result.getResultCode() == RESULT_OK && pendingProfile != null) {
-                    VntVpnService.start(this, pendingProfile);
-                    pendingProfile = null;
+                    VntVpnService.start(this, pendingProfile, pendingSubscriptionConfig);
+                    clearPendingStart();
                 } else {
-                    pendingProfile = null;
+                    clearPendingStart();
                     toast("需要 VPN 权限才能创建 VNT 虚拟网卡");
                 }
             });
@@ -650,19 +652,29 @@ public final class MainActivity extends AppCompatActivity {
             head.setGravity(Gravity.CENTER_VERTICAL);
             head.addView(text(profile.name, 16, true, textStrong()), weighted());
             boolean activeProfile = sessionActive && profile.id.equals(current.profileId);
+            if (profile.isSubscription()) {
+                head.addView(chip("订阅链接", INDIGO, colorWithAlpha(INDIGO, 25)), end(8));
+            }
             if (activeProfile) {
                 int stateColor = current.status == VntState.Status.RUNNING ? GREEN : AMBER;
                 head.addView(chip(statusLabel(current.status), stateColor,
                         colorWithAlpha(stateColor, 25)), end(8));
             }
-            ImageButton qr = plainImageButton(com.rustvnt.vntapp.R.drawable.ic_qr_code,
-                    "显示加入网络二维码");
-            qr.setOnClickListener(v -> showProfileQr(profile));
-            head.addView(qr);
+            if (!profile.isSubscription()) {
+                ImageButton qr = plainImageButton(com.rustvnt.vntapp.R.drawable.ic_qr_code,
+                        "显示加入网络二维码");
+                qr.setOnClickListener(v -> showProfileQr(profile));
+                head.addView(qr);
+            }
             card.addView(head);
-            card.addView(labelValue("网络编号", config.optString("network_code", "-"), INDIGO), top(10));
-            JSONArray servers = config.optJSONArray("server");
-            card.addView(labelValue("服务器", servers == null ? "-" : servers.optString(0), textBody()), top(7));
+            if (profile.isSubscription()) {
+                card.addView(labelValue("配置来源", "启动时从订阅服务器获取", INDIGO), top(10));
+                card.addView(labelValue("已应用版本", String.valueOf(profile.subscriptionRevision), textBody()), top(7));
+            } else {
+                card.addView(labelValue("网络编号", config.optString("network_code", "-"), INDIGO), top(10));
+                JSONArray servers = config.optJSONArray("server");
+                card.addView(labelValue("服务器", servers == null ? "-" : servers.optString(0), textBody()), top(7));
+            }
             LinearLayout buttons = row();
             Button connection;
             if (activeProfile) {
@@ -851,6 +863,10 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void editProfile(VntConfigStore.Profile existing) {
+        editProfile(existing, null);
+    }
+
+    private void editProfile(VntConfigStore.Profile existing, String initialSubscription) {
         JSONObject config = existing == null ? new JSONObject() : existing.config();
         LinearLayout form = column();
         form.setPadding(dp(14), dp(4), dp(14), dp(18));
@@ -890,7 +906,7 @@ public final class MainActivity extends AppCompatActivity {
         mtu.setInputType(InputType.TYPE_CLASS_NUMBER);
         CheckBox noTun = toggle(network, "无虚拟网卡", "不创建 Android VPN，仅使用端口映射等能力",
                 "TUN 可直接访问虚拟 IP；无网卡模式无需 VPN 权限，但不能启用 IKEv2 客户端互通。",
-                "no".equals(config.optString("device_mode", "tun")));
+                "no".equalsIgnoreCase(config.optString("device_mode", "tun").trim()));
 
         LinearLayout transport = section(form, "传输优化", false);
         CheckBox rtx = toggle(transport, "QUIC 传输优化", "降低丢包，延迟可能有波动",
@@ -971,13 +987,101 @@ public final class MainActivity extends AppCompatActivity {
                 "＋ 添加 TCP STUN", toList(config.optJSONArray("tcp_stun")),
                 "用于评估 TCP 映射并辅助直连；需选择明确支持 TCP 的 STUN 服务。");
 
-        ScrollView scroll = new ScrollView(this);
-        scroll.addView(form);
+        LinearLayout subscriptionForm = column();
+        subscriptionForm.setPadding(dp(14), dp(4), dp(14), dp(18));
+        LinearLayout subscriptionSection = section(subscriptionForm, "订阅配置", true);
+        EditText subscriptionName = field(subscriptionSection, "配置名称",
+                existing == null ? "" : existing.name, false, "例如：公司组网",
+                "只用于配置列表展示，不参与组网认证。");
+        String savedSubscription = initialSubscription != null ? initialSubscription
+                : existing != null && existing.isSubscription() ? existing.subscription : "";
+        EditText subscription = field(subscriptionSection, "订阅链接", savedSubscription, false,
+                "vnt2://join/1/…",
+                "由 VNTS 签发。启动时通过链接获取最新配置，并在可靠连接验证成功后接收实时更新；链接包含接入凭据，请像密码一样保管。");
+        subscription.setSingleLine(false);
+        subscription.setMinLines(4);
+        Button testSubscription = ghost("测试");
+        subscriptionSection.addView(testSubscription, top(10));
+        TextView subscriptionPreview = text("", 12, false, textBody());
+        subscriptionPreview.setTextIsSelectable(true);
+        subscriptionPreview.setVisibility(View.GONE);
+        subscriptionSection.addView(subscriptionPreview, top(10));
+        testSubscription.setOnClickListener(v -> {
+            String value = subscription.getText().toString().trim();
+            if (!value.startsWith("vnt2://join/1/")) { toast("订阅链接格式无效"); return; }
+            testSubscription.setEnabled(false);
+            testSubscription.setText("测试中…");
+            updateExecutor.execute(() -> {
+                try {
+                    if (!VntManager.init()) throw new IllegalStateException("Rust 核心初始化失败");
+                    JSONObject result = new JSONObject(VntManager.fetchSubscriptionConfig(value));
+                    JSONObject remote = result.getJSONObject("config");
+                    String preview = "测试成功 · revision " + result.getLong("revision") + "\n"
+                            + "网络编号：" + result.optString("networkCode", "-") + "\n"
+                            + "设备 ID：" + result.optString("deviceId", "-") + "\n\n"
+                            + remote.toString(2);
+                    runOnUiThread(() -> {
+                        subscriptionPreview.setText(preview);
+                        subscriptionPreview.setTextColor(GREEN);
+                        subscriptionPreview.setVisibility(View.VISIBLE);
+                    });
+                } catch (Throwable error) {
+                    runOnUiThread(() -> {
+                        subscriptionPreview.setText(String.format(Locale.CHINA,
+                                "测试失败：%s", rootMessage(error)));
+                        subscriptionPreview.setTextColor(RED);
+                        subscriptionPreview.setVisibility(View.VISIBLE);
+                    });
+                } finally {
+                    runOnUiThread(() -> { testSubscription.setEnabled(true); testSubscription.setText("测试"); });
+                }
+            });
+        });
+
+        ScrollView manualScroll = new ScrollView(this);
+        manualScroll.addView(form);
+        ScrollView subscriptionScroll = new ScrollView(this);
+        subscriptionScroll.addView(subscriptionForm);
+        FrameLayout pages = new FrameLayout(this);
+        pages.addView(manualScroll, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        pages.addView(subscriptionScroll, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        LinearLayout root = column();
+        LinearLayout tabs = row();
+        tabs.setPadding(dp(14), dp(8), dp(14), dp(4));
+        Button manualTab = ghost("手动配置");
+        Button subscriptionTab = ghost("订阅配置");
+        tabs.addView(manualTab, weighted());
+        tabs.addView(subscriptionTab, weighted());
+        root.addView(tabs);
+        root.addView(pages, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+        final boolean[] subscriptionMode = {
+                initialSubscription != null || existing != null && existing.isSubscription()
+        };
+        Runnable showSelectedPage = () -> {
+            manualScroll.setVisibility(subscriptionMode[0] ? View.GONE : View.VISIBLE);
+            subscriptionScroll.setVisibility(subscriptionMode[0] ? View.VISIBLE : View.GONE);
+            manualTab.setTextColor(subscriptionMode[0] ? textMuted() : INDIGO);
+            subscriptionTab.setTextColor(subscriptionMode[0] ? INDIGO : textMuted());
+        };
+        manualTab.setOnClickListener(v -> { subscriptionMode[0] = false; showSelectedPage.run(); });
+        subscriptionTab.setOnClickListener(v -> { subscriptionMode[0] = true; showSelectedPage.run(); });
+        showSelectedPage.run();
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle(existing == null ? "新建组网配置" : "编辑组网配置")
-                .setView(scroll).setNegativeButton("取消", null).setPositiveButton("保存", null).create();
+                .setView(root).setNegativeButton("取消", null).setPositiveButton("保存", null).create();
         dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             try {
+                if (subscriptionMode[0]) {
+                    VntConfigStore.Profile profile = VntConfigStore.Profile.createSubscription(
+                            subscriptionName.getText().toString(), subscription.getText().toString(), existing);
+                    store.save(profile);
+                    dialog.dismiss();
+                    render();
+                    return;
+                }
                 int mtuValue = Integer.parseInt(mtu.getText().toString().trim());
                 int certPosition = certMode.getSelectedItemPosition();
                 String fingerprintValue = fingerprint.getText().toString().trim();
@@ -1077,6 +1181,10 @@ public final class MainActivity extends AppCompatActivity {
 
     private void handleNetworkQr(String raw) {
         try {
+            if (raw != null && raw.trim().startsWith("vnt2://join/1/")) {
+                editProfile(null, raw.trim());
+                return;
+            }
             JSONObject payload = new JSONObject(raw);
             if (!"vnt-network".equals(payload.getString("type")) || payload.getInt("version") != 1) {
                 throw new IllegalArgumentException("不是受支持的 VNT 加入网络二维码");
@@ -1127,16 +1235,58 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void requestVpn(VntConfigStore.Profile profile) {
-        if ("no".equals(profile.config().optString("device_mode", "tun"))) {
-            VntVpnService.start(this, profile);
+        if (pendingProfile != null) {
+            toast("正在准备配置，请稍候");
+            return;
+        }
+        if (profile.isSubscription()) {
+            pendingProfile = profile;
+            updateExecutor.execute(() -> resolveSubscriptionStart(profile));
+            return;
+        }
+        continueStart(profile, null,
+                SubscriptionConfig.requiresVpn(profile.config().optString("device_mode", "tun")));
+    }
+
+    private void resolveSubscriptionStart(VntConfigStore.Profile profile) {
+        try {
+            if (!VntManager.init()) throw new IllegalStateException("Rust 核心初始化失败");
+            JSONObject fetched = new JSONObject(VntManager.fetchSubscriptionConfig(profile.subscription));
+            JSONObject remote = fetched.getJSONObject("config");
+            boolean requiresVpn = SubscriptionConfig.requiresVpn(
+                    remote.optString("device_mode", "tun"));
+            runOnUiThread(() -> {
+                if (pendingProfile == null || !pendingProfile.id.equals(profile.id)) return;
+                continueStart(profile, fetched.toString(), requiresVpn);
+            });
+        } catch (Throwable error) {
+            runOnUiThread(() -> {
+                if (pendingProfile == null || !pendingProfile.id.equals(profile.id)) return;
+                clearPendingStart();
+                toast("获取订阅配置失败：" + rootMessage(error));
+            });
+        }
+    }
+
+    private void continueStart(VntConfigStore.Profile profile, String subscriptionConfig,
+                               boolean requiresVpn) {
+        if (!requiresVpn) {
+            VntVpnService.start(this, profile, subscriptionConfig);
+            clearPendingStart();
             return;
         }
         pendingProfile = profile;
+        pendingSubscriptionConfig = subscriptionConfig;
         Intent prepare = VpnService.prepare(this);
         if (prepare == null) {
-            VntVpnService.start(this, profile);
-            pendingProfile = null;
+            VntVpnService.start(this, profile, subscriptionConfig);
+            clearPendingStart();
         } else vpnPermission.launch(prepare);
+    }
+
+    private void clearPendingStart() {
+        pendingProfile = null;
+        pendingSubscriptionConfig = null;
     }
 
     private void confirmStop() {
@@ -1502,6 +1652,13 @@ public final class MainActivity extends AppCompatActivity {
         if (value < 1024L * 1024) return String.format(Locale.US, "%.1f KB", value / 1024d);
         if (value < 1024L * 1024 * 1024) return String.format(Locale.US, "%.1f MB", value / (1024d * 1024));
         return String.format(Locale.US, "%.1f GB", value / (1024d * 1024 * 1024));
+    }
+
+    private static String rootMessage(Throwable error) {
+        Throwable current = error;
+        while (current.getCause() != null && current.getCause() != current) current = current.getCause();
+        String message = current.getMessage();
+        return message == null || message.isBlank() ? current.getClass().getSimpleName() : message;
     }
 
     private void toast(String message) { Toast.makeText(this, message, Toast.LENGTH_LONG).show(); }

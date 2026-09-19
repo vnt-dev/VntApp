@@ -1,6 +1,7 @@
 package com.rustvnt.vntapp;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -21,6 +22,10 @@ final class VpnRouteSet {
         for (String route : inputRoutes) add(routes, route);
         for (String route : syncedRoutes) add(routes, route);
         return new ArrayList<>(routes.values());
+    }
+
+    static List<Route> rebuild(String ip, int prefixLen, List<String> requestedRoutes) {
+        return build(ip, prefixLen, Collections.emptyList(), Collections.emptyList(), requestedRoutes);
     }
 
     static Set<String> cidrs(List<String> routes) {
