@@ -1,16 +1,38 @@
 package com.vnt;
 
+import java.util.ArrayList;
+import java.util.List;
+import org.json.JSONArray;
+
 /** A running VNT network instance backed by the native runtime. */
 public final class VntNetwork {
     private final long nativeHandle;
     private volatile boolean closed;
-    private Thread tunRebuildThread;
 
     VntNetwork(long nativeHandle) { this.nativeHandle = nativeHandle; }
 
-    public synchronized RegisterResult register() throws VntException {
+    /**
+     * 获取当前网络（网段信息）。createNetwork 时底层已在后台连接服务器并注册：
+     * 网络已配置则立即返回，否则等待注册结果。
+     */
+    public synchronized NetworkResult getNetwork() throws VntException {
         checkOpen();
-        return RegisterResult.fromJson(nativeRegister(nativeHandle));
+        return NetworkResult.fromJson(nativeGetNetwork(nativeHandle));
+    }
+
+    /** 实例最近日志（每个实例保留最后 50 条，按时间正序）。 */
+    public synchronized List<LogEntry> getLogs() throws VntException {
+        checkOpen();
+        try {
+            JSONArray array = new JSONArray(nativeGetLogs(nativeHandle));
+            List<LogEntry> logs = new ArrayList<>();
+            for (int i = 0; i < array.length(); i++) {
+                logs.add(LogEntry.fromJson(array.getJSONObject(i)));
+            }
+            return logs;
+        } catch (Exception error) {
+            throw new VntException("无法解析实例日志", error);
+        }
     }
 
     /** Ownership of a non-negative fd transfers to Rust, including failure paths. */
@@ -19,55 +41,35 @@ public final class VntNetwork {
         if (!nativeStartTun(nativeHandle, fd)) throw new VntException("Rust 核心无法启动 TUN");
     }
 
-    /** Blocks until Rust requests a replacement Android VPN, or the instance stops. */
-    public TunRebuildRequest waitTunRebuild() throws VntException {
+    /**
+     * 阻塞等待下一次运行期事件：组网实例停止或新的完整快照。收到
+     * instance_stopped 时应结束变更循环，收到 changed 时快照由
+     * {@link #applyRuntimeChange()} / {@link #applyRuntimeChange(int)} 消费。
+     */
+    public RuntimeEvent nextEvent() throws VntException {
         checkOpen();
-        String request = nativeWaitTunRebuild(nativeHandle);
-        return request == null ? null : TunRebuildRequest.fromJson(request);
+        return RuntimeEvent.fromJson(nativeNextEvent(nativeHandle));
     }
 
-    /** Ownership of the detached fd transfers to Rust, including failure paths. */
-    public void replaceTun(long requestId, int fd) throws VntException {
+    /**
+     * 应用 nextEvent 返回的最新快照（不携带 TUN fd）：纯策略/服务器类变更
+     * 原地生效。快照的 {@link RuntimeChange#isVpnRebuild()} /
+     * {@link RuntimeChange#isInstanceRebuild()} 为 true 时应改用
+     * {@link #applyRuntimeChange(int)} 携带新建接口的 fd。
+     */
+    public ChangeApplyResult applyRuntimeChange() throws VntException {
         checkOpen();
-        if (!nativeReplaceTun(nativeHandle, requestId, fd)) {
-            throw new VntException("Rust 核心无法替换 TUN 任务");
-        }
+        return ChangeApplyResult.fromJson(nativeApplyRuntimeChange(nativeHandle));
     }
 
-    /** Rejects a pending replacement while preserving the Rust-owned old TUN. */
-    public void rejectTunRebuild(long requestId, String reason) throws VntException {
+    /**
+     * 应用 nextEvent 返回的最新快照，携带宿主新建的 TUN fd：网卡相关信息
+     * 变化或需要重建组网实例时使用。Ownership of the detached fd transfers to
+     * Rust, including failure paths.
+     */
+    public ChangeApplyResult applyRuntimeChange(int fd) throws VntException {
         checkOpen();
-        if (!nativeRejectTunRebuild(nativeHandle, requestId, reason)) {
-            throw new VntException("Rust 核心无法取消 TUN 重建");
-        }
-    }
-
-    /** Java owns this blocking listener; Rust never calls Java. */
-    public synchronized void listenTunRebuild(TunRebuildListener listener) {
-        checkOpen();
-        if (tunRebuildThread != null) throw new IllegalStateException("TUN 重建监听已启动");
-        tunRebuildThread = new Thread(() -> {
-            while (!closed) {
-                try {
-                    TunRebuildRequest request = waitTunRebuild();
-                    if (request == null) break;
-                    try {
-                        listener.onTunRebuildRequired(request);
-                    } catch (Exception error) {
-                        if (!closed) {
-                            try { rejectTunRebuild(request.getRequestId(), error.toString()); }
-                            catch (Exception rejectError) { error.addSuppressed(rejectError); }
-                        }
-                    }
-                } catch (IllegalStateException ignored) {
-                    break;
-                } catch (Exception error) {
-                    if (!closed) error.printStackTrace();
-                }
-            }
-        }, "vnt-tun-rebuild-listener");
-        tunRebuildThread.setDaemon(true);
-        tunRebuildThread.start();
+        return ChangeApplyResult.fromJson(nativeApplyRuntimeChangeFd(nativeHandle, fd));
     }
 
     public synchronized VntApi getApi() throws VntException {
@@ -89,11 +91,12 @@ public final class VntNetwork {
         if (closed) throw new IllegalStateException("VNT 实例已经关闭");
     }
 
-    private static native String nativeRegister(long handle);
+    private static native String nativeGetNetwork(long handle);
+    private static native String nativeGetLogs(long handle);
     private static native boolean nativeStartTun(long handle, int tunFd);
-    private static native String nativeWaitTunRebuild(long handle);
-    private static native boolean nativeReplaceTun(long handle, long requestId, int tunFd);
-    private static native boolean nativeRejectTunRebuild(long handle, long requestId, String reason);
+    private static native String nativeNextEvent(long handle);
+    private static native String nativeApplyRuntimeChange(long handle);
+    private static native String nativeApplyRuntimeChangeFd(long handle, int tunFd);
     private static native long nativeGetApi(long handle);
     private static native boolean nativeIsNoTun(long handle);
     private static native boolean nativeStop(long handle);

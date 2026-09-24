@@ -61,12 +61,6 @@ final class VntConfigStore {
         write(profiles);
     }
 
-    synchronized void updateSubscriptionRevision(String id, long revision) {
-        Profile profile = find(id);
-        if (profile == null || !profile.isSubscription() || revision < profile.subscriptionRevision) return;
-        save(profile.withSubscriptionRevision(revision));
-    }
-
     private void write(List<Profile> profiles) {
         JSONArray array = new JSONArray();
         for (Profile profile : profiles) array.put(profile.toStorage());
@@ -81,32 +75,27 @@ final class VntConfigStore {
         final String json;
         final String mode;
         final String subscription;
-        final long subscriptionRevision;
 
         Profile(String id, String name, String json) {
-            this(id, name, json, MODE_MANUAL, "", 0);
+            this(id, name, json, MODE_MANUAL, "");
         }
 
-        Profile(String id, String name, String json, String mode, String subscription,
-                long subscriptionRevision) {
+        Profile(String id, String name, String json, String mode, String subscription) {
             this.id = id;
             this.name = name;
             this.json = json;
             this.mode = MODE_SUBSCRIPTION.equals(mode) ? MODE_SUBSCRIPTION : MODE_MANUAL;
             this.subscription = subscription == null ? "" : subscription;
-            this.subscriptionRevision = Math.max(0, subscriptionRevision);
         }
 
         static Profile createSubscription(String name, String subscription, Profile existing) {
             String value = subscription == null ? "" : subscription.trim();
-            if (!value.startsWith("vnt2://join/1/")) {
+            if (!value.startsWith("vnt2://join/2/")) {
                 throw new IllegalArgumentException("订阅链接格式无效");
             }
             String title = name == null || name.trim().isEmpty() ? "订阅配置" : name.trim();
             String id = existing == null ? UUID.randomUUID().toString() : existing.id;
-            long revision = existing != null && existing.isSubscription()
-                    && value.equals(existing.subscription) ? existing.subscriptionRevision : 0;
-            return new Profile(id, title, "{}", MODE_SUBSCRIPTION, value, revision);
+            return new Profile(id, title, "{}", MODE_SUBSCRIPTION, value);
         }
 
         static Profile create(String name, String server, String code, String password,
@@ -195,11 +184,7 @@ final class VntConfigStore {
                     "skip", "", "", false, "", "");
         }
 
-        Profile withId(String existingId) { return new Profile(existingId, name, json, mode, subscription, subscriptionRevision); }
-
-        Profile withSubscriptionRevision(long revision) {
-            return new Profile(id, name, json, mode, subscription, revision);
-        }
+        Profile withId(String existingId) { return new Profile(existingId, name, json, mode, subscription); }
 
         boolean isSubscription() { return MODE_SUBSCRIPTION.equals(mode); }
 
@@ -211,7 +196,7 @@ final class VntConfigStore {
             try {
                 JSONObject value = new JSONObject().put("id", id).put("name", name).put("mode", mode);
                 if (isSubscription()) {
-                    value.put("subscription", subscription).put("subscription_revision", subscriptionRevision);
+                    value.put("subscription", subscription);
                 } else {
                     value.put("json", json);
                 }
@@ -223,8 +208,7 @@ final class VntConfigStore {
         static Profile fromStorage(JSONObject value) {
             String mode = value.optString("mode", MODE_MANUAL);
             return new Profile(value.optString("id"), value.optString("name"),
-                    value.optString("json", "{}"), mode, value.optString("subscription"),
-                    value.optLong("subscription_revision", 0));
+                    value.optString("json", "{}"), mode, value.optString("subscription"));
         }
     }
 }

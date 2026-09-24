@@ -107,34 +107,18 @@ public final class VntApi {
 
     public boolean isDirect(String ip) { return nativeIsDirect(handle, ip); }
 
-    /** Returns the newest pending update from an authenticated subscription server, or null. */
-    public String takeSubscriptionConfigUpdate() {
-        return nativeTakeSubscriptionConfigUpdate(handle);
-    }
-
-    /** Blocks until a verified managed update arrives, or returns null after stop. */
-    public String waitSubscriptionConfigUpdate() {
-        return nativeWaitSubscriptionConfigUpdate(handle);
-    }
-
-    /** Marks a successful initial managed startup locally without sending an ACK. */
-    public void markSubscriptionAppliedLocally(long revision) throws VntException {
+    /** Returns the NAT information of a peer, or null when unknown. */
+    public NatInfo getPeerNatInfo(String ip) throws VntException {
         try {
-            if (!nativeMarkSubscriptionAppliedLocally(handle, revision)) {
-                throw new VntException("Rust 核心无法提交本地订阅版本");
-            }
-        } catch (Exception error) { throw wrap("提交本地订阅版本", error); }
-    }
-
-    /** Reports staged/applied/error after the Android host has rebuilt its VPN instance. */
-    public boolean ackSubscriptionConfig(String ackJson) {
-        return nativeAckSubscriptionConfig(handle, ackJson);
-    }
-
-    /** Applies a complete candidate through the runtime reconfiguration controller. */
-    public String reconfigure(String configJson) throws VntException {
-        try { return nativeReconfigure(handle, configJson); }
-        catch (Exception error) { throw wrap("实时应用配置", error); }
+            String raw = nativeGetPeerNatInfo(handle, ip);
+            if ("null".equals(raw)) return null;
+            JSONObject item = new JSONObject(raw);
+            List<String> ips = new ArrayList<>();
+            JSONArray array = item.getJSONArray("public_ips");
+            for (int i = 0; i < array.length(); i++) ips.add(array.getString(i));
+            return new NatInfo(item.getString("nat_type"), ips,
+                    item.isNull("ipv6") ? null : item.getString("ipv6"));
+        } catch (Exception error) { throw wrap("读取对端 NAT 信息", error); }
     }
 
     private static VntException wrap(String action, Exception error) {
@@ -148,11 +132,7 @@ public final class VntApi {
     private static native String nativeGetServerList(long handle);
     private static native String nativeGetRouteTable(long handle);
     private static native boolean nativeIsDirect(long handle, String ip);
-    private static native String nativeTakeSubscriptionConfigUpdate(long handle);
-    private static native String nativeWaitSubscriptionConfigUpdate(long handle);
-    private static native boolean nativeMarkSubscriptionAppliedLocally(long handle, long revision);
-    private static native boolean nativeAckSubscriptionConfig(long handle, String ackJson);
-    private static native String nativeReconfigure(long handle, String configJson);
+    private static native String nativeGetPeerNatInfo(long handle, String ip);
     private static native String nativeGetPacketLoss(long handle, String ip);
     private static native String nativeGetTrafficInfo(long handle, String ip);
 

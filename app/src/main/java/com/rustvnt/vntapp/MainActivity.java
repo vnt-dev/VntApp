@@ -669,7 +669,6 @@ public final class MainActivity extends AppCompatActivity {
             card.addView(head);
             if (profile.isSubscription()) {
                 card.addView(labelValue("配置来源", "启动时从订阅服务器获取", INDIGO), top(10));
-                card.addView(labelValue("已应用版本", String.valueOf(profile.subscriptionRevision), textBody()), top(7));
             } else {
                 card.addView(labelValue("网络编号", config.optString("network_code", "-"), INDIGO), top(10));
                 JSONArray servers = config.optJSONArray("server");
@@ -996,7 +995,7 @@ public final class MainActivity extends AppCompatActivity {
         String savedSubscription = initialSubscription != null ? initialSubscription
                 : existing != null && existing.isSubscription() ? existing.subscription : "";
         EditText subscription = field(subscriptionSection, "订阅链接", savedSubscription, false,
-                "vnt2://join/1/…",
+                "vnt2://join/2/…",
                 "由 VNTS 签发。启动时通过链接获取最新配置，并在可靠连接验证成功后接收实时更新；链接包含接入凭据，请像密码一样保管。");
         subscription.setSingleLine(false);
         subscription.setMinLines(4);
@@ -1008,7 +1007,7 @@ public final class MainActivity extends AppCompatActivity {
         subscriptionSection.addView(subscriptionPreview, top(10));
         testSubscription.setOnClickListener(v -> {
             String value = subscription.getText().toString().trim();
-            if (!value.startsWith("vnt2://join/1/")) { toast("订阅链接格式无效"); return; }
+            if (!value.startsWith("vnt2://join/2/")) { toast("订阅链接格式无效"); return; }
             testSubscription.setEnabled(false);
             testSubscription.setText("测试中…");
             updateExecutor.execute(() -> {
@@ -1181,7 +1180,7 @@ public final class MainActivity extends AppCompatActivity {
 
     private void handleNetworkQr(String raw) {
         try {
-            if (raw != null && raw.trim().startsWith("vnt2://join/1/")) {
+            if (raw != null && raw.trim().startsWith("vnt2://join/2/")) {
                 editProfile(null, raw.trim());
                 return;
             }

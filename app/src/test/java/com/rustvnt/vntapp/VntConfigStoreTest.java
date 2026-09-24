@@ -31,28 +31,36 @@ public class VntConfigStoreTest {
 
     @Test public void createsExclusiveSubscriptionProfile() {
         VntConfigStore.Profile profile = VntConfigStore.Profile.createSubscription(
-                "公司网络", "vnt2://join/1/example", null);
+                "公司网络", "vnt2://join/2/example", null);
         assertTrue(profile.isSubscription());
         assertEquals("{}", profile.json);
-        assertEquals(0, profile.subscriptionRevision);
+        assertEquals("vnt2://join/2/example", profile.subscription);
     }
 
-    @Test public void changingSubscriptionResetsRevision() {
+    @Test public void changingSubscriptionKeepsProfileIdentity() {
         VntConfigStore.Profile original = new VntConfigStore.Profile(
                 "id", "公司网络", "{}", VntConfigStore.Profile.MODE_SUBSCRIPTION,
-                "vnt2://join/1/old", 12);
-        VntConfigStore.Profile unchanged = VntConfigStore.Profile.createSubscription(
-                "新名称", "vnt2://join/1/old", original);
-        VntConfigStore.Profile changed = VntConfigStore.Profile.createSubscription(
-                "新名称", "vnt2://join/1/new", original);
-        assertEquals(12, unchanged.subscriptionRevision);
-        assertEquals(0, changed.subscriptionRevision);
+                "vnt2://join/2/old");
+        VntConfigStore.Profile renamed = VntConfigStore.Profile.createSubscription(
+                "新名称", "vnt2://join/2/old", original);
+        assertEquals("id", renamed.id);
+        assertEquals("新名称", renamed.name);
+        assertEquals("vnt2://join/2/old", renamed.subscription);
     }
 
     @Test public void rejectsNonSubscriptionLink() {
         try {
             VntConfigStore.Profile.createSubscription("bad", "https://example.com/config", null);
             fail("Expected subscription validation to fail");
+        } catch (IllegalArgumentException error) {
+            assertEquals("订阅链接格式无效", error.getMessage());
+        }
+    }
+
+    @Test public void rejectsLegacySubscriptionLink() {
+        try {
+            VntConfigStore.Profile.createSubscription("bad", "vnt2://join/1/legacy", null);
+            fail("Expected legacy subscription link to be rejected");
         } catch (IllegalArgumentException error) {
             assertEquals("订阅链接格式无效", error.getMessage());
         }

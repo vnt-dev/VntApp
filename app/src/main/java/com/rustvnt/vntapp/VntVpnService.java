@@ -14,22 +14,21 @@ import android.os.SystemClock;
 import android.util.Log;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
-import com.vnt.RegisterResult;
+import com.vnt.ChangeApplyResult;
+import com.vnt.NetworkResult;
+import com.vnt.RuntimeChange;
+import com.vnt.RuntimeEvent;
 import com.vnt.VntApi;
 import com.vnt.VntManager;
 import com.vnt.VntNetwork;
-import com.vnt.TunRebuildRequest;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.lang.ref.WeakReference;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -44,6 +43,7 @@ public final class VntVpnService extends VpnService {
     private static final int NOTIFICATION_ID = 1207;
     private static final String ACTIVE_PREFS = "vnt_active_connection";
     private static final long SUBSCRIPTION_FETCH_RETRY_MS = 5_000L;
+    private static final int DEFAULT_MTU = 1380;
 
     private static volatile VntState state = VntState.stopped();
     private static volatile boolean uiVisible;
@@ -52,10 +52,10 @@ public final class VntVpnService extends VpnService {
     private ScheduledFuture<?> refreshTask;
     private volatile VntNetwork network;
     private volatile VntApi api;
-    private ParcelFileDescriptor vpnInterface;
-    private final Object subscriptionUpdatesLock = new Object();
-    private PendingSubscriptionUpdate pendingSubscriptionUpdate;
-    private boolean subscriptionDrainScheduled;
+    /** 当前 VPN 接口使用的 CIDR；快照未携带固定 IP 时沿用（监听线程内使用） */
+    private volatile String establishedCidr;
+    /** 是否持有 TUN 设备（无网卡模式下运行期变更不走接口重建） */
+    private volatile boolean tunActive;
     private long runtimeGeneration;
     private String activeProfileName;
     private String activeConfigJson;
@@ -63,19 +63,13 @@ public final class VntVpnService extends VpnService {
     private String activeIp;
     private int activePrefixLen;
     private List<String> activeSubnetRoutes = Collections.emptyList();
-    private Set<String> appliedSubnetRouteCidrs = Collections.emptySet();
     private final Map<String, VntApi.Traffic> trafficSamples = new HashMap<>();
     private long trafficSampleTime;
     private volatile boolean cancellationRequested;
     private String activeProfileId;
     private String activeSubscription;
     private String subscriptionInstanceId;
-    private long appliedSubscriptionRevision;
-    private JSONObject lastGoodSubscriptionConfig;
-    private boolean applyingSubscriptionUpdate;
-
-    private record PendingSubscriptionUpdate(long generation, VntNetwork network, VntApi api,
-                                             long revision, JSONObject config) { }
+    private volatile boolean runtimeExitReported;
 
     static VntState state() { return state; }
 
@@ -107,7 +101,6 @@ public final class VntVpnService extends VpnService {
                 .putExtra("name", profile.name)
                 .putExtra("json", profile.json)
                 .putExtra("subscription", profile.subscription)
-                .putExtra("subscription_revision", profile.subscriptionRevision)
                 .putExtra("prefetched_subscription_config", prefetchedSubscriptionConfig);
         ContextCompat.startForegroundService(context, intent);
     }
@@ -132,10 +125,9 @@ public final class VntVpnService extends VpnService {
                 String id = active.getString("id", "");
                 String name = active.getString("name", "VNT");
                 String subscription = active.getString("subscription", "");
-                long revision = active.getLong("subscription_revision", 0);
                 String instanceId = active.getString("subscription_instance_id", "");
                 startForeground(NOTIFICATION_ID, notification("正在恢复虚拟网络…", false));
-                worker.execute(() -> connect(id, name, json, subscription, revision, instanceId, null));
+                worker.execute(() -> connect(id, name, json, subscription, instanceId, null));
             }
             return START_STICKY;
         }
@@ -154,30 +146,26 @@ public final class VntVpnService extends VpnService {
             String subscription = intent.getStringExtra("subscription");
             String prefetchedSubscriptionConfig = intent.getStringExtra(
                     "prefetched_subscription_config");
-            long revision = intent.getLongExtra("subscription_revision", 0);
             String instanceId = subscription == null || subscription.isBlank()
                     ? "" : SubscriptionConfig.newInstanceId();
             cancellationRequested = false;
             getSharedPreferences(ACTIVE_PREFS, MODE_PRIVATE).edit()
                     .putString("id", id).putString("name", name).putString("json", json)
                     .putString("subscription", subscription == null ? "" : subscription)
-                    .putLong("subscription_revision", revision)
                     .putString("subscription_instance_id", instanceId).apply();
             startForeground(NOTIFICATION_ID, notification("正在建立虚拟网络…", false));
-            worker.execute(() -> connect(id, name, json, subscription, revision, instanceId,
+            worker.execute(() -> connect(id, name, json, subscription, instanceId,
                     prefetchedSubscriptionConfig));
         }
         return START_STICKY;
     }
 
     private void connect(String id, String name, String json, String subscription,
-                         long appliedRevision, String instanceId,
-                         String prefetchedSubscriptionConfig) {
+                         String instanceId, String prefetchedSubscriptionConfig) {
         cleanupNative();
         activeProfileId = id;
         activeProfileName = name;
         activeSubscription = subscription == null || subscription.isBlank() ? null : subscription;
-        appliedSubscriptionRevision = Math.max(0, appliedRevision);
         subscriptionInstanceId = activeSubscription == null ? null
                 : instanceId == null || instanceId.isBlank() ? SubscriptionConfig.newInstanceId() : instanceId;
         publish(new VntState(VntState.Status.STARTING, id, name, null,
@@ -185,23 +173,21 @@ public final class VntVpnService extends VpnService {
                 null, null, null, null, null));
         try {
             if (!VntManager.init()) throw new IllegalStateException("Rust 核心初始化失败");
-            long targetRevision = 0;
-            JSONObject remote = null;
             if (activeSubscription != null) {
+                // 预取只用于尽早暴露服务端策略与设备模式；正式启动时 native 会
+                // 重新等待服务端首份信封并按快照合并本地设置
                 String fetchedJson = fetchSubscriptionConfigWithRetry(
                         id, name, prefetchedSubscriptionConfig);
                 JSONObject fetched = new JSONObject(fetchedJson);
-                targetRevision = fetched.getLong("revision");
-                remote = fetched.getJSONObject("config");
+                JSONObject remote = fetched.getJSONObject("config");
+                // 新核心把托管身份放在响应顶层，信封配置未必包含 network_code
+                if (remote.optString("network_code").trim().isEmpty()) {
+                    remote.put("network_code", fetched.optString("networkCode"));
+                }
                 json = SubscriptionConfig.runtime(remote, activeSubscription,
-                        appliedSubscriptionRevision, subscriptionInstanceId).toString();
+                        subscriptionInstanceId).toString();
             }
             startResolvedInstance(id, name, json);
-            if (activeSubscription != null) {
-                lastGoodSubscriptionConfig = remote;
-                api.markSubscriptionAppliedLocally(targetRevision);
-                commitSubscriptionRevision(targetRevision, json);
-            }
         } catch (Throwable error) {
             if (cancellationRequested) { shutdown(); return; }
             cleanupNative();
@@ -253,26 +239,30 @@ public final class VntVpnService extends VpnService {
         VntNetwork created = VntManager.createNetwork(json);
         if (created == null) throw new IllegalStateException("Rust 核心无法创建网络实例");
         network = created;
-        RegisterResult registration = created.register();
+        // createNetwork 时底层已在后台连接服务器并注册：网络已配置则立即返回，
+        // 否则等待注册结果返回网段信息
+        NetworkResult registered = created.getNetwork();
         if (cancellationRequested) throw new IllegalStateException("启动已取消");
-        activeIp = registration.getIp();
-        activePrefixLen = registration.getPrefixLen();
+        activeIp = registered.getIp();
+        activePrefixLen = registered.getPrefixLen();
+        establishedCidr = registered.toCidr();
 
         if (!created.isNoTun()) {
-            vpnInterface = establishVpn(name, json, registration.getIp(), registration.getPrefixLen());
-            if (vpnInterface == null) throw new IllegalStateException("Android 未能建立 VPN 接口");
-            int tunFd = vpnInterface.detachFd();
-            vpnInterface = null;
+            ParcelFileDescriptor established = establishVpn(name, json,
+                    registered.getIp(), registered.getPrefixLen());
+            if (established == null) throw new IllegalStateException("Android 未能建立 VPN 接口");
+            int tunFd = established.detachFd();
             created.startTun(tunFd);
-            appliedSubnetRouteCidrs = VpnRouteSet.cidrs(activeSubnetRoutes);
-            created.listenTunRebuild(request -> handleTunRebuild(created, generation, request));
+            tunActive = true;
         }
 
         api = created.getApi();
-        if (activeSubscription != null) startSubscriptionListener(created, api, generation);
-        VntState running = readState(id, name, registration.getIp());
+        startRuntimeListener(created, generation);
+        getSharedPreferences(ACTIVE_PREFS, MODE_PRIVATE).edit()
+                .putString("json", json).apply();
+        VntState running = readState(id, name, activeIp);
         publish(running);
-        startForeground(NOTIFICATION_ID, notification("已连接 · " + registration.getIp(), true));
+        startForeground(NOTIFICATION_ID, notification("已连接 · " + activeIp, true));
         startRefreshing();
     }
 
@@ -286,238 +276,156 @@ public final class VntVpnService extends VpnService {
         }
     }
 
-    private void startSubscriptionListener(VntNetwork expectedNetwork, VntApi expectedApi,
-                                           long generation) {
-        Thread listener = new Thread(() -> {
-            while (!cancellationRequested && network == expectedNetwork
-                    && generation == runtimeGeneration) {
-                try {
-                    String raw = expectedApi.waitSubscriptionConfigUpdate();
-                    if (raw == null) return;
-                    JSONObject update = new JSONObject(raw);
-                    if (!update.optBoolean("serverVerified", false)) continue;
-                    enqueueSubscriptionUpdate(new PendingSubscriptionUpdate(generation, expectedNetwork,
-                            expectedApi, update.getLong("revision"), update.getJSONObject("config")));
-                } catch (Throwable error) {
-                    if (!cancellationRequested && network == expectedNetwork) {
-                        Log.w("VNT", "等待订阅配置更新失败: " + rootMessage(error));
-                    }
-                    return;
-                }
-            }
-        }, "vnt-subscription-config-listener");
+    /**
+     * 变更循环监听线程：Java 拥有这个阻塞监听，Rust 从不回调 Java。与 PC 端
+     * cli/web 主循环一致，由 native 侧 RuntimeChangeManager 驱动：订阅连接
+     * 与组网实例分离，运行期变更（含重建组网实例）都由管理器内部完成。
+     */
+    private void startRuntimeListener(VntNetwork expectedNetwork, long generation) {
+        Thread listener = new Thread(
+                () -> runRuntimeChangeLoop(expectedNetwork, generation), "vnt-runtime-listener");
         listener.setDaemon(true);
         listener.start();
     }
 
-    private void enqueueSubscriptionUpdate(PendingSubscriptionUpdate next) {
-        PendingSubscriptionUpdate superseded = null;
-        String settledStatus = null;
-        synchronized (subscriptionUpdatesLock) {
-            if (next.generation() != runtimeGeneration || next.network() != network) return;
-            settledStatus = SubscriptionConfig.settledAckStatus(
-                    next.revision(), appliedSubscriptionRevision);
-            if (settledStatus == null && pendingSubscriptionUpdate != null) {
-                if (pendingSubscriptionUpdate.revision() >= next.revision()) {
-                    superseded = next;
-                } else {
-                    superseded = pendingSubscriptionUpdate;
-                    pendingSubscriptionUpdate = next;
-                }
-            } else if (settledStatus == null) {
-                pendingSubscriptionUpdate = next;
-            }
-            if (settledStatus == null && superseded == null && !subscriptionDrainScheduled) {
-                subscriptionDrainScheduled = true;
-                try { worker.execute(this::drainSubscriptionUpdates); }
-                catch (RejectedExecutionException ignored) { subscriptionDrainScheduled = false; }
-            }
-        }
-        if (settledStatus != null) {
-            tryAckSubscription(next.api(), next.revision(), settledStatus, "", null);
-            return;
-        }
-        if (superseded != null) {
-            tryAckSubscription(superseded.api(), superseded.revision(), "superseded", "", null);
-        }
-    }
-
-    private void drainSubscriptionUpdates() {
-        while (!cancellationRequested) {
-            PendingSubscriptionUpdate update;
-            synchronized (subscriptionUpdatesLock) {
-                update = pendingSubscriptionUpdate;
-                pendingSubscriptionUpdate = null;
-                if (update == null) {
-                    subscriptionDrainScheduled = false;
+    private void runRuntimeChangeLoop(VntNetwork expectedNetwork, long generation) {
+        try {
+            while (!cancellationRequested && network == expectedNetwork
+                    && generation == runtimeGeneration) {
+                RuntimeEvent event = expectedNetwork.nextEvent();
+                if (event.isInstanceStopped()) {
+                    handleRuntimeLoopExit("组网实例已停止");
                     return;
                 }
+                RuntimeChange change = event.getChange();
+                if (change == null) continue;
+                Log.i("VNT", "运行期变更: " + change);
+                if (!applyRuntimeChange(expectedNetwork, change)) return;
+                Log.i("VNT", "运行期变更已应用");
             }
-            if (update.generation() == runtimeGeneration && update.network() == network) {
-                applySubscriptionUpdate(update);
-            }
-        }
-    }
-
-    private void applySubscriptionUpdate(PendingSubscriptionUpdate update) {
-        String settledStatus = SubscriptionConfig.settledAckStatus(
-                update.revision(), appliedSubscriptionRevision);
-        if (settledStatus != null) {
-            tryAckSubscription(update.api(), update.revision(), settledStatus, "", null);
-            return;
-        }
-        if (applyingSubscriptionUpdate) return;
-        applyingSubscriptionUpdate = true;
-        long previousRevision = appliedSubscriptionRevision;
-        JSONObject previous = lastGoodSubscriptionConfig;
-        try {
-            JSONObject candidateRuntime = SubscriptionConfig.runtime(update.config(), activeSubscription,
-                    previousRevision, subscriptionInstanceId);
-            JSONObject result = new JSONObject(update.api().reconfigure(candidateRuntime.toString()));
-            if (!result.optBoolean("ok", false)) {
-                JSONObject error = result.optJSONObject("error");
-                if (error != null && "INSTANCE_RESTART".equals(error.optString("fallback"))) {
-                    restartSubscriptionUpdate(update, candidateRuntime, previous, previousRevision);
-                } else {
-                    String message = error == null ? "配置实时应用失败" : error.optString("message");
-                    tryAckSubscription(update.api(), update.revision(), "error", message, error);
-                }
-                return;
-            }
-            JSONObject report = result.getJSONObject("report");
-            if ("INSTANCE_RESTART".equals(report.optString("action"))) {
-                restartSubscriptionUpdate(update, candidateRuntime, previous, previousRevision);
-                return;
-            }
-            commitAppliedSubscription(update.api(), update.revision(), candidateRuntime.toString());
-            lastGoodSubscriptionConfig = update.config();
-            tryAckSubscription(update.api(), update.revision(), "applied", "", report);
         } catch (Throwable error) {
-            tryAckSubscription(update.api(), update.revision(), "error", rootMessage(error), null);
-        } finally {
-            applyingSubscriptionUpdate = false;
+            if (!cancellationRequested && network == expectedNetwork) {
+                Log.w("VNT", "运行期变更循环失败: " + rootMessage(error));
+                handleRuntimeLoopExit(rootMessage(error));
+            }
         }
     }
 
-    private void restartSubscriptionUpdate(PendingSubscriptionUpdate update, JSONObject candidate,
-                                           JSONObject previous, long previousRevision) {
-        tryAckSubscription(update.api(), update.revision(), "staged", "", null);
+    /**
+     * 按快照自带标志应用一次运行期变更：需要新接口时先建立再携带 fd 应用，
+     * 否则原地应用。返回 false 表示变更循环应结束（已按意外退出处理）。
+     */
+    private boolean applyRuntimeChange(VntNetwork expectedNetwork, RuntimeChange change) {
         try {
-            stopCurrentInstance();
-            startResolvedInstance(activeProfileId, activeProfileName, candidate.toString());
-            commitAppliedSubscription(api, update.revision(), candidate.toString());
-            lastGoodSubscriptionConfig = update.config();
-            tryAckSubscription(api, update.revision(), "applied", "", null);
-        } catch (Throwable updateError) {
-            String message = rootMessage(updateError);
-            try {
-                stopCurrentInstance();
-                if (previous == null) throw new IllegalStateException("没有可恢复的订阅配置");
-                JSONObject rollback = SubscriptionConfig.runtime(previous, activeSubscription,
-                        previousRevision, subscriptionInstanceId);
-                startResolvedInstance(activeProfileId, activeProfileName, rollback.toString());
-                tryAckSubscription(api, update.revision(), "error", message, null);
-                startForeground(NOTIFICATION_ID, notification("订阅更新失败，已恢复上一版本", true));
-            } catch (Throwable rollbackError) {
-                cancellationRequested = true;
+            if (expectedNetwork != network) return false;
+            // 无网卡模式下两个标志都不走接口重建：组网实例由 native 内部重建
+            boolean needsInterface = tunActive
+                    && (change.isVpnRebuild() || change.isInstanceRebuild());
+            if (needsInterface) {
+                String cidr = change.getIp() != null ? change.getIp() : establishedCidr;
+                int mtu = change.getMtu() != null ? change.getMtu() : configuredMtu();
+                ParcelFileDescriptor replacement = establishVpnForChange(cidr, mtu,
+                        change.getRoutes());
+                if (replacement == null) throw new IllegalStateException("Android 未能重建 VPN 接口");
+                int fd = replacement.detachFd();
+                establishedCidr = cidr;
+                ChangeApplyResult result = expectedNetwork.applyRuntimeChange(fd);
+                if (result.isApplied()) {
+                    commitRuntimeChangeApplied(cidr);
+                    return true;
+                }
+                handleRuntimeLoopExit("携带新接口后仍未应用：" + result);
+                return false;
+            }
+            ChangeApplyResult result = expectedNetwork.applyRuntimeChange();
+            if (result.isApplied()) {
+                refreshRuntimeApi();
+                publishRuntimeState();
+                return true;
+            }
+            if (tunActive && (result.isNeedFd() || result.isRebuild())) {
+                // 未按 nextEvent 的标志重建接口：按快照参数补一次，携带 fd 应用
+                String cidr = change.getIp() != null ? change.getIp() : establishedCidr;
+                int mtu = change.getMtu() != null ? change.getMtu() : configuredMtu();
+                ParcelFileDescriptor replacement = establishVpnForChange(cidr, mtu,
+                        change.getRoutes());
+                if (replacement == null) throw new IllegalStateException("Android 未能重建 VPN 接口");
+                int fd = replacement.detachFd();
+                establishedCidr = cidr;
+                ChangeApplyResult retry = expectedNetwork.applyRuntimeChange(fd);
+                if (retry.isApplied()) {
+                    commitRuntimeChangeApplied(cidr);
+                    return true;
+                }
+                handleRuntimeLoopExit("携带新接口后仍未应用：" + retry);
+                return false;
+            }
+            handleRuntimeLoopExit("运行期变更未能应用：" + result);
+            return false;
+        } catch (Throwable error) {
+            handleRuntimeLoopExit(rootMessage(error));
+            return false;
+        }
+    }
+
+    /** 接口/实例重建后刷新对外状态：虚拟 IP、查询接口、通知。 */
+    private void commitRuntimeChangeApplied(String cidr) {
+        if (cidr != null && !cidr.isBlank()) {
+            String[] parts = cidr.split("/", 2);
+            activeIp = parts[0];
+            if (parts.length == 2) {
+                try {
+                    activePrefixLen = Integer.parseInt(parts[1]);
+                } catch (NumberFormatException ignored) { }
+            }
+        }
+        refreshRuntimeApi();
+        publishRuntimeState();
+    }
+
+    /** 实例可能被内部重建，重新取查询接口（对应 cli 的 ipc.publish）。 */
+    private void refreshRuntimeApi() {
+        VntNetwork current = network;
+        if (current == null) return;
+        try {
+            api = current.getApi();
+        } catch (Throwable error) {
+            Log.w("VNT", "刷新查询接口失败: " + rootMessage(error));
+        }
+    }
+
+    private void publishRuntimeState() {
+        try {
+            worker.execute(() -> {
+                if (cancellationRequested) return;
+                try {
+                    publish(readState(activeProfileId, activeProfileName, activeIp));
+                    startForeground(NOTIFICATION_ID, notification("已连接 · " + activeIp, true));
+                } catch (Throwable error) {
+                    Log.w("VNT", "刷新运行期变更后的状态失败: " + rootMessage(error));
+                }
+            });
+        } catch (RejectedExecutionException ignored) { }
+    }
+
+    /** 变更循环意外结束（实例自行停止或应用失败）：报告错误并停止服务。 */
+    private void handleRuntimeLoopExit(String reason) {
+        if (runtimeExitReported) return;
+        runtimeExitReported = true;
+        if (cancellationRequested) return;
+        try {
+            worker.execute(() -> {
+                if (cancellationRequested) return;
                 String profileId = activeProfileId;
                 String profileName = activeProfileName;
                 cleanupNative();
                 clearActiveConnection();
                 publish(new VntState(VntState.Status.ERROR, profileId, profileName, null,
-                        "订阅更新及回滚失败：" + rootMessage(rollbackError), false,
-                        null, null, null, null, null));
+                        "连接已中断：" + reason, false, null, null, null, null, null));
                 stopForeground(STOP_FOREGROUND_REMOVE);
                 stopSelf();
-            }
-        }
-    }
-
-    private void commitAppliedSubscription(VntApi targetApi, long revision, String json) throws Exception {
-        targetApi.markSubscriptionAppliedLocally(revision);
-        JSONObject config = new JSONObject(json);
-        activeConfigJson = json;
-        activeSubnetRoutes = arrayStrings(config.optJSONArray("input"));
-        activeAllowIkev2 = config.optBoolean("allow_ikev2", false);
-        VntApi.NetworkInfo networkInfo = targetApi.getNetwork();
-        if (networkInfo != null) {
-            activeIp = networkInfo.ip();
-            activePrefixLen = networkInfo.prefixLen();
-        }
-        commitSubscriptionRevision(revision, json);
-    }
-
-    private boolean tryAckSubscription(VntApi targetApi, long revision, String status,
-                                       String error, JSONObject report) {
-        try {
-            JSONObject ack = new JSONObject().put("revision", revision).put("status", status)
-                    .put("overridden_fields", new JSONArray());
-            if (error != null && !error.isBlank()) ack.put("error", error);
-            if (report != null) {
-                ack.put("apply_mode", report.optString("action"));
-                ack.put("changed_fields", report.optJSONArray("changed_fields") == null
-                        ? new JSONArray() : report.getJSONArray("changed_fields"));
-            }
-            if ("applied".equals(status)) appendEffectiveRuntimeMetadata(ack);
-            return targetApi.ackSubscriptionConfig(ack.toString());
-        } catch (Throwable ackError) {
-            Log.w("VNT", "订阅配置确认失败: " + rootMessage(ackError));
-            return false;
-        }
-    }
-
-    private void appendEffectiveRuntimeMetadata(JSONObject ack) throws Exception {
-        String json = activeConfigJson;
-        if (json == null || json.isBlank()) {
-            throw new IllegalStateException("没有已生效的订阅配置");
-        }
-        JSONObject config = new JSONObject(json);
-        String deviceName = config.optString("device_name", "").trim();
-        if (deviceName.isEmpty()) deviceName = config.optString("device_id", "").trim();
-        ack.put("effective_device_name", deviceName);
-        if (activeIp != null && !activeIp.isBlank()) {
-            ack.put("effective_ip", activeIp);
-            ack.put("effective_prefix_len", activePrefixLen);
-        }
-        JSONArray output = config.optJSONArray("output");
-        ack.put("effective_output", output == null ? new JSONArray() : output);
-        ack.put("allow_ikev2", config.optBoolean("allow_ikev2", false));
-        ack.put("allow_wireguard", config.optBoolean("allow_wireguard", false));
-        ack.put("allow_mapping", config.optBoolean("allow_mapping", false));
-        ack.put("effective_config_sha256", sha256Hex(json));
-    }
-
-    private static String sha256Hex(String value) throws Exception {
-        byte[] digest = MessageDigest.getInstance("SHA-256")
-                .digest(value.getBytes(StandardCharsets.UTF_8));
-        StringBuilder result = new StringBuilder(digest.length * 2);
-        for (byte item : digest) result.append(String.format("%02x", item & 0xff));
-        return result.toString();
-    }
-
-    private void commitSubscriptionRevision(long revision, String json) {
-        appliedSubscriptionRevision = revision;
-        new VntConfigStore(this).updateSubscriptionRevision(activeProfileId, revision);
-        getSharedPreferences(ACTIVE_PREFS, MODE_PRIVATE).edit()
-                .putLong("subscription_revision", revision).putString("json", json).apply();
-        sendBroadcast(new Intent(ACTION_STATE).setPackage(getPackageName()));
-    }
-
-    private void stopCurrentInstance() {
-        stopRefreshing();
-        api = null;
-        if (network != null) {
-            try { network.stop(); } catch (Throwable ignored) { }
-            network = null;
-        }
-        if (vpnInterface != null) {
-            try { vpnInterface.close(); } catch (Exception ignored) { }
-            vpnInterface = null;
-        }
-        activeIp = null;
-        activePrefixLen = 0;
-        activeSubnetRoutes = Collections.emptyList();
-        appliedSubnetRouteCidrs = Collections.emptySet();
+            });
+        } catch (RejectedExecutionException ignored) { }
     }
 
     private void refresh() {
@@ -527,14 +435,12 @@ public final class VntVpnService extends VpnService {
         catch (Throwable ignored) { }
     }
 
-    private ParcelFileDescriptor establishVpn(String name, String json, String ip, int prefixLen) throws Exception {
+    private ParcelFileDescriptor establishVpn(String name, String json, String ip, int prefixLen)
+            throws Exception {
         JSONObject config = new JSONObject(json);
-        int mtu = Math.max(576, Math.min(9000, config.optInt("mtu", 1380)));
-        String session = config.optString("tun_name", "").trim();
-        if (session.isEmpty()) session = "VNT · " + name;
         Builder builder = new Builder()
-                .setSession(session)
-                .setMtu(mtu)
+                .setSession(sessionName(name, config))
+                .setMtu(clampMtu(config.optInt("mtu", DEFAULT_MTU)))
                 .addAddress(ip, prefixLen);
         builder.addDisallowedApplication(getPackageName());
         for (VpnRouteSet.Route route : VpnRouteSet.build(ip, prefixLen,
@@ -545,50 +451,42 @@ public final class VntVpnService extends VpnService {
         return builder.establish();
     }
 
-    /** Runs on the Java-owned TUN listener thread, never from Rust into Java. */
-    private void handleTunRebuild(VntNetwork expectedNetwork, long generation,
-                                  TunRebuildRequest request) throws Exception {
-        if (cancellationRequested || generation != runtimeGeneration || network != expectedNetwork) {
-            expectedNetwork.rejectTunRebuild(request.getRequestId(), "VNT instance was replaced");
-            return;
-        }
-        ParcelFileDescriptor replacement = establishVpnForRequest(request);
-        if (replacement == null) {
-            expectedNetwork.rejectTunRebuild(request.getRequestId(),
-                    "VpnService.Builder.establish returned null");
-            return;
-        }
-        int fd = replacement.detachFd();
-        expectedNetwork.replaceTun(request.getRequestId(), fd);
-        try {
-            worker.execute(() -> {
-                if (cancellationRequested || generation != runtimeGeneration || network != expectedNetwork) return;
-                activeIp = request.getIp();
-                activePrefixLen = request.getPrefixLen();
-                appliedSubnetRouteCidrs = VpnRouteSet.cidrs(arrayStrings(request.getRoutes()));
-                try {
-                    publish(readState(activeProfileId, activeProfileName, activeIp));
-                    startForeground(NOTIFICATION_ID, notification("已连接 · " + activeIp, true));
-                } catch (Throwable error) {
-                    Log.w("VNT", "刷新 TUN 重建后的状态失败: " + rootMessage(error));
-                }
-            });
-        } catch (RejectedExecutionException ignored) { }
-    }
-
-    private ParcelFileDescriptor establishVpnForRequest(TunRebuildRequest request) throws Exception {
-        String session = request.getSessionName();
-        if (session == null || session.isBlank()) session = "VNT · " + activeProfileName;
-        Builder builder = new Builder().setSession(session)
-                .setMtu(Math.max(576, Math.min(9000, request.getMtu())))
-                .addAddress(request.getIp(), request.getPrefixLen());
+    /** 按运行期快照参数重建 VPN 接口（完整入站路由以快照为准）。 */
+    private ParcelFileDescriptor establishVpnForChange(String cidr, int mtu, List<String> routes)
+            throws Exception {
+        String[] parts = cidr.split("/", 2);
+        String ip = parts[0];
+        int prefixLen = parts.length == 2 ? Integer.parseInt(parts[1]) : 24;
+        JSONObject config = activeConfigJson == null || activeConfigJson.isBlank()
+                ? new JSONObject() : new JSONObject(activeConfigJson);
+        Builder builder = new Builder()
+                .setSession(sessionName(activeProfileName, config))
+                .setMtu(clampMtu(mtu))
+                .addAddress(ip, prefixLen);
         builder.addDisallowedApplication(getPackageName());
-        for (VpnRouteSet.Route route : VpnRouteSet.rebuild(request.getIp(), request.getPrefixLen(),
-                arrayStrings(request.getRoutes()))) {
+        for (VpnRouteSet.Route route : VpnRouteSet.rebuild(ip, prefixLen, routes)) {
             addRoute(builder, route.address(), route.prefix());
         }
         return builder.establish();
     }
+
+    /** VPN 接口会话名：配置的 tun_name 优先，否则 "VNT · 配置名"。 */
+    private static String sessionName(String name, JSONObject config) {
+        String session = config == null ? "" : config.optString("tun_name", "").trim();
+        if (session.isEmpty()) session = "VNT · " + (name == null || name.isBlank() ? "VNT" : name);
+        return session;
+    }
+
+    private int configuredMtu() {
+        try {
+            if (activeConfigJson != null && !activeConfigJson.isBlank()) {
+                return new JSONObject(activeConfigJson).optInt("mtu", DEFAULT_MTU);
+            }
+        } catch (Exception ignored) { }
+        return DEFAULT_MTU;
+    }
+
+    private static int clampMtu(int mtu) { return Math.max(576, Math.min(9000, mtu)); }
 
     private void startRefreshing() {
         if (!uiVisible || api == null || state.status != VntState.Status.RUNNING) return;
@@ -664,10 +562,6 @@ public final class VntVpnService extends VpnService {
     }
 
     private void cleanupNative() {
-        synchronized (subscriptionUpdatesLock) {
-            pendingSubscriptionUpdate = null;
-            subscriptionDrainScheduled = false;
-        }
         stopCurrentInstance();
         try { VntManager.destroy(); } catch (Throwable ignored) { }
         activeProfileId = null;
@@ -676,9 +570,21 @@ public final class VntVpnService extends VpnService {
         activeAllowIkev2 = false;
         activeSubscription = null;
         subscriptionInstanceId = null;
-        appliedSubscriptionRevision = 0;
-        lastGoodSubscriptionConfig = null;
-        applyingSubscriptionUpdate = false;
+        runtimeExitReported = false;
+    }
+
+    private void stopCurrentInstance() {
+        stopRefreshing();
+        api = null;
+        establishedCidr = null;
+        tunActive = false;
+        if (network != null) {
+            try { network.stop(); } catch (Throwable ignored) { }
+            network = null;
+        }
+        activeIp = null;
+        activePrefixLen = 0;
+        activeSubnetRoutes = Collections.emptyList();
     }
 
     private void publish(VntState next) {
