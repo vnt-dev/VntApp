@@ -1181,7 +1181,7 @@ public final class MainActivity extends AppCompatActivity {
     private void handleNetworkQr(String raw) {
         try {
             if (raw != null && raw.trim().startsWith("vnt2://join/2/")) {
-                editProfile(null, raw.trim());
+                confirmSubscriptionProfile(raw.trim());
                 return;
             }
             JSONObject payload = new JSONObject(raw);
@@ -1220,6 +1220,41 @@ public final class MainActivity extends AppCompatActivity {
         } catch (Exception error) {
             toast(error.getMessage() == null ? "无法识别该二维码" : error.getMessage());
         }
+    }
+
+    private void confirmSubscriptionProfile(String link) {
+        LinearLayout content = column();
+        content.setPadding(dp(24), dp(8), dp(24), dp(16));
+        EditText name = field(content, "配置名称", "", false, "例如：公司组网",
+                "只用于配置列表展示，不参与组网认证。");
+        fieldLabel(content, "订阅链接",
+                "由 VNTS 签发。启动时通过链接获取最新配置，并在可靠连接验证成功后接收实时更新。");
+        TextView linkText = text(link, 12, false, textBody());
+        linkText.setTextIsSelectable(true);
+        content.addView(linkText, top(8));
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("添加订阅配置")
+                .setView(content)
+                .setNegativeButton("取消", null)
+                .setPositiveButton("保存", null)
+                .create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String profileName = name.getText().toString().trim();
+            if (profileName.isEmpty()) {
+                toast("请输入配置名称");
+                return;
+            }
+            try {
+                store.save(VntConfigStore.Profile.createSubscription(profileName, link, null));
+                dialog.dismiss();
+                page = Page.CONFIG;
+                render();
+                toast("已添加订阅配置");
+            } catch (Exception error) {
+                toast(error.getMessage() == null ? "添加配置失败" : error.getMessage());
+            }
+        }));
+        dialog.show();
     }
 
     private void addScannedProfile(JoinNetwork network) {
