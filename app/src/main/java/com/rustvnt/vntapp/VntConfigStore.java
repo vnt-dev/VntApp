@@ -70,6 +70,9 @@ final class VntConfigStore {
     static final class Profile {
         static final String MODE_MANUAL = "manual";
         static final String MODE_SUBSCRIPTION = "subscription";
+        /** Rust 核心 P2P 栈的 IPv6 MTU 下限（vnt-core MIN_MTU），低于它的配置会被核心拒绝 */
+        static final int MIN_MTU = 1280;
+        static final int MAX_MTU = 9000;
         final String id;
         final String name;
         final String json;
@@ -107,6 +110,7 @@ final class VntConfigStore {
                                String tunnelPort, String portMapping, boolean allowMapping,
                                String udpStun, String tcpStun) throws Exception {
             validateBasicConfig(server, code, ip);
+            validateMtu(mtu);
             JSONObject config = new JSONObject();
             JSONArray servers = new JSONArray();
             for (String value : server.split("[\\n,]")) if (!value.trim().isEmpty()) servers.put(value.trim());
@@ -173,6 +177,14 @@ final class VntConfigStore {
                 throw new IllegalArgumentException(serverCount == 0
                         ? "未配置服务器时必须填写虚拟 IP/CIDR"
                         : "配置多个服务器时必须填写虚拟 IP/CIDR");
+            }
+        }
+
+        /** MTU 必须在 Rust 核心 P2P 栈下限与 VpnService 上限之间，否则核心会拒绝创建/应用。 */
+        static void validateMtu(int mtu) {
+            if (mtu < MIN_MTU || mtu > MAX_MTU) {
+                throw new IllegalArgumentException(
+                        "MTU 必须在 " + MIN_MTU + "-" + MAX_MTU + " 之间");
             }
         }
 

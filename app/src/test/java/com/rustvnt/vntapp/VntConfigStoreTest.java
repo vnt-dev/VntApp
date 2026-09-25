@@ -66,6 +66,28 @@ public class VntConfigStoreTest {
         }
     }
 
+    @Test public void rejectsMtuBelowCoreMinimum() {
+        assertInvalidMtu(1279);
+    }
+
+    @Test public void rejectsMtuAboveInterfaceMaximum() {
+        assertInvalidMtu(9001);
+    }
+
+    @Test public void acceptsCoreMtuRange() {
+        VntConfigStore.Profile.validateMtu(1280);
+        VntConfigStore.Profile.validateMtu(9000);
+    }
+
+    private static void assertInvalidMtu(int mtu) {
+        try {
+            VntConfigStore.Profile.validateMtu(mtu);
+            fail("Expected MTU validation to fail");
+        } catch (Exception error) {
+            assertEquals("MTU 必须在 1280-9000 之间", error.getMessage());
+        }
+    }
+
     private static void validate(String servers, String ip) {
         VntConfigStore.Profile.validateBasicConfig(servers, "team-prod-net", ip);
     }

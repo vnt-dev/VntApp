@@ -44,6 +44,8 @@ public final class VntVpnService extends VpnService {
     private static final String ACTIVE_PREFS = "vnt_active_connection";
     private static final long SUBSCRIPTION_FETCH_RETRY_MS = 5_000L;
     private static final int DEFAULT_MTU = 1380;
+    /** Rust 核心 P2P 栈的 IPv6 MTU 下限（vnt-core MIN_MTU） */
+    private static final int MIN_MTU = 1280;
 
     private static volatile VntState state = VntState.stopped();
     private static volatile boolean uiVisible;
@@ -318,6 +320,12 @@ public final class VntVpnService extends VpnService {
     private boolean applyRuntimeChange(VntNetwork expectedNetwork, RuntimeChange change) {
         try {
             if (expectedNetwork != network) return false;
+            // 低于核心 MTU 下限的快照会被 native 拒绝：先本地拦截，避免白白重建接口
+            Integer snapshotMtu = change.getMtu();
+            if (snapshotMtu != null && snapshotMtu < MIN_MTU) {
+                handleRuntimeLoopExit("快照 MTU " + snapshotMtu + " 低于下限 " + MIN_MTU);
+                return false;
+            }
             // 无网卡模式下两个标志都不走接口重建：组网实例由 native 内部重建
             boolean needsInterface = tunActive
                     && (change.isVpnRebuild() || change.isInstanceRebuild());
@@ -486,7 +494,7 @@ public final class VntVpnService extends VpnService {
         return DEFAULT_MTU;
     }
 
-    private static int clampMtu(int mtu) { return Math.max(576, Math.min(9000, mtu)); }
+    private static int clampMtu(int mtu) { return Math.max(MIN_MTU, Math.min(9000, mtu)); }
 
     private void startRefreshing() {
         if (!uiVisible || api == null || state.status != VntState.Status.RUNNING) return;

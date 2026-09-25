@@ -901,7 +901,7 @@ public final class MainActivity extends AppCompatActivity {
 
         LinearLayout network = section(form, "网络设置", false);
         EditText mtu = field(network, "MTU", String.valueOf(config.optInt("mtu", 1380)), false,
-                "1380", "虚拟网卡单个 IP 包的最大长度。常用范围 1200–1500；遇到 VPN 叠加或分片问题时可适当调小。");
+                "1380", "虚拟网卡单个 IP 包的最大长度。常用范围 1280–1500；遇到 VPN 叠加或分片问题时也不应低于 1280（P2P 栈 IPv6 MTU 下限）。");
         mtu.setInputType(InputType.TYPE_CLASS_NUMBER);
         CheckBox noTun = toggle(network, "无虚拟网卡", "不创建 Android VPN，仅使用端口映射等能力",
                 "TUN 可直接访问虚拟 IP；无网卡模式无需 VPN 权限，但不能启用 IKEv2 客户端互通。",
@@ -1200,7 +1200,10 @@ public final class MainActivity extends AppCompatActivity {
             boolean allowIkev2 = payload.optBoolean("allow_ikev2", false);
             if (networkCode.isEmpty()) throw new IllegalArgumentException("二维码中的组网编号为空");
             if (servers.isEmpty()) throw new IllegalArgumentException("二维码中的服务器地址为空");
-            if (mtu < 576 || mtu > 9000) throw new IllegalArgumentException("二维码中的 MTU 超出 576-9000 范围");
+            if (mtu < VntConfigStore.Profile.MIN_MTU || mtu > VntConfigStore.Profile.MAX_MTU) {
+                throw new IllegalArgumentException("二维码中的 MTU 超出 "
+                        + VntConfigStore.Profile.MIN_MTU + "-" + VntConfigStore.Profile.MAX_MTU + " 范围");
+            }
 
             JoinNetwork network = new JoinNetwork(networkCode, servers, mtu, password, allowIkev2);
             String message = "组网编号：" + network.code() + "\n"
