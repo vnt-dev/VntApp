@@ -438,6 +438,7 @@ public final class MainActivity extends AppCompatActivity {
         detailRow(card, "网关", network == null ? "-" : network.gateway());
         detailRow(card, "网络编号", config.optString("network_code", "-"));
         detailRow(card, "MTU", String.valueOf(config.optInt("mtu", 1380)));
+        detailRow(card, "隧道 DNS", dnsSummary(config));
         detailRow(card, "NAT 类型", current.nat == null ? "-" : current.nat.type());
         detailRow(card, "Public IPv6", current.nat == null || current.nat.ipv6() == null ? "-" : current.nat.ipv6());
         detailRow(card, "隧道监听地址", current.tunnelListenAddresses.isEmpty()
@@ -469,6 +470,26 @@ public final class MainActivity extends AppCompatActivity {
         }
         card.addView(ips, top(8));
         pageHost.addView(card, top(16));
+    }
+
+    private static String dnsSummary(JSONObject config) {
+        boolean tunnel = config.optBoolean("dns_tunnel", false);
+        if (!tunnel) return "系统 DNS（未走隧道）";
+        JSONArray dns = config.optJSONArray("dns");
+        List<String> values = new ArrayList<>();
+        if (dns != null) {
+            for (int i = 0; i < dns.length(); i++) {
+                String value = dns.optString(i).trim();
+                if (!value.isEmpty()) values.add(value);
+            }
+        }
+        if (values.isEmpty()) return "系统 DNS（未配置隧道 DNS）";
+        StringBuilder summary = new StringBuilder();
+        for (int i = 0; i < values.size(); i++) {
+            if (i > 0) summary.append('\n');
+            summary.append(values.get(i)).append(i == 0 ? "（主）" : "（备）");
+        }
+        return summary.toString();
     }
 
     private void detailRow(LinearLayout card, String label, String value) {
@@ -907,6 +928,15 @@ public final class MainActivity extends AppCompatActivity {
                 "TUN 可直接访问虚拟 IP；无网卡模式无需 VPN 权限，但不能启用 IKEv2 客户端互通。",
                 "no".equalsIgnoreCase(config.optString("device_mode", "tun").trim()));
 
+        LinearLayout dnsSection = section(form, "隧道 DNS", false);
+        CheckBox dnsTunnel = toggle(dnsSection, "DNS 走隧道", "关闭后 DNS 由系统/运营商解析，可能被污染",
+                "开启时把下方 DNS 服务器注入 VPN 隧道，隧道内应用统一走这些 DNS；关闭则回退系统 DNS（默认关闭）。",
+                config.optBoolean("dns_tunnel", false));
+        ListInput dnsServers = new ListInput(dnsSection, "DNS 服务器", "例如：10.26.0.3",
+                "＋ 添加 DNS 服务器", toList(config.optJSONArray("dns")),
+                "第一行为主用 DNS，其余按顺序作为备用。建议填 VNT 对端（路由器）的隧道 IP，例如 10.26.0.3；多条实现主备切换。需为合法 IPv4 地址。");
+        dnsServers.enabledBy(dnsTunnel);
+
         LinearLayout transport = section(form, "传输优化", false);
         CheckBox rtx = toggle(transport, "QUIC 传输优化", "降低丢包，延迟可能有波动",
                 "使用带重传能力的增强通道，适合文件传输和远程桌面。", config.optBoolean("rtx"));
@@ -1099,7 +1129,8 @@ public final class MainActivity extends AppCompatActivity {
                         fec.isChecked(), noPunch.isChecked(), noBroadcast.isChecked(), allowIkev2.isChecked(), noTun.isChecked(),
                         peerAddresses.joined(), turns.joined(), punchModels.joined(), outputRoutes.joined(), inputRoutes.joined(),
                         subnetMappings.joined(), autoSyncSubnet.isChecked(), certValue,
-                        tunnelPort.getText().toString(), portMappings.joined(), allowMapping.isChecked(), udpStuns.joined(), tcpStuns.joined());
+                        tunnelPort.getText().toString(), portMappings.joined(), allowMapping.isChecked(), udpStuns.joined(), tcpStuns.joined(),
+                        dnsTunnel.isChecked(), dnsServers.joined());
                 if (existing != null) profile = profile.withId(existing.id);
                 store.save(profile);
                 dialog.dismiss();
@@ -1483,6 +1514,9 @@ public final class MainActivity extends AppCompatActivity {
         private final String hint;
         private final LinearLayout rows;
         private final List<EditText> inputs = new ArrayList<>();
+        private final List<View> extras = new ArrayList<>();
+        private final List<EditText> allFields = new ArrayList<>();
+        private View primaryControl;
 
         ListInput(LinearLayout form, String label, String hint, String addLabel, List<String> initial, String help) {
             this.hint = hint;
@@ -1494,6 +1528,20 @@ public final class MainActivity extends AppCompatActivity {
             Button add = ghost(addLabel);
             add.setOnClickListener(v -> addRow(""));
             form.addView(add, top(8));
+            primaryControl = add;
+            extras.add(add);
+        }
+
+        /** 让本列表（含添加按钮与各行）跟随外部开关启用/禁用。 */
+        void enabledBy(CheckBox toggle) {
+            Runnable apply = () -> {
+                boolean on = toggle.isChecked();
+                for (EditText field : allFields) field.setEnabled(on);
+                for (View extra : extras) extra.setEnabled(on);
+                if (primaryControl != null) primaryControl.setAlpha(on ? 1f : 0.5f);
+            };
+            toggle.setOnCheckedChangeListener((button, checked) -> apply.run());
+            apply.run();
         }
 
         private void addRow(String value) {
@@ -1507,6 +1555,8 @@ public final class MainActivity extends AppCompatActivity {
             remove.setOnClickListener(v -> {
                 rows.removeView(rowLayout);
                 inputs.remove(field);
+                allFields.remove(field);
+                extras.remove(rowLayout);
             });
             LinearLayout.LayoutParams removeParams = new LinearLayout.LayoutParams(dp(44), dp(44));
             removeParams.leftMargin = dp(8);
@@ -1516,6 +1566,8 @@ public final class MainActivity extends AppCompatActivity {
             rowParams.topMargin = dp(8);
             rows.addView(rowLayout, rowParams);
             inputs.add(field);
+            allFields.add(field);
+            extras.add(rowLayout);
         }
 
         String joined() {

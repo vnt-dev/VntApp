@@ -24,6 +24,7 @@ import com.vnt.VntNetwork;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.lang.ref.WeakReference;
+import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -451,6 +452,7 @@ public final class VntVpnService extends VpnService {
                 .setMtu(clampMtu(config.optInt("mtu", DEFAULT_MTU)))
                 .addAddress(ip, prefixLen);
         builder.addDisallowedApplication(getPackageName());
+        addTunnelDnsServers(builder, config);
         for (VpnRouteSet.Route route : VpnRouteSet.build(ip, prefixLen,
                 arrayStrings(config.optJSONArray("output")),
                 arrayStrings(config.optJSONArray("input")), activeSubnetRoutes)) {
@@ -472,6 +474,7 @@ public final class VntVpnService extends VpnService {
                 .setMtu(clampMtu(mtu))
                 .addAddress(ip, prefixLen);
         builder.addDisallowedApplication(getPackageName());
+        addTunnelDnsServers(builder, config);
         for (VpnRouteSet.Route route : VpnRouteSet.rebuild(ip, prefixLen, routes)) {
             addRoute(builder, route.address(), route.prefix());
         }
@@ -629,6 +632,29 @@ public final class VntVpnService extends VpnService {
                     NotificationManager.IMPORTANCE_LOW);
             channel.setDescription("保持 VNT 虚拟网络在后台运行");
             getSystemService(NotificationManager.class).createNotificationChannel(channel);
+        }
+    }
+
+    /**
+     * 按配置向 VPN 接口注入隧道 DNS：仅当 dns_tunnel 开启且存在合法 IPv4 时，
+     * 依次调用 addDnsServer()（第 1 条主用，其余备用）。非法地址跳过并记录日志。
+     */
+    private static void addTunnelDnsServers(Builder builder, JSONObject config) {
+        if (config == null || !config.optBoolean("dns_tunnel", false)) return;
+        JSONArray dns = config.optJSONArray("dns");
+        if (dns == null || dns.length() == 0) return;
+        for (int i = 0; i < dns.length(); i++) {
+            String value = dns.optString(i).trim();
+            if (value.isEmpty()) continue;
+            if (!VntConfigStore.Profile.isValidIpv4(value)) {
+                Log.w("VNT", "忽略非法 DNS 地址: " + value);
+                continue;
+            }
+            try {
+                builder.addDnsServer(InetAddress.getByName(value));
+            } catch (Throwable error) {
+                Log.w("VNT", "添加 DNS 服务器失败: " + value + " · " + error);
+            }
         }
     }
 
