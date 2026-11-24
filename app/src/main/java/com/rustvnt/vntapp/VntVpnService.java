@@ -61,6 +61,7 @@ public final class VntVpnService extends VpnService {
     private long runtimeGeneration;
     private String activeProfileName;
     private String activeConfigJson;
+    private volatile List<String> activeDns = Collections.emptyList();
     private boolean activeAllowIkev2;
     private String activeIp;
     private int activePrefixLen;
@@ -333,7 +334,7 @@ public final class VntVpnService extends VpnService {
                 String cidr = change.getIp() != null ? change.getIp() : establishedCidr;
                 int mtu = change.getMtu() != null ? change.getMtu() : configuredMtu();
                 ParcelFileDescriptor replacement = establishVpnForChange(cidr, mtu,
-                        change.getRoutes());
+                        change.getRoutes(), change.getDns());
                 if (replacement == null) throw new IllegalStateException("Android 未能重建 VPN 接口");
                 int fd = replacement.detachFd();
                 establishedCidr = cidr;
@@ -356,7 +357,7 @@ public final class VntVpnService extends VpnService {
                 String cidr = change.getIp() != null ? change.getIp() : establishedCidr;
                 int mtu = change.getMtu() != null ? change.getMtu() : configuredMtu();
                 ParcelFileDescriptor replacement = establishVpnForChange(cidr, mtu,
-                        change.getRoutes());
+                        change.getRoutes(), change.getDns());
                 if (replacement == null) throw new IllegalStateException("Android 未能重建 VPN 接口");
                 int fd = replacement.detachFd();
                 establishedCidr = cidr;
@@ -451,16 +452,20 @@ public final class VntVpnService extends VpnService {
                 .setMtu(clampMtu(config.optInt("mtu", DEFAULT_MTU)))
                 .addAddress(ip, prefixLen);
         builder.addDisallowedApplication(getPackageName());
+        List<String> dns = addVpnDnsServers(builder, arrayStrings(config.optJSONArray("dns")));
         for (VpnRouteSet.Route route : VpnRouteSet.build(ip, prefixLen,
                 arrayStrings(config.optJSONArray("output")),
                 arrayStrings(config.optJSONArray("input")), activeSubnetRoutes)) {
             addRoute(builder, route.address(), route.prefix());
         }
-        return builder.establish();
+        ParcelFileDescriptor established = builder.establish();
+        if (established != null) activeDns = dns;
+        return established;
     }
 
     /** 按运行期快照参数重建 VPN 接口（完整入站路由以快照为准）。 */
-    private ParcelFileDescriptor establishVpnForChange(String cidr, int mtu, List<String> routes)
+    private ParcelFileDescriptor establishVpnForChange(String cidr, int mtu, List<String> routes,
+                                                       List<String> snapshotDns)
             throws Exception {
         String[] parts = cidr.split("/", 2);
         String ip = parts[0];
@@ -472,10 +477,13 @@ public final class VntVpnService extends VpnService {
                 .setMtu(clampMtu(mtu))
                 .addAddress(ip, prefixLen);
         builder.addDisallowedApplication(getPackageName());
+        List<String> dns = addVpnDnsServers(builder, snapshotDns == null ? activeDns : snapshotDns);
         for (VpnRouteSet.Route route : VpnRouteSet.rebuild(ip, prefixLen, routes)) {
             addRoute(builder, route.address(), route.prefix());
         }
-        return builder.establish();
+        ParcelFileDescriptor established = builder.establish();
+        if (established != null) activeDns = dns;
+        return established;
     }
 
     /** VPN 接口会话名：配置的 tun_name 优先，否则 "VNT · 配置名"。 */
@@ -519,7 +527,7 @@ public final class VntVpnService extends VpnService {
         VntApi.NetworkInfo network = api.getNetwork();
         List<String> tunnelListenAddresses = api.getTunnelListenAddresses();
         return new VntState(VntState.Status.RUNNING, id, name, ip,
-                "", activeAllowIkev2, clients, servers, routes, nat, network, tunnelListenAddresses);
+                "", activeAllowIkev2, clients, servers, routes, nat, network, tunnelListenAddresses, activeDns);
     }
 
     private synchronized List<VntApi.ClientInfo> withTrafficSpeeds(List<VntApi.ClientInfo> clients) {
@@ -575,6 +583,7 @@ public final class VntVpnService extends VpnService {
         activeProfileId = null;
         activeProfileName = null;
         activeConfigJson = null;
+        activeDns = Collections.emptyList();
         activeAllowIkev2 = false;
         activeSubscription = null;
         subscriptionInstanceId = null;
@@ -630,6 +639,25 @@ public final class VntVpnService extends VpnService {
             channel.setDescription("保持 VNT 虚拟网络在后台运行");
             getSystemService(NotificationManager.class).createNotificationChannel(channel);
         }
+    }
+
+    private static List<String> addVpnDnsServers(Builder builder, List<String> servers) {
+        List<String> applied = new ArrayList<>();
+        for (String server : servers) {
+            String value = server.trim();
+            if (value.isEmpty()) continue;
+            if (!VntConfigStore.Profile.isValidIpv4(value)) {
+                Log.w("VNT", "忽略非法 DNS 地址: " + value);
+                continue;
+            }
+            try {
+                builder.addDnsServer(value);
+                applied.add(value);
+            } catch (IllegalArgumentException error) {
+                Log.w("VNT", "添加 DNS 服务器失败: " + value + " · " + error);
+            }
+        }
+        return Collections.unmodifiableList(applied);
     }
 
     private static void addRoute(Builder builder, String address, int prefix) {

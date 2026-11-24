@@ -108,9 +108,11 @@ final class VntConfigStore {
                               String outputRoutes, String inputRoutes, String subnetMapping,
                                boolean autoSyncSubnet, String certMode,
                                String tunnelPort, String portMapping, boolean allowMapping,
-                               String udpStun, String tcpStun) throws Exception {
+                               String udpStun, String tcpStun,
+                               String dns) throws Exception {
             validateBasicConfig(server, code, ip);
             validateMtu(mtu);
+            List<String> dnsServers = validateDnsServers(dns);
             JSONObject config = new JSONObject();
             JSONArray servers = new JSONArray();
             for (String value : server.split("[\\n,]")) if (!value.trim().isEmpty()) servers.put(value.trim());
@@ -165,6 +167,11 @@ final class VntConfigStore {
             JSONArray tcpStuns = new JSONArray();
             for (String value : tcpStun.split("[\\n,]")) if (!value.trim().isEmpty()) tcpStuns.put(value.trim());
             config.put("tcp_stun", tcpStuns);
+            if (!dnsServers.isEmpty()) {
+                JSONArray dnsArray = new JSONArray();
+                for (String value : dnsServers) dnsArray.put(value);
+                config.put("dns", dnsArray);
+            }
             String title = name.trim().isEmpty() ? code.trim() : name.trim();
             return new Profile(UUID.randomUUID().toString(), title, config.toString());
         }
@@ -188,12 +195,47 @@ final class VntConfigStore {
             }
         }
 
+        /**
+         * 校验并规整 VPN DNS。非法 IPv4 阻止保存，空行忽略。
+         */
+        static List<String> validateDnsServers(String dns) {
+            List<String> result = new ArrayList<>();
+            for (String raw : dns.split("[\\n,]")) {
+                String value = raw.trim();
+                if (value.isEmpty()) continue;
+                if (!isValidIpv4(value)) {
+                    throw new IllegalArgumentException("DNS 地址无效：" + value + "（需为 IPv4）");
+                }
+                result.add(value);
+            }
+            return result;
+        }
+
+        /** 严格的点分十进制 IPv4 校验：四段、每段 0-255、无前导歧义。 */
+        static boolean isValidIpv4(String value) {
+            if (value == null) return false;
+            String[] parts = value.trim().split("\\.", -1);
+            if (parts.length != 4) return false;
+            for (String part : parts) {
+                if (part.isEmpty() || part.length() > 3) return false;
+                if (part.length() > 1 && part.charAt(0) == '0') return false;
+                for (int i = 0; i < part.length(); i++) {
+                    char digit = part.charAt(i);
+                    if (digit < '0' || digit > '9') return false;
+                }
+                int number = Integer.parseInt(part);
+                if (number < 0 || number > 255) return false;
+            }
+            return true;
+        }
+
         static Profile createFromQr(String code, List<String> servers, int mtu, String password,
                                     boolean allowIkev2, String deviceId) throws Exception {
             return create(code, String.join("\n", servers), code, password, deviceId, Build.MODEL,
                     "", mtu, false, false, false, false, false, allowIkev2, false,
                     "", "", "", "", "", "", false,
-                    "skip", "", "", false, "", "");
+                    "skip", "", "", false, "", "",
+                    "");
         }
 
         Profile withId(String existingId) { return new Profile(existingId, name, json, mode, subscription); }

@@ -438,6 +438,7 @@ public final class MainActivity extends AppCompatActivity {
         detailRow(card, "网关", network == null ? "-" : network.gateway());
         detailRow(card, "网络编号", config.optString("network_code", "-"));
         detailRow(card, "MTU", String.valueOf(config.optInt("mtu", 1380)));
+        detailRow(card, "VPN DNS", dnsSummary(current.dns));
         detailRow(card, "NAT 类型", current.nat == null ? "-" : current.nat.type());
         detailRow(card, "Public IPv6", current.nat == null || current.nat.ipv6() == null ? "-" : current.nat.ipv6());
         detailRow(card, "隧道监听地址", current.tunnelListenAddresses.isEmpty()
@@ -469,6 +470,16 @@ public final class MainActivity extends AppCompatActivity {
         }
         card.addView(ips, top(8));
         pageHost.addView(card, top(16));
+    }
+
+    private static String dnsSummary(List<String> values) {
+        if (values.isEmpty()) return "系统 DNS";
+        StringBuilder summary = new StringBuilder();
+        for (int i = 0; i < values.size(); i++) {
+            if (i > 0) summary.append('\n');
+            summary.append(values.get(i)).append(i == 0 ? "（主）" : "（备）");
+        }
+        return summary.toString();
     }
 
     private void detailRow(LinearLayout card, String label, String value) {
@@ -907,6 +918,11 @@ public final class MainActivity extends AppCompatActivity {
                 "TUN 可直接访问虚拟 IP；无网卡模式无需 VPN 权限，但不能启用 IKEv2 客户端互通。",
                 "no".equalsIgnoreCase(config.optString("device_mode", "tun").trim()));
 
+        LinearLayout dnsSection = section(form, "VPN DNS", false);
+        ListInput dnsServers = new ListInput(dnsSection, "DNS 服务器", "例如：10.26.0.3",
+                "＋ 添加 DNS 服务器", toList(config.optJSONArray("dns")),
+                "填写 IPv4 地址，第一条主用，其余备用。留空使用系统 DNS。");
+
         LinearLayout transport = section(form, "传输优化", false);
         CheckBox rtx = toggle(transport, "QUIC 传输优化", "降低丢包，延迟可能有波动",
                 "使用带重传能力的增强通道，适合文件传输和远程桌面。", config.optBoolean("rtx"));
@@ -1099,7 +1115,8 @@ public final class MainActivity extends AppCompatActivity {
                         fec.isChecked(), noPunch.isChecked(), noBroadcast.isChecked(), allowIkev2.isChecked(), noTun.isChecked(),
                         peerAddresses.joined(), turns.joined(), punchModels.joined(), outputRoutes.joined(), inputRoutes.joined(),
                         subnetMappings.joined(), autoSyncSubnet.isChecked(), certValue,
-                        tunnelPort.getText().toString(), portMappings.joined(), allowMapping.isChecked(), udpStuns.joined(), tcpStuns.joined());
+                        tunnelPort.getText().toString(), portMappings.joined(), allowMapping.isChecked(), udpStuns.joined(), tcpStuns.joined(),
+                        dnsServers.joined());
                 if (existing != null) profile = profile.withId(existing.id);
                 store.save(profile);
                 dialog.dismiss();
