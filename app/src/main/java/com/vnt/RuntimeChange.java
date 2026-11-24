@@ -19,11 +19,12 @@ public final class RuntimeChange {
     private final String ip;
     private final Integer mtu;
     private final List<String> routes;
+    private final List<String> dns;
     private final boolean needsVpnRebuild;
     private final boolean needsInstanceRebuild;
 
     private RuntimeChange(String networkCode, String deviceId, String deviceName,
-                          String ip, Integer mtu, List<String> routes,
+                          String ip, Integer mtu, List<String> routes, List<String> dns,
                           boolean needsVpnRebuild, boolean needsInstanceRebuild) {
         this.networkCode = networkCode;
         this.deviceId = deviceId;
@@ -31,6 +32,7 @@ public final class RuntimeChange {
         this.ip = ip;
         this.mtu = mtu;
         this.routes = Collections.unmodifiableList(routes);
+        this.dns = dns == null ? null : Collections.unmodifiableList(dns);
         this.needsVpnRebuild = needsVpnRebuild;
         this.needsInstanceRebuild = needsInstanceRebuild;
     }
@@ -43,6 +45,14 @@ public final class RuntimeChange {
             for (int i = 0; i < values.length(); i++) {
                 routes.add(values.get(i).toString());
             }
+            List<String> dns = null;
+            if (config.has("dns")) {
+                JSONArray servers = config.getJSONArray("dns");
+                dns = new ArrayList<>(servers.length());
+                for (int i = 0; i < servers.length(); i++) {
+                    dns.add(servers.getString(i));
+                }
+            }
             return new RuntimeChange(
                     config.optString("network_code", ""),
                     config.optString("device_id", ""),
@@ -50,6 +60,7 @@ public final class RuntimeChange {
                     config.isNull("ip") ? null : config.getString("ip"),
                     config.isNull("mtu") ? null : config.getInt("mtu"),
                     routes,
+                    dns,
                     value.optBoolean("needs_vpn_rebuild", false),
                     value.optBoolean("needs_instance_rebuild", false));
         } catch (Exception error) {
@@ -76,8 +87,11 @@ public final class RuntimeChange {
     /** 完整入站路由（CIDR,下一跳 格式）。 */
     public List<String> getRoutes() { return routes; }
 
+    /** VPN DNS 列表。空列表恢复系统 DNS，旧版核心省略此字段时返回 null。 */
+    public List<String> getDns() { return dns; }
+
     /**
-     * 网卡相关信息变化（虚拟 IP/MTU/路由/网卡名）：宿主必须用快照参数
+     * 网卡相关信息变化（虚拟 IP/MTU/路由/网卡名/DNS）：宿主必须用快照参数
      * 重建 VPN 接口，并携带新 fd 调用
      * {@link VntNetwork#applyRuntimeChange(int)}。无设备模式下恒为 false。
      */
